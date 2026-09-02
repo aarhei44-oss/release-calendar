@@ -40,6 +40,41 @@ docker compose up --build
 reverse-proxies to `app`. The SQLite database file persists on the `db-data`
 volume.
 
+### Environment variables
+
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | yes | SQLite file path, e.g. `file:./dev.db`. Set automatically inside the container. |
+| `NEXTAUTH_URL` | yes | Public URL of the deployment (e.g. `https://calendar.example.com`). |
+| `NEXTAUTH_SECRET` | yes | Random secret for session encryption -- generate with `openssl rand -base64 32`. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | OAuth credentials from the Google Cloud Console (Google sign-in is the only auth method). |
+| `ADMIN_EMAILS` | yes | Comma-separated emails granted the `ADMIN` role on first sign-in. |
+| `CRAWLER_SCHEDULE` | no | Minutes between scheduled crawler scans. Unset or `0` disables the schedule (manual rescan from the admin System tab still works). |
+| `SITE_ADDRESS` | Docker Compose only | Domain Caddy serves and requests a TLS cert for, e.g. `calendar.example.com`. Defaults to `localhost` (no TLS). |
+| `SEED_ON_BOOT` | Docker Compose only | `true` runs `prisma db seed` on container boot (idempotent). |
+
+### Health check
+
+`GET /api/health` returns `{ "status": "ok", "database": "up" }` (200) when
+the app can reach the database, or 503 with an error message otherwise.
+
+### Backing up the database
+
+The entire app's state lives in one SQLite file on the `db-data` volume
+(`/app/data/prod.db` inside the container). To back it up:
+
+```bash
+# snapshot the volume to a local tarball
+docker run --rm -v release-calendar_db-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/release-calendar-backup-$(date +%Y%m%d).tar.gz -C /data .
+```
+
+To restore, stop the stack, extract that tarball back into a fresh
+`db-data` volume, then start the stack again. Because it's a single file,
+a straight file copy (`docker cp app:/app/data/prod.db ./backup.db`) while
+the app is stopped works too, and is simplest for periodic cron-driven
+backups on the host.
+
 ## Testing
 
 ```bash
