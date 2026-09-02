@@ -100,6 +100,23 @@ describe("enableAndSeedInstall", () => {
   });
 });
 
+describe("triggerRescan / triggerDedup (System tab)", () => {
+  it("lets an admin run a rescan (this test install has no sourceConfigs, so it's network-free)", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const result = await triggerRescan(installId);
+    expect(result.skipped).toBe(false);
+    if (!result.skipped) {
+      expect(result.totals.sourcesFetched).toBe(0);
+    }
+  });
+
+  it("lets an admin run a dedup pass", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const result = await triggerDedup();
+    expect(result.groupsChecked).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("self-protection on user management", () => {
   it("prevents an admin from removing their own admin role", async () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor({ id: adminUser.id, role: "ADMIN" }));

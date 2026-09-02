@@ -35,7 +35,12 @@ export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; s
     setMessage(null);
     startTransition(async () => {
       try {
-        await triggerRescan(selectedInstall);
+        const result = await triggerRescan(selectedInstall);
+        setMessage(
+          result.skipped
+            ? `Rescan skipped: ${result.reason}`
+            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.errors} error(s)).`,
+        );
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Rescan failed.");
@@ -47,7 +52,8 @@ export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; s
     setMessage(null);
     startTransition(async () => {
       try {
-        await triggerDedup();
+        const result = await triggerDedup();
+        setMessage(`Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s).`);
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Dedup pass failed.");
@@ -116,7 +122,7 @@ export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; s
           {scanRuns.length === 0 && (
             <tr>
               <td colSpan={5} className="py-4 text-center text-gray-500">
-                No scan runs yet — the crawler subsystem lands in a later phase.
+                No scan runs yet — trigger a manual rescan above, or wait for the next scheduled scan.
               </td>
             </tr>
           )}

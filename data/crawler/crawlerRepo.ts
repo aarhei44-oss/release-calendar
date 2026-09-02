@@ -5,6 +5,11 @@ import type {
   ScanTrigger,
   SourceTier,
   SourceDisposition,
+  ReleaseEventType,
+  ReleaseStatus,
+  Region,
+  DateType,
+  WindowGranularity,
   Prisma,
 } from "@/app/generated/prisma/client";
 
@@ -71,23 +76,142 @@ export async function recordSourceClaim(params: {
 }
 
 export async function acquireJobLock(jobName: string, scopeKey: string, ttlMs: number) {
-  const expiresAt = new Date(Date.now() + ttlMs);
+  // Wrapped in a transaction so the check-then-write is atomic: two
+  // concurrent acquisition attempts for the same (jobName, scopeKey) must
+  // not both observe "unlocked" and both proceed (UC-19).
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlMs);
 
-  const existing = await prisma.jobLock.findUnique({
-    where: { jobName_scopeKey: { jobName, scopeKey } },
-  });
+    const existing = await tx.jobLock.findUnique({
+      where: { jobName_scopeKey: { jobName, scopeKey } },
+    });
 
-  if (existing && existing.expiresAt && existing.expiresAt > new Date()) {
-    return null;
-  }
+    if (existing && existing.expiresAt && existing.expiresAt > now) {
+      return null;
+    }
 
-  return prisma.jobLock.upsert({
-    where: { jobName_scopeKey: { jobName, scopeKey } },
-    update: { acquiredAt: new Date(), expiresAt },
-    create: { jobName, scopeKey, acquiredAt: new Date(), expiresAt },
+    return tx.jobLock.upsert({
+      where: { jobName_scopeKey: { jobName, scopeKey } },
+      update: { acquiredAt: now, expiresAt },
+      create: { jobName, scopeKey, acquiredAt: now, expiresAt },
+    });
   });
 }
 
 export async function releaseJobLock(jobName: string, scopeKey: string) {
   await prisma.jobLock.deleteMany({ where: { jobName, scopeKey } });
+}
+
+/** Enabled installs in scope for a scan, with the package config the crawler reads sourceConfigs/discoveryConfig from. */
+export async function getInstallsForScan(scopeType: ScanScopeType, scopeId?: string) {
+  return prisma.tcgProfileInstall.findMany({
+    where: {
+      enabled: true,
+      ...(scopeType === "INSTALL" && scopeId ? { id: scopeId } : {}),
+    },
+    include: { package: true },
+  });
+}
+
+export async function findOrCreateProductSet(params: {
+  tcgProfileInstallId: string;
+  code: string;
+  name: string;
+}) {
+  return prisma.productSet.upsert({
+    where: {
+      tcgProfileInstallId_code: {
+        tcgProfileInstallId: params.tcgProfileInstallId,
+        code: params.code,
+      },
+    },
+    update: { name: params.name },
+    create: params,
+  });
+}
+
+/** Existing events for a product set + type, for dedup matching (business rule 6.4). */
+export async function findEventsForProductSetType(productSetId: string, type: ReleaseEventType) {
+  return prisma.releaseEvent.findMany({ where: { productSetId, type } });
+}
+
+/** Moves a duplicate event's claims and comments onto the primary, then deletes the duplicate. */
+export async function mergeReleaseEvents(primaryId: string, duplicateId: string) {
+  await prisma.$transaction([
+    prisma.sourceClaim.updateMany({ where: { releaseEventId: duplicateId }, data: { releaseEventId: primaryId } }),
+    prisma.userNote.updateMany({ where: { releaseEventId: duplicateId }, data: { releaseEventId: primaryId } }),
+    prisma.releaseEvent.delete({ where: { id: duplicateId } }),
+  ]);
+}
+
+export async function getAllReleaseEventsForDedup() {
+  return prisma.releaseEvent.findMany({
+    select: {
+      id: true,
+      productSetId: true,
+      type: true,
+      dateType: true,
+      dateExact: true,
+      dateStart: true,
+      dateEnd: true,
+      windowGranularity: true,
+      windowStart: true,
+      windowEnd: true,
+      isManualOverride: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getClaimsForEvent(eventId: string) {
+  return prisma.sourceClaim.findMany({
+    where: { releaseEventId: eventId },
+    select: { tier: true, disposition: true, confidenceWeight: true },
+  });
+}
+
+export async function createReleaseEventFromCandidate(params: {
+  productSetId: string;
+  type: ReleaseEventType;
+  region: Region;
+  dateType: DateType;
+  dateExact?: Date | null;
+  windowGranularity?: WindowGranularity | null;
+  windowStart?: Date | null;
+  windowEnd?: Date | null;
+}) {
+  return prisma.releaseEvent.create({ data: params });
+}
+
+type EventDateFields = {
+  dateType: DateType;
+  dateExact?: Date | null;
+  windowGranularity?: WindowGranularity | null;
+  windowStart?: Date | null;
+  windowEnd?: Date | null;
+};
+
+/**
+ * Applies a recomputed confidence/status to an event and, unless the event
+ * is under manual override, its date fields too -- crawler writes to dates
+ * are skipped for manually-overridden events, but claims are still
+ * recorded for visibility (technical-spec.md §6.3 step 5).
+ */
+export async function updateEventFromClaims(
+  eventId: string,
+  params: { confidence: number; status: ReleaseStatus; dateInfo?: EventDateFields },
+) {
+  const event = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: eventId } });
+
+  return prisma.releaseEvent.update({
+    where: { id: eventId },
+    data: {
+      confidence: params.confidence,
+      status: params.status,
+      lastSeenAt: new Date(),
+      ...(event.isManualOverride || !params.dateInfo ? {} : params.dateInfo),
+    },
+  });
 }

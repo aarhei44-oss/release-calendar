@@ -121,12 +121,18 @@ describe("getFilteredEvents", () => {
   });
 
   it("filters by event type", async () => {
-    const events = await getFilteredEvents({ types: ["PROMO"] });
+    const events = await getFilteredEvents({
+      installIds: [pokemonInstallId, mtgInstallId],
+      types: ["PROMO"],
+    });
     expect(events.map((e) => e.id)).toEqual([tbdEventId]);
   });
 
   it("filters by status", async () => {
-    const events = await getFilteredEvents({ statuses: ["CONFIRMED"] });
+    const events = await getFilteredEvents({
+      installIds: [pokemonInstallId, mtgInstallId],
+      statuses: ["CONFIRMED"],
+    });
     expect(events.map((e) => e.id)).toEqual([exactEventId]);
   });
 
@@ -142,6 +148,7 @@ describe("getFilteredEvents", () => {
 
   it("includes EXACT/RANGE/WINDOW events overlapping a date range, plus TBD", async () => {
     const events = await getFilteredEvents({
+      installIds: [pokemonInstallId, mtgInstallId],
       from: new Date("2026-03-01"),
       to: new Date("2026-03-31"),
     });

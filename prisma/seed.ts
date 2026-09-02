@@ -1,4 +1,42 @@
 import { prisma } from "../lib/prisma";
+import type { SourceConfig } from "../lib/crawler/adapters/types";
+
+// Real sources, spot-checked manually against live pages (Phase 6): each
+// reliably yields dozens of dated sets via the generic html-table adapter.
+// Tier is COMMUNITY for all three since none is the TCG publisher's own
+// official site -- Wikipedia/tracker pages, not Pokémon/WotC/Bandai.
+const POKEMON_SOURCES: SourceConfig[] = [
+  {
+    url: "https://en.wikipedia.org/wiki/List_of_Pok%C3%A9mon_Trading_Card_Game_sets",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "PKM", eventType: "SHELF", region: "GLOBAL" },
+  },
+];
+
+const MTG_SOURCES: SourceConfig[] = [
+  {
+    url: "https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "MTG", eventType: "SHELF", region: "GLOBAL" },
+  },
+];
+
+const ONE_PIECE_SOURCES: SourceConfig[] = [
+  {
+    url: "https://opboxindex.com/articles/one-piece-set-list-release-dates.html",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: {
+      codePrefix: "OP",
+      eventType: "SHELF",
+      region: "GLOBAL",
+      nameColumnHints: ["name"],
+      dateColumnHints: ["en release", "release"],
+    },
+  },
+];
 
 const LAUNCH_PACKAGES = [
   {
@@ -6,8 +44,8 @@ const LAUNCH_PACKAGES = [
     name: "Pokémon Trading Card Game",
     version: "1.0.0",
     description: "Booster sets, prereleases, and promos for the Pokémon TCG.",
-    discoveryConfig: { sources: [] },
-    sourceConfigs: { sources: [] },
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: POKEMON_SOURCES,
     installedVersion: "1.0.0",
     productSets: [
       { code: "SV-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
@@ -18,8 +56,8 @@ const LAUNCH_PACKAGES = [
     name: "Magic: The Gathering",
     version: "1.0.0",
     description: "Set releases and prereleases for Magic: The Gathering.",
-    discoveryConfig: { sources: [] },
-    sourceConfigs: { sources: [] },
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: MTG_SOURCES,
     installedVersion: "1.0.0",
     productSets: [
       { code: "MTG-STARTER", name: "Sample Expansion", releaseQuarter: "2026-Q1" },
@@ -30,8 +68,8 @@ const LAUNCH_PACKAGES = [
     name: "One Piece Card Game",
     version: "1.0.0",
     description: "Booster and starter deck releases for the One Piece Card Game.",
-    discoveryConfig: { sources: [] },
-    sourceConfigs: { sources: [] },
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: ONE_PIECE_SOURCES,
     installedVersion: "1.0.0",
     productSets: [
       { code: "OP-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },

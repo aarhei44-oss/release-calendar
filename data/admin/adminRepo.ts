@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/app/generated/prisma/client";
+import { runScan } from "@/lib/crawler/orchestrate";
+import { runDedupPass } from "@/lib/crawler/dedupPass";
 
 export async function listPackagesWithInstalls() {
   return prisma.tcgProfilePackage.findMany({
@@ -64,9 +66,9 @@ export async function listScanRuns(installId?: string) {
 }
 
 export async function triggerRescan(installId: string) {
-  throw new Error(`triggerRescan(${installId}): implemented alongside the crawler orchestration in Phase 6`);
+  return runScan({ scopeType: "INSTALL", scopeId: installId, trigger: "MANUAL" });
 }
 
 export async function triggerDedup() {
-  throw new Error("triggerDedup: implemented alongside the crawler orchestration in Phase 6");
+  return runDedupPass();
 }
