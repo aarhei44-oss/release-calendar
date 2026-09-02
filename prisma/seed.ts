@@ -12,6 +12,29 @@ const POKEMON_SOURCES: SourceConfig[] = [
     parser: "html-table",
     options: { codePrefix: "PKM", eventType: "SHELF", region: "GLOBAL" },
   },
+  {
+    url: "https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_Trading_Card_Game_expansions",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "PKM", eventType: "SHELF", region: "GLOBAL" },
+  },
+  {
+    url: "https://pokemoncardlist.net/sets",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "PKM", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Bulbapedia's "Set no." header wins the default "set" hint via startsWith
+  // ahead of the real name column, so it's pinned explicitly. Japanese-name
+  // cells glue native + translated text with no separator (a cheerio
+  // artifact of the source markup, e.g. "拡張パックExpansion Pack") -- names
+  // aren't display-clean, but dates and set identity are correct.
+  {
+    url: "https://bulbapedia.bulbagarden.net/wiki/List_of_Japanese_Pok%C3%A9mon_Trading_Card_Game_expansions",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "PKM", eventType: "SHELF", region: "JP", nameColumnHints: ["japanese name"] },
+  },
 ];
 
 const MTG_SOURCES: SourceConfig[] = [
@@ -20,6 +43,24 @@ const MTG_SOURCES: SourceConfig[] = [
     tier: "COMMUNITY",
     parser: "html-table",
     options: { codePrefix: "MTG", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Community-run MTG wiki (self-hosted MediaWiki, not Fandom-hosted --
+  // Fandom blocks the crawler's UA site-wide).
+  {
+    url: "https://mtg.wiki/page/List_of_Magic_releases",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "MTG", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Scryfall's public sets index (not their JS-heavy card search) uses a
+  // literal "Date" header, which none of the default date hints match, so
+  // it's pinned. Name cells pick up the set's code suffix via a sibling
+  // span (e.g. "Star Trek TRK") -- noisy but not garbage.
+  {
+    url: "https://scryfall.com/sets",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "MTG", eventType: "SHELF", region: "GLOBAL", dateColumnHints: ["date"] },
   },
 ];
 
@@ -35,6 +76,26 @@ const ONE_PIECE_SOURCES: SourceConfig[] = [
       nameColumnHints: ["name"],
       dateColumnHints: ["en release", "release"],
     },
+  },
+  {
+    url: "https://playvault.ae/pages/one-piece-card-game-set-list",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "OP", eventType: "SHELF", region: "GLOBAL" },
+  },
+  {
+    url: "https://www.misprint.com/posts/one-piece-tcg-release-calendar",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "OP", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Uses full "Month Day, Year" dates, unlike the other two OP sources
+  // (month-only) -- gives exact-date corroboration instead of just windows.
+  {
+    url: "https://japan-figure.com/blogs/news/one-piece-tcg-release-date",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "OP", eventType: "SHELF", region: "GLOBAL" },
   },
 ];
 
@@ -55,6 +116,25 @@ const LORCANA_SOURCES: SourceConfig[] = [
       dateColumnHints: ["retail release"],
     },
   },
+  {
+    url: "https://tcg-pricetracker.com/en/blog/lorcana-sets-list",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "LOR", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // "Set #" would otherwise win the default "set" hint via startsWith ahead
+  // of the real name column ("Expansion Name"), so it's pinned explicitly.
+  // Set names here match Wikipedia/tcg-pricetracker's naming exactly, so
+  // productSetCode values line up for real corroboration -- rejected
+  // lorcana.gg despite it parsing fine, since its "Set 1: The First
+  // Chapter"-style names would slugify to a different code and spawn
+  // duplicate, never-reconciled product sets instead.
+  {
+    url: "https://lorcanacollectors.com/lorcana-sets-release-order/",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "LOR", eventType: "SHELF", region: "GLOBAL", nameColumnHints: ["expansion name"] },
+  },
 ];
 
 // Wikipedia's Riftbound table's default "Set name"/"Release date" headers
@@ -62,6 +142,22 @@ const LORCANA_SOURCES: SourceConfig[] = [
 const RIFTBOUND_SOURCES: SourceConfig[] = [
   {
     url: "https://en.wikipedia.org/wiki/Riftbound",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "RIFT", eventType: "SHELF", region: "GLOBAL" },
+  },
+  {
+    url: "https://riftboundcardlist.com/guides/riftbound-sets-in-order",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "RIFT", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Covers forward-looking sets only (Radiance onward); complements
+  // riftboundcardlist.com rather than duplicating it. inksighttcg.com tracks
+  // 8 different TCGs on the same /guides/*.html template -- worth reusing
+  // for other installs.
+  {
+    url: "https://inksighttcg.com/riftbound/guides/riftbound-2027-roadmap.html",
     tier: "COMMUNITY",
     parser: "html-table",
     options: { codePrefix: "RIFT", eventType: "SHELF", region: "GLOBAL" },
@@ -79,6 +175,40 @@ const GUNDAM_SOURCES: SourceConfig[] = [
     tier: "COMMUNITY",
     parser: "html-table",
     options: { codePrefix: "GDM", eventType: "SHELF", region: "GLOBAL" },
+  },
+  {
+    url: "https://japan-figure.com/blogs/news/gundam-card-game-release-date",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "GDM", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Header is "Product", not "Name"/"Set", so the default name hints miss it
+  // entirely -- pinned explicitly. Two not-yet-titled sets both show
+  // literally "[Title TBA]", which slugify to the same code -- a real
+  // collision until Bandai announces those titles, not an adapter bug.
+  {
+    url: "https://chobanovgamesltd.com/blog-article/gundam-card-game-release-schedule-2025-2026-dates-products-us-pre-order-links.html",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "GDM", eventType: "SHELF", region: "GLOBAL", nameColumnHints: ["product"] },
+  },
+  // A general history/rules guide article rather than a dedicated tracker
+  // (three tables on the page; the pinned hints below also keep the adapter
+  // from misfiring on the other two, a card-type glossary and a
+  // pack-structure table). Included despite the less-dedicated source
+  // since it verified cleanly (11/14 dated) and Gundam otherwise only had
+  // two sources.
+  {
+    url: "https://cardsmania.fun/gundam-card-game-guide-history-japanese-cards-sets/",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: {
+      codePrefix: "GDM",
+      eventType: "SHELF",
+      region: "GLOBAL",
+      nameColumnHints: ["product"],
+      dateColumnHints: ["english-us date"],
+    },
   },
 ];
 

@@ -62,9 +62,18 @@ export const htmlTableAdapter: ParserAdapter = {
         .toArray()
         .map((cell) => cleanText($(cell).text()).toLowerCase());
 
+      // Real set-list tables always have a distinct name column and date
+      // column. A single-cell "header" (e.g. a Wikipedia navbox caption row
+      // like "...Releases that are entirely composed of prints from other
+      // releases are small.") can accidentally contain both a "set" and a
+      // "release" substring and match both hints against that one column,
+      // turning every row's caption/summary text into a garbage
+      // productSetName -- reject that instead of emitting bad candidates.
+      if (headerCells.length < 2) return;
+
       const nameColIdx = findColumn(headerCells, nameHints);
       const dateColIdx = findColumn(headerCells, dateHints);
-      if (nameColIdx === -1 || dateColIdx === -1) return;
+      if (nameColIdx === -1 || dateColIdx === -1 || nameColIdx === dateColIdx) return;
 
       for (const row of rows.slice(1)) {
         const cells = $(row)

@@ -106,6 +106,29 @@ describe("htmlTableAdapter.parse", () => {
     expect(candidates[0].region).toBe("JP");
   });
 
+  it("skips a table whose single header cell accidentally matches both the name and date hints (Wikipedia navbox caption)", () => {
+    const html = `
+      <table class="roundy">
+        <tr><th>Pokémon TCG expansions and releases. A special set is small.</th></tr>
+        <tr><td>Base SetJungleFossilTeam RocketGym Heroes</td></tr>
+      </table>
+      <table class="wikitable"><tr><th>Name</th><th>Release date</th></tr><tr><td>Real Set</td><td>May 9, 2012</td></tr></table>
+    `;
+    const candidates = htmlTableAdapter.parse(raw(html), config());
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].productSetName).toBe("Real Set");
+  });
+
+  it("skips a table with fewer than two header columns even if it matches a hint", () => {
+    const html = `
+      <table><tr><th>Release notes for this Set</th></tr><tr><td>junk</td></tr></table>
+      <table class="wikitable"><tr><th>Name</th><th>Release date</th></tr><tr><td>Real Set</td><td>May 9, 2012</td></tr></table>
+    `;
+    const candidates = htmlTableAdapter.parse(raw(html), config());
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].productSetName).toBe("Real Set");
+  });
+
   it("returns an empty array when the page has no tables at all", () => {
     expect(htmlTableAdapter.parse(raw("<html><body><p>no tables here</p></body></html>"), config())).toEqual([]);
   });
