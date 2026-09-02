@@ -4,7 +4,7 @@ import path from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "."),
+      "@": path.resolve(import.meta.dirname, "."),
     },
   },
   test: {
@@ -12,6 +12,7 @@ export default defineConfig({
     exclude: ["node_modules/**", "tests/e2e/**"],
     env: {
       DATABASE_URL: "file:./prisma/test.db",
+      ADMIN_EMAILS: "admin@example.com, Other.Admin@Example.com",
     },
     globalSetup: "./tests/globalSetup.ts",
   },
