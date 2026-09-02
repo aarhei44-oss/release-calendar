@@ -35,3 +35,20 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      # DEPLOY_SSH_KEY authenticates as a dedicated key that the droplet
+      # restricts (via a `command=` forced-command in authorized_keys) to
+      # only ever run /root/deploy.sh, regardless of what's requested here --
+      # so this step can't do anything beyond that one script even if this
+      # secret were ever exposed.
+      - name: Pull and restart on the droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 137.184.119.101
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: /root/deploy.sh

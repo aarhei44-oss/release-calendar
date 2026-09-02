@@ -62,6 +62,23 @@ run `caddy` separately alongside it.
 The GHCR package needs to be set **Public** once (Settings on the
 package's GitHub page) so the server can pull without authenticating.
 
+#### Continuous deployment
+
+`docker-publish.yml`'s `deploy` job SSHes into the server and runs
+`/root/deploy.sh` (which does the `git pull` + `docker compose pull/up`
+above) automatically after every successful build on `main`. It
+authenticates with a `DEPLOY_SSH_KEY` repo secret -- a **dedicated** key,
+not anyone's personal one, and the server restricts it via a `command=`
+forced-command in `authorized_keys` so that key can only ever run that one
+script, never an arbitrary shell, even if the secret were ever exposed.
+
+To point this at a different server: generate a fresh `ssh-keygen -t
+ed25519` pair, add `command="/root/deploy.sh",no-port-forwarding,
+no-X11-forwarding,no-agent-forwarding,no-pty <public key>` as one line in
+that server's `~/.ssh/authorized_keys`, put the private key in the
+`DEPLOY_SSH_KEY` secret, and update the `host`/`username` in the `deploy`
+job.
+
 ### Environment variables
 
 | Variable | Required | Notes |
