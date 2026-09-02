@@ -1,0 +1,70 @@
+/* Overrides for react-big-calendar's default styles, which ship fixed
+   colors with no dark-mode support. Tokens are defined in app/globals.css. */
+
+.rbc-month-view,
+.rbc-header,
+.rbc-month-row,
+.rbc-day-bg {
+  border-color: var(--rbc-border) !important;
+}
+
+.rbc-header {
+  background: var(--rbc-header-bg);
+  padding: 8px 4px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.rbc-off-range-bg {
+  background: var(--rbc-off-range-bg);
+}
+
+.rbc-today {
+  background: var(--rbc-today-bg);
+}
+
+.rbc-event {
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.rbc-event:hover {
+  filter: brightness(0.95);
+}
+
+.rbc-event:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 1px;
+}
+
+.rbc-show-more {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.rbc-event-status-rumored {
+  background-color: var(--status-rumored-bg);
+  color: var(--status-rumored-fg);
+}
+
+.rbc-event-status-announced {
+  background-color: var(--status-announced-bg);
+  color: var(--status-announced-fg);
+}
+
+.rbc-event-status-confirmed {
+  background-color: var(--status-confirmed-bg);
+  color: var(--status-confirmed-fg);
+}
+
+.rbc-event-status-released {
+  background-color: var(--status-released-bg);
+  color: var(--status-released-fg);
+}
+
+.rbc-event-status-cancelled {
+  background-color: var(--status-cancelled-bg);
+  color: var(--status-cancelled-fg);
+}

@@ -39,7 +39,7 @@ export function Tabs({ active, onChange }: Props) {
     <div
       role="tablist"
       aria-label="Calendar views"
-      className="flex gap-1 border-b border-gray-200"
+      className="flex gap-1 border-b border-gray-200 dark:border-gray-800"
       onKeyDown={handleKeyDown}
     >
       {TABS.map((tab) => {
@@ -54,10 +54,10 @@ export function Tabs({ active, onChange }: Props) {
             aria-controls={tabPanelId(tab.value)}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.value)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 dark:focus-visible:ring-gray-100 ${
               isActive
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-500 hover:text-gray-800"
+                ? "border-gray-900 text-gray-900 dark:border-gray-100 dark:text-gray-100"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
             {tab.label}

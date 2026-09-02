@@ -3,6 +3,22 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --rbc-border: #e5e7eb;
+  --rbc-today-bg: #eff6ff;
+  --rbc-off-range-bg: #fafafa;
+  --rbc-header-bg: #f9fafb;
+
+  --status-rumored-bg: #f3f4f6;
+  --status-rumored-fg: #374151;
+  --status-announced-bg: #dbeafe;
+  --status-announced-fg: #1d4ed8;
+  --status-confirmed-bg: #dcfce7;
+  --status-confirmed-fg: #15803d;
+  --status-released-bg: #f3e8ff;
+  --status-released-fg: #7e22ce;
+  --status-cancelled-bg: #fee2e2;
+  --status-cancelled-fg: #b91c1c;
 }
 
 @theme inline {
@@ -16,6 +32,22 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --rbc-border: #27272a;
+    --rbc-today-bg: #1e3a8a40;
+    --rbc-off-range-bg: #18181b;
+    --rbc-header-bg: #111113;
+
+    --status-rumored-bg: #27272a;
+    --status-rumored-fg: #d4d4d8;
+    --status-announced-bg: #1e3a8a40;
+    --status-announced-fg: #93c5fd;
+    --status-confirmed-bg: #14532d40;
+    --status-confirmed-fg: #86efac;
+    --status-released-bg: #581c8740;
+    --status-released-fg: #d8b4fe;
+    --status-cancelled-bg: #7f1d1d40;
+    --status-cancelled-fg: #fca5a5;
   }
 }
 

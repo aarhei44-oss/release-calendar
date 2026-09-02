@@ -60,7 +60,7 @@ export function CommentsForEvent({ eventId, initialComments }: Props) {
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-gray-700">Comments ({comments.length})</h3>
+      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Comments ({comments.length})</h3>
 
       {session?.user ? (
         <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2">
@@ -70,36 +70,36 @@ export function CommentsForEvent({ eventId, initialComments }: Props) {
             maxLength={2000}
             rows={2}
             placeholder="Add a comment…"
-            className="rounded-md border border-gray-300 p-2 text-sm"
+            className="rounded-md border border-gray-300 p-2 text-sm transition-colors focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-100 dark:focus:ring-gray-100"
           />
           <button
             type="submit"
             disabled={isPending || draft.trim().length === 0}
-            className="self-end rounded-md bg-gray-900 px-3 py-1 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+            className="self-end rounded-md bg-gray-900 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-1 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:focus-visible:ring-gray-100"
           >
             Post
           </button>
         </form>
       ) : (
-        <p className="mt-2 text-sm text-gray-500">Sign in to leave a comment.</p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to leave a comment.</p>
       )}
 
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <ul className="mt-3 flex flex-col gap-3">
         {comments.map((comment) => (
-          <li key={comment.id} className="rounded-md border border-gray-200 p-2 text-sm">
+          <li key={comment.id} className="rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700">
             <div className="flex items-center justify-between">
               <span className="font-medium">{comment.user.name ?? "Anonymous"}</span>
-              <span className="text-xs text-gray-500">{DATE_FORMATTER.format(comment.createdAt)}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{DATE_FORMATTER.format(comment.createdAt)}</span>
             </div>
-            <p className="mt-1 whitespace-pre-wrap text-gray-800">{comment.content}</p>
+            <p className="mt-1 whitespace-pre-wrap text-gray-800 dark:text-gray-200">{comment.content}</p>
             {(comment.userId === currentUserId || isAdmin) && (
               <button
                 type="button"
                 onClick={() => handleDelete(comment.id)}
                 disabled={isPending}
-                className="mt-1 text-xs text-red-600 hover:underline disabled:opacity-50"
+                className="mt-1 text-xs text-red-600 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-50 dark:text-red-400 dark:focus-visible:ring-red-400"
               >
                 Delete
               </button>

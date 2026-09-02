@@ -17,12 +17,12 @@ test("home page redirects to /calendar", async ({ page }) => {
 test("browse: calendar tab renders seeded events for the correct month", async ({ page }) => {
   await page.goto("/calendar?tab=upcoming");
   await expect(page.getByText("Release Watcher")).toBeVisible();
-  await expect(page.locator("ul button").first()).toBeVisible();
+  await expect(page.getByTestId("event-row").first()).toBeVisible();
 });
 
 test("filter: narrowing by search excludes non-matching events", async ({ page }) => {
   await page.goto("/calendar?tab=upcoming");
-  await expect(page.locator("ul button").first()).toBeVisible();
+  await expect(page.getByTestId("event-row").first()).toBeVisible();
 
   await page.getByPlaceholder("Product set name…").fill("zzz-definitely-no-match");
   await page.keyboard.press("Enter");
@@ -32,7 +32,7 @@ test("filter: narrowing by search excludes non-matching events", async ({ page }
 
 test("view detail: clicking an event opens the drawer with its source claims section", async ({ page }) => {
   await page.goto("/calendar?tab=upcoming");
-  await page.locator("ul button").first().click();
+  await page.getByTestId("event-row").first().click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -41,6 +41,55 @@ test("view detail: clicking an event opens the drawer with its source claims sec
 
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
+});
+
+test("filter: TCG checkbox selection persists across a reload (regression guard)", async ({ page }) => {
+  // Regression coverage for a bug where installIds were parsed with an
+  // empty whitelist, silently stripping every selected TCG on every
+  // navigation -- see app/calendar/searchParams.ts.
+  await page.goto("/calendar?tab=upcoming");
+
+  const checkbox = page.getByRole("checkbox", { name: "Pokémon Trading Card Game" });
+  await expect(checkbox).toBeVisible();
+  await expect(checkbox).not.toBeChecked();
+
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await expect(page).toHaveURL(/installIds=/);
+
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: "Pokémon Trading Card Game" })).toBeChecked();
+});
+
+test("layout: the document never scrolls, only the active tab panel does", async ({ page }) => {
+  await page.goto("/calendar?tab=list");
+  await expect(page.getByTestId("tabpanel-scroll")).toBeVisible();
+
+  const documentOverflowsWindow = await page.evaluate(
+    () => document.documentElement.scrollHeight > window.innerHeight + 1,
+  );
+  expect(documentOverflowsWindow).toBe(false);
+});
+
+test("responsive: mobile viewport collapses filters into an off-canvas panel", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/calendar?tab=upcoming");
+
+  const noHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+  );
+  expect(noHorizontalOverflow).toBe(true);
+
+  const filtersTrigger = page.getByRole("button", { name: "Filters" });
+  await expect(filtersTrigger).toBeVisible();
+
+  await filtersTrigger.click();
+  const filterDialog = page.getByRole("dialog", { name: "Filters" });
+  await expect(filterDialog).toBeVisible();
+  await expect(filterDialog.getByRole("checkbox").first()).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(filterDialog).not.toBeVisible();
 });
 
 test("sign-in affordance is present and starts the Google OAuth flow", async ({ page }) => {

@@ -24,11 +24,11 @@ export function sortKeyFor(event: CalendarEvent): number {
 }
 
 const STATUS_STYLES: Record<CalendarEvent["status"], string> = {
-  RUMORED: "bg-gray-100 text-gray-700",
-  ANNOUNCED: "bg-blue-100 text-blue-700",
-  CONFIRMED: "bg-green-100 text-green-700",
-  RELEASED: "bg-purple-100 text-purple-700",
-  CANCELLED: "bg-red-100 text-red-700",
+  RUMORED: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  ANNOUNCED: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  CONFIRMED: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  RELEASED: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
 };
 
 export function statusBadgeClass(status: CalendarEvent["status"]): string {

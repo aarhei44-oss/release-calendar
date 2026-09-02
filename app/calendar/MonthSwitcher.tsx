@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addMonths } from "./searchParams";
 
 type Props = {
@@ -13,26 +14,29 @@ export function MonthSwitcher({ month, onChange }: Props) {
   const [year, mon] = month.split("-").map(Number);
   const label = MONTH_LABEL_FORMATTER.format(new Date(year, mon - 1, 1));
 
+  const buttonClass =
+    "rounded-md border border-gray-300 p-2 text-sm transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 dark:border-gray-700 dark:hover:bg-gray-800 dark:focus-visible:ring-gray-100";
+
   return (
     <div className="flex items-center gap-3" role="group" aria-label="Month navigation">
       <button
         type="button"
         onClick={() => onChange(addMonths(month, -1))}
         aria-label="Previous month"
-        className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-100"
+        className={buttonClass}
       >
-        ‹
+        <ChevronLeft className="h-4 w-4" />
       </button>
-      <span className="min-w-[10rem] text-center font-medium" aria-live="polite">
+      <span className="min-w-40 text-center font-medium" aria-live="polite">
         {label}
       </span>
       <button
         type="button"
         onClick={() => onChange(addMonths(month, 1))}
         aria-label="Next month"
-        className="rounded-md border border-gray-300 px-2 py-1 text-sm hover:bg-gray-100"
+        className={buttonClass}
       >
-        ›
+        <ChevronRight className="h-4 w-4" />
       </button>
     </div>
   );

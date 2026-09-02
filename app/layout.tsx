@@ -25,13 +25,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex h-dvh flex-col overflow-hidden">
         <Providers>
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
             <span className="font-semibold">Release Watcher</span>
             <AuthButton />
           </header>
-          {children}
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         </Providers>
       </body>
     </html>
