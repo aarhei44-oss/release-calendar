@@ -85,6 +85,15 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
   });
 }
 
+/** Enabled installs, for populating the public filter bar's install dropdown. */
+export async function listEnabledInstallsForFilters() {
+  return prisma.tcgProfileInstall.findMany({
+    where: { enabled: true },
+    select: { id: true, package: { select: { name: true, slug: true } } },
+    orderBy: { package: { name: "asc" } },
+  });
+}
+
 export async function getEventDetail(eventId: string) {
   return prisma.releaseEvent.findUnique({
     where: { id: eventId },
