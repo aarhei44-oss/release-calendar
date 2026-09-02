@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
+import { logEvent } from "./logger";
 
 export class UnauthorizedError extends Error {
   constructor(message = "Authentication required") {
@@ -19,8 +20,10 @@ export class ForbiddenError extends Error {
 export async function requireUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user || !session.user.active) {
+    logEvent({ event: "auth.requireUser", outcome: "denied" });
     throw new UnauthorizedError();
   }
+  logEvent({ event: "auth.requireUser", outcome: "allowed", userId: session.user.id });
   return session.user;
 }
 
@@ -28,7 +31,9 @@ export async function requireUser() {
 export async function requireAdmin() {
   const user = await requireUser();
   if (user.role !== "ADMIN") {
+    logEvent({ event: "auth.requireAdmin", outcome: "denied", userId: user.id });
     throw new ForbiddenError();
   }
+  logEvent({ event: "auth.requireAdmin", outcome: "allowed", userId: user.id });
   return user;
 }

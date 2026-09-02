@@ -8,27 +8,36 @@ import {
   getUpcomingForSubscriptions as repoGetUpcomingForSubscriptions,
 } from "@/data/subscriptions/subscriptionsRepo";
 import { requireUser } from "@/lib/authGuards";
+import { withActionLogging } from "@/lib/logger";
 
 const installIdSchema = z.string().min(1);
 
 export async function subscribe(installId: string) {
-  const user = await requireUser();
-  const parsed = installIdSchema.parse(installId);
-  return repoSubscribe(user.id, parsed);
+  return withActionLogging("subscriptions.subscribe", async () => {
+    const user = await requireUser();
+    const parsed = installIdSchema.parse(installId);
+    return repoSubscribe(user.id, parsed);
+  });
 }
 
 export async function unsubscribe(installId: string) {
-  const user = await requireUser();
-  const parsed = installIdSchema.parse(installId);
-  return repoUnsubscribe(user.id, parsed);
+  return withActionLogging("subscriptions.unsubscribe", async () => {
+    const user = await requireUser();
+    const parsed = installIdSchema.parse(installId);
+    return repoUnsubscribe(user.id, parsed);
+  });
 }
 
 export async function getMySubscriptions() {
-  const user = await requireUser();
-  return repoListSubscriptions(user.id);
+  return withActionLogging("subscriptions.getMySubscriptions", async () => {
+    const user = await requireUser();
+    return repoListSubscriptions(user.id);
+  });
 }
 
 export async function getMySubscriptionsUpcoming() {
-  const user = await requireUser();
-  return repoGetUpcomingForSubscriptions(user.id, 30);
+  return withActionLogging("subscriptions.getMySubscriptionsUpcoming", async () => {
+    const user = await requireUser();
+    return repoGetUpcomingForSubscriptions(user.id, 30);
+  });
 }

@@ -10,6 +10,7 @@ import {
 } from "@/data/calendar/calendarRepo";
 import { requireUser, ForbiddenError } from "@/lib/authGuards";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { withActionLogging } from "@/lib/logger";
 
 const releaseEventType = z.enum(["SHELF", "PRERELEASE", "PROMO", "SPECIAL"]);
 const releaseStatus = z.enum(["RUMORED", "ANNOUNCED", "CONFIRMED", "RELEASED", "CANCELLED"]);
@@ -24,15 +25,19 @@ const filtersSchema = z.object({
 });
 
 export async function getFilteredEvents(input: z.infer<typeof filtersSchema>) {
-  const filters = filtersSchema.parse(input);
-  return repoGetFilteredEvents(filters);
+  return withActionLogging("calendar.getFilteredEvents", async () => {
+    const filters = filtersSchema.parse(input);
+    return repoGetFilteredEvents(filters);
+  });
 }
 
 const eventIdSchema = z.string().min(1);
 
 export async function getEventDetail(eventId: string) {
-  const parsed = eventIdSchema.parse(eventId);
-  return repoGetEventDetail(parsed);
+  return withActionLogging("calendar.getEventDetail", async () => {
+    const parsed = eventIdSchema.parse(eventId);
+    return repoGetEventDetail(parsed);
+  });
 }
 
 const addCommentSchema = z.object({
@@ -41,22 +46,26 @@ const addCommentSchema = z.object({
 });
 
 export async function addComment(input: z.infer<typeof addCommentSchema>) {
-  const user = await requireUser();
-  const { eventId, content } = addCommentSchema.parse(input);
-  checkRateLimit(`addComment:${user.id}`, { max: 10, windowMs: 60_000 });
-  return createComment({ userId: user.id, releaseEventId: eventId, content });
+  return withActionLogging("calendar.addComment", async () => {
+    const user = await requireUser();
+    const { eventId, content } = addCommentSchema.parse(input);
+    checkRateLimit(`addComment:${user.id}`, { max: 10, windowMs: 60_000 });
+    return createComment({ userId: user.id, releaseEventId: eventId, content });
+  });
 }
 
 export async function deleteComment(commentId: string) {
-  const user = await requireUser();
-  const parsed = eventIdSchema.parse(commentId);
+  return withActionLogging("calendar.deleteComment", async () => {
+    const user = await requireUser();
+    const parsed = eventIdSchema.parse(commentId);
 
-  const comment = await getCommentById(parsed);
-  if (!comment) return;
+    const comment = await getCommentById(parsed);
+    if (!comment) return;
 
-  if (comment.userId !== user.id && user.role !== "ADMIN") {
-    throw new ForbiddenError("You can only delete your own comments.");
-  }
+    if (comment.userId !== user.id && user.role !== "ADMIN") {
+      throw new ForbiddenError("You can only delete your own comments.");
+    }
 
-  await deleteCommentById(parsed);
+    await deleteCommentById(parsed);
+  });
 }

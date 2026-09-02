@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getFilteredEvents, getEventDetail } from "@/data/calendar/calendarRepo";
+import { getFilteredEvents, getEventDetail, listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
 
 let pokemonInstallId: string;
 let mtgInstallId: string;
@@ -170,5 +170,28 @@ describe("getEventDetail", () => {
   it("returns null for an unknown event id", async () => {
     const detail = await getEventDetail("does-not-exist");
     expect(detail).toBeNull();
+  });
+});
+
+describe("listEnabledInstallsForFilters", () => {
+  it("includes enabled installs with their package name", async () => {
+    const installs = await listEnabledInstallsForFilters();
+    const ids = installs.map((i) => i.id);
+    expect(ids).toContain(pokemonInstallId);
+    expect(ids).toContain(mtgInstallId);
+    const pokemon = installs.find((i) => i.id === pokemonInstallId);
+    expect(pokemon?.package.name).toBe("Test Pokemon");
+  });
+
+  it("excludes disabled installs", async () => {
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: { slug: "test-disabled-pkg", name: "Disabled Pkg", version: "1.0.0", discoveryConfig: {}, sourceConfigs: {} },
+    });
+    const disabledInstall = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: false },
+    });
+
+    const installs = await listEnabledInstallsForFilters();
+    expect(installs.map((i) => i.id)).not.toContain(disabledInstall.id);
   });
 });

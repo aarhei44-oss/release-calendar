@@ -22,9 +22,20 @@ const STATUS_STYLES: Record<string, string> = {
   FAILED: "bg-red-100 text-red-700",
 };
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
 
-export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; scanRuns: ScanRun[] }) {
+export function SystemTab({
+  installs,
+  scanRuns,
+}: {
+  installs: InstallOption[];
+  scanRuns: ScanRun[];
+}) {
   const router = useRouter();
   const [selectedInstall, setSelectedInstall] = useState(installs[0]?.id ?? "");
   const [isPending, startTransition] = useTransition();
@@ -53,7 +64,9 @@ export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; s
     startTransition(async () => {
       try {
         const result = await triggerDedup();
-        setMessage(`Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s).`);
+        setMessage(
+          `Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s).`,
+        );
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Dedup pass failed.");
@@ -95,39 +108,46 @@ export function SystemTab({ installs, scanRuns }: { installs: InstallOption[]; s
 
       {message && <p className="text-sm text-gray-600">{message}</p>}
 
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
-            <th className="py-2">Status</th>
-            <th>Scope</th>
-            <th>Trigger</th>
-            <th>Started</th>
-            <th>Finished</th>
-          </tr>
-        </thead>
-        <tbody>
-          {scanRuns.map((run) => (
-            <tr key={run.id} className="border-b border-gray-100">
-              <td className="py-2">
-                <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[run.status] ?? "bg-gray-100 text-gray-700"}`}>
-                  {run.status}
-                </span>
-              </td>
-              <td>{run.scopeType}</td>
-              <td>{run.trigger}</td>
-              <td>{DATE_FORMATTER.format(run.createdAt)}</td>
-              <td>{run.finishedAt ? DATE_FORMATTER.format(run.finishedAt) : "—"}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+              <th className="py-2">Status</th>
+              <th>Scope</th>
+              <th>Trigger</th>
+              <th>Started</th>
+              <th>Finished</th>
             </tr>
-          ))}
-          {scanRuns.length === 0 && (
-            <tr>
-              <td colSpan={5} className="py-4 text-center text-gray-500">
-                No scan runs yet — trigger a manual rescan above, or wait for the next scheduled scan.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {scanRuns.map((run) => (
+              <tr key={run.id} className="border-b border-gray-100">
+                <td className="py-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[run.status] ?? "bg-gray-100 text-gray-700"}`}
+                  >
+                    {run.status}
+                  </span>
+                </td>
+                <td>{run.scopeType}</td>
+                <td>{run.trigger}</td>
+                <td>{DATE_FORMATTER.format(run.createdAt)}</td>
+                <td>
+                  {run.finishedAt ? DATE_FORMATTER.format(run.finishedAt) : "—"}
+                </td>
+              </tr>
+            ))}
+            {scanRuns.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-4 text-center text-gray-500">
+                  No scan runs yet — trigger a manual rescan above, or wait for
+                  the next scheduled scan.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

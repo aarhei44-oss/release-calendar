@@ -81,3 +81,15 @@ backups on the host.
 npm run test        # vitest (unit/integration)
 npm run test:e2e     # playwright (smoke e2e)
 ```
+
+## Design decisions
+
+- **No generic "DB CRUD console".** technical-spec.md §5.2 calls for a
+  decision on this (the prototype had one): this rewrite omits it entirely.
+  The admin console (`/admin`) exposes purpose-built, `requireAdmin()`-gated
+  actions for exactly what curators need -- toggling installs, managing
+  users, triggering scans/dedup -- rather than an unguarded passthrough to
+  arbitrary Prisma models.
+- **Every Server Action lives in one `actions.ts` per feature**
+  (`app/calendar/actions.ts`, `app/subscriptions/actions.ts`,
+  `app/admin/actions.ts`). No feature has more than one actions file.

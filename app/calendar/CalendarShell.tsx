@@ -1,16 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { ReleaseEventType, ReleaseStatus } from "@/app/generated/prisma/client";
+import type {
+  ReleaseEventType,
+  ReleaseStatus,
+} from "@/app/generated/prisma/client";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
-import { Tabs } from "./Tabs";
+import { Tabs, tabPanelId } from "./Tabs";
 import { FilterBar, type InstallOption } from "./FilterBar";
 import { MonthSwitcher } from "./MonthSwitcher";
 import { ClientCalendar } from "./ClientCalendar";
 import { EventsList } from "./EventsList";
 import { EventDrawer } from "./EventDrawer";
 import { mapEventsForGrid } from "./mapEvents";
-import { buildCalendarHref, type CalendarTab, type ParsedCalendarSearchParams } from "./searchParams";
+import {
+  buildCalendarHref,
+  type CalendarTab,
+  type ParsedCalendarSearchParams,
+} from "./searchParams";
 
 type Props = {
   parsed: ParsedCalendarSearchParams;
@@ -36,7 +43,10 @@ export function CalendarShell({ parsed, events, installOptions }: Props) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <Tabs active={parsed.tab} onChange={(tab: CalendarTab) => navigate({ tab })} />
+      <Tabs
+        active={parsed.tab}
+        onChange={(tab: CalendarTab) => navigate({ tab })}
+      />
 
       <FilterBar
         installOptions={installOptions}
@@ -48,33 +58,64 @@ export function CalendarShell({ parsed, events, installOptions }: Props) {
       />
 
       {parsed.tab === "calendar" && (
-        <>
-          <MonthSwitcher month={parsed.calMonth} onChange={(calMonth) => navigate({ calMonth })} />
+        <div
+          id={tabPanelId("calendar")}
+          role="tabpanel"
+          aria-labelledby="calendar-tab-calendar"
+          tabIndex={0}
+          className="flex flex-col gap-4"
+        >
+          <MonthSwitcher
+            month={parsed.calMonth}
+            onChange={(calMonth) => navigate({ calMonth })}
+          />
           <ClientCalendar
             events={mapEventsForGrid(events)}
             month={parsed.calMonth}
             onNavigateMonth={(calMonth) => navigate({ calMonth })}
             onSelectEvent={(eventId) => navigate({ eventId })}
           />
-        </>
+        </div>
       )}
 
       {parsed.tab === "list" && (
-        <>
-          <MonthSwitcher month={parsed.listMonth} onChange={(listMonth) => navigate({ listMonth })} />
-          <EventsList events={events} onSelectEvent={(eventId) => navigate({ eventId })} />
-        </>
+        <div
+          id={tabPanelId("list")}
+          role="tabpanel"
+          aria-labelledby="calendar-tab-list"
+          tabIndex={0}
+          className="flex flex-col gap-4"
+        >
+          <MonthSwitcher
+            month={parsed.listMonth}
+            onChange={(listMonth) => navigate({ listMonth })}
+          />
+          <EventsList
+            events={events}
+            onSelectEvent={(eventId) => navigate({ eventId })}
+          />
+        </div>
       )}
 
       {parsed.tab === "upcoming" && (
-        <EventsList
-          events={events}
-          onSelectEvent={(eventId) => navigate({ eventId })}
-          emptyMessage="Nothing upcoming in the next 90 days."
-        />
+        <div
+          id={tabPanelId("upcoming")}
+          role="tabpanel"
+          aria-labelledby="calendar-tab-upcoming"
+          tabIndex={0}
+        >
+          <EventsList
+            events={events}
+            onSelectEvent={(eventId) => navigate({ eventId })}
+            emptyMessage="Nothing upcoming in the next 90 days."
+          />
+        </div>
       )}
 
-      <EventDrawer eventId={parsed.eventId} onClose={() => navigate({ eventId: null })} />
+      <EventDrawer
+        eventId={parsed.eventId}
+        onClose={() => navigate({ eventId: null })}
+      />
     </div>
   );
 }

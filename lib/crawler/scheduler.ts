@@ -1,4 +1,5 @@
 import { runScan } from "./orchestrate";
+import { logEvent } from "@/lib/logger";
 
 let started = false;
 
@@ -23,8 +24,14 @@ export function startCrawlerScheduler() {
   console.log(`[crawler] scheduled scans every ${minutes} minute(s)`);
 
   setInterval(() => {
+    // runScan logs its own outcome; this catch only guards against something
+    // failing outside that try/catch (lock acquisition, ScanRun creation).
     runScan({ scopeType: "ALL", trigger: "SCHEDULED" }).catch((error) => {
-      console.error("[crawler] scheduled scan failed", error);
+      logEvent({
+        action: "crawler.scheduledScan",
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
   }, minutes * 60 * 1000);
 }

@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
             <span className="font-semibold">Release Watcher</span>
             <AuthButton />
           </header>

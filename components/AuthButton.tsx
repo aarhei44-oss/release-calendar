@@ -23,8 +23,11 @@ export function AuthButton() {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <Link href="/subscriptions" className="text-sm text-gray-700 hover:underline">
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        href="/subscriptions"
+        className="text-sm text-gray-700 hover:underline"
+      >
         My subscriptions
       </Link>
       {session.user.role === "ADMIN" && (

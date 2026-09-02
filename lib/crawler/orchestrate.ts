@@ -1,5 +1,6 @@
 import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
+import { logEvent } from "@/lib/logger";
 import { getAdapter } from "./adapters/registry";
 import type { ParsedCandidate, SourceConfig } from "./adapters/types";
 import { computeConfidenceAndStatus } from "./confidence";
@@ -26,9 +27,18 @@ export async function runScan(params: {
   scopeId?: string;
   trigger: ScanTrigger;
 }): Promise<ScanResult> {
+  const start = Date.now();
   const lockScopeKey = params.scopeType === "INSTALL" && params.scopeId ? params.scopeId : "global";
   const lock = await crawlerRepo.acquireJobLock(JOB_NAME, lockScopeKey, LOCK_TTL_MS);
   if (!lock) {
+    logEvent({
+      action: "crawler.runScan",
+      scopeType: params.scopeType,
+      scopeId: params.scopeId,
+      trigger: params.trigger,
+      durationMs: Date.now() - start,
+      outcome: "skipped",
+    });
     return { skipped: true, reason: "a scan is already running for this scope" };
   }
 
@@ -79,7 +89,13 @@ export async function runScan(params: {
           }
         } catch (error) {
           totals.errors += 1;
-          console.error(`[crawler] source failed url=${sourceConfig.url}`, error);
+          logEvent({
+            action: "crawler.fetchSource",
+            scanRunId: scanRun.id,
+            url: sourceConfig.url,
+            outcome: "error",
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }
@@ -88,11 +104,31 @@ export async function runScan(params: {
       status: "SUCCEEDED",
       totals: totals as unknown as Prisma.InputJsonValue,
     });
+    logEvent({
+      action: "crawler.runScan",
+      scanRunId: scanRun.id,
+      scopeType: params.scopeType,
+      scopeId: params.scopeId,
+      trigger: params.trigger,
+      durationMs: Date.now() - start,
+      outcome: "success",
+      ...totals,
+    });
     return { skipped: false, scanRunId: scanRun.id, totals };
   } catch (error) {
     await crawlerRepo.finalizeScanRun(scanRun.id, {
       status: "FAILED",
       totals: totals as unknown as Prisma.InputJsonValue,
+    });
+    logEvent({
+      action: "crawler.runScan",
+      scanRunId: scanRun.id,
+      scopeType: params.scopeType,
+      scopeId: params.scopeId,
+      trigger: params.trigger,
+      durationMs: Date.now() - start,
+      outcome: "error",
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   } finally {
