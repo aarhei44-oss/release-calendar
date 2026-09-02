@@ -40,6 +40,28 @@ docker compose up --build
 reverse-proxies to `app`. The SQLite database file persists on the `db-data`
 volume.
 
+### Deploying to a small server (prebuilt image via CI)
+
+Building this image (`npm ci` + `next build`) wants well over 1GB of RAM --
+comfortably possible on a laptop or a beefy CI runner, but it'll OOM a
+small (e.g. 1GB) droplet. `.github/workflows/docker-publish.yml` builds on
+GitHub's runners and pushes to GHCR on every push to `main`; the server
+then only ever pulls:
+
+```bash
+git pull                                          # get docker-compose.registry.yml + .env template
+cp .env.example .env                              # fill in production secrets
+docker compose -f docker-compose.registry.yml pull
+docker compose -f docker-compose.registry.yml up -d
+```
+
+That compose file has no Caddy service -- pair it with whatever reverse
+proxy/TLS setup the server already has (e.g. nginx with its own cert), or
+run `caddy` separately alongside it.
+
+The GHCR package needs to be set **Public** once (Settings on the
+package's GitHub page) so the server can pull without authenticating.
+
 ### Environment variables
 
 | Variable | Required | Notes |

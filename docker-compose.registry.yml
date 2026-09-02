@@ -1,0 +1,27 @@
+# For deployment targets that pull a CI-built image instead of building
+# locally (see .github/workflows/docker-publish.yml) -- e.g. a droplet too
+# small to run `npm ci` + `next build` without running out of memory.
+#
+# Standalone on purpose (does not extend docker-compose.yml): merging an
+# `image:` override onto a service that also has `build:` is ambiguous
+# across Compose versions, so this fully redefines the app service instead.
+#
+# Usage:
+#   docker compose -f docker-compose.registry.yml pull
+#   docker compose -f docker-compose.registry.yml up -d
+#
+# This does not include the Caddy service -- pair it with your own reverse
+# proxy (as releasewatcher.com does with nginx), or run Caddy separately.
+services:
+  app:
+    image: ghcr.io/aarhei44-oss/release-calendar:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - db-data:/app/data
+
+volumes:
+  db-data:
