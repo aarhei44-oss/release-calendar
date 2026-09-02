@@ -27,6 +27,11 @@ export function AuthButton() {
       <Link href="/subscriptions" className="text-sm text-gray-700 hover:underline">
         My subscriptions
       </Link>
+      {session.user.role === "ADMIN" && (
+        <Link href="/admin" className="text-sm text-gray-700 hover:underline">
+          Admin
+        </Link>
+      )}
       <span className="text-sm text-gray-700">
         {session.user.name ?? session.user.email}
         {session.user.role === "ADMIN" && (

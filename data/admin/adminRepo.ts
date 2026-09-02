@@ -15,14 +15,32 @@ export async function toggleInstallEnabled(installId: string, enabled: boolean) 
   });
 }
 
+/**
+ * Enables the install and, if it has no product sets yet, creates one
+ * placeholder set so the install isn't empty in the UI while the admin
+ * waits on real data. The crawler (Phase 6) supersedes this placeholder
+ * with real discovered product sets on its first scan; it is never
+ * overwritten automatically before that.
+ */
 export async function enableAndSeedInstall(installId: string) {
-  await prisma.tcgProfileInstall.update({
+  const install = await prisma.tcgProfileInstall.update({
     where: { id: installId },
     data: { enabled: true },
+    include: { _count: { select: { productSets: true } } },
   });
-  // Seeding product sets from the package's discoveryConfig happens once the
-  // crawler subsystem (Phase 6) can bootstrap sets from source config.
-  throw new Error("enableAndSeedInstall: seeding logic lands in Phase 6");
+
+  if (install._count.productSets === 0) {
+    await prisma.productSet.create({
+      data: {
+        tcgProfileInstallId: installId,
+        code: `PLACEHOLDER-${installId}`,
+        name: "Placeholder product set (awaiting crawler data)",
+        meta: { placeholder: true },
+      },
+    });
+  }
+
+  return install;
 }
 
 export async function listUsers() {
