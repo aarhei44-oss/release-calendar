@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getFilteredEvents } from "@/data/calendar/calendarRepo";
 
 export async function subscribe(userId: string, installId: string) {
   return prisma.subscription.upsert({
@@ -32,13 +33,5 @@ export async function getUpcomingForSubscriptions(userId: string, days = 30) {
 
   if (installIds.length === 0) return [];
 
-  return prisma.releaseEvent.findMany({
-    where: {
-      productSet: { tcgProfileInstallId: { in: installIds } },
-      dateType: "EXACT",
-      dateExact: { gte: from, lte: to },
-    },
-    include: { productSet: { include: { install: { include: { package: true } } } } },
-    orderBy: { dateExact: "asc" },
-  });
+  return getFilteredEvents({ installIds, from, to });
 }

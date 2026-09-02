@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
+import { CommentsForEvent } from "./CommentsForEvent";
 
 type EventDetail = Awaited<ReturnType<typeof getEventDetail>>;
 
@@ -120,6 +121,8 @@ export function EventDrawer({ eventId, onClose }: Props) {
                 </ul>
               )}
             </div>
+
+            <CommentsForEvent key={detail.id} eventId={detail.id} initialComments={detail.userNotes} />
           </div>
         )}
       </aside>

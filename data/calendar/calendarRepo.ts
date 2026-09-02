@@ -85,6 +85,21 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
   });
 }
 
+export async function createComment(params: { userId: string; releaseEventId: string; content: string }) {
+  return prisma.userNote.create({
+    data: params,
+    include: { user: { select: { id: true, name: true, image: true } } },
+  });
+}
+
+export async function getCommentById(commentId: string) {
+  return prisma.userNote.findUnique({ where: { id: commentId } });
+}
+
+export async function deleteCommentById(commentId: string) {
+  await prisma.userNote.delete({ where: { id: commentId } });
+}
+
 /** Enabled installs, for populating the public filter bar's install dropdown. */
 export async function listEnabledInstallsForFilters() {
   return prisma.tcgProfileInstall.findMany({

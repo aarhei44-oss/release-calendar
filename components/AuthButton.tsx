@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
 
 export function AuthButton() {
@@ -23,6 +24,9 @@ export function AuthButton() {
 
   return (
     <div className="flex items-center gap-3">
+      <Link href="/subscriptions" className="text-sm text-gray-700 hover:underline">
+        My subscriptions
+      </Link>
       <span className="text-sm text-gray-700">
         {session.user.name ?? session.user.email}
         {session.user.role === "ADMIN" && (
