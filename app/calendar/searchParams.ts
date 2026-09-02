@@ -35,6 +35,15 @@ function parseCsv<T extends string>(value: string | undefined, allowed: T[]): T[
     .filter((v): v is T => set.has(v as T));
 }
 
+/** Like parseCsv, but for values (e.g. DB ids) that aren't drawn from a fixed enum. */
+function parseIdCsv(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+}
+
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -49,7 +58,7 @@ export function parseCalendarSearchParams(raw: RawSearchParams): ParsedCalendarS
     tab,
     calMonth: parseMonth(first(raw.calMonth)),
     listMonth: parseMonth(first(raw.listMonth)),
-    installIds: parseCsv(first(raw.installIds), []),
+    installIds: parseIdCsv(first(raw.installIds)),
     types: parseCsv(first(raw.types), RELEASE_EVENT_TYPES),
     statuses: parseCsv(first(raw.statuses), RELEASE_STATUSES),
     search: first(raw.search)?.trim() ?? "",
