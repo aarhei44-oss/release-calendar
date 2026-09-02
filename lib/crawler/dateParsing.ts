@@ -5,6 +5,7 @@ export type ParsedDate =
 
 const MONTH_DAY_YEAR = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/;
 const MONTH_YEAR = /^([A-Za-z]+)\.?\s+(\d{4})$/;
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const MONTH_INDEX: Record<string, number> = {
   jan: 0, january: 0,
@@ -23,13 +24,24 @@ const MONTH_INDEX: Record<string, number> = {
 
 /**
  * Parses release-date text as it commonly appears on Wikipedia-style
- * tables and TCG tracker sites: "May 9, 2012", "Jun 12, 2026", or
+ * tables and TCG tracker sites: "May 9, 2012", "Jun 12, 2026",
+ * "2026-07-25" (ISO, as used by e.g. gundamcardlist.com), or
  * "December 1993" (month + year only -> a one-month WINDOW). Anything
  * unrecognized becomes TBD rather than throwing, since scraped text is
  * inherently messy.
  */
 export function parseFlexibleDate(raw: string): ParsedDate {
   const text = raw.trim().replace(/\s+/g, " ");
+
+  const iso = ISO_DATE.exec(text);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]) - 1;
+    const day = Number(iso[3]);
+    if (isValidDate(year, month, day)) {
+      return { dateType: "EXACT", dateExact: new Date(Date.UTC(year, month, day)) };
+    }
+  }
 
   const exact = MONTH_DAY_YEAR.exec(text);
   if (exact) {

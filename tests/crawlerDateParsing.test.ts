@@ -21,6 +21,20 @@ describe("parseFlexibleDate", () => {
     }
   });
 
+  it("parses an ISO 'YYYY-MM-DD' date as EXACT", () => {
+    const result = parseFlexibleDate("2026-07-25");
+    expect(result.dateType).toBe("EXACT");
+    if (result.dateType === "EXACT") {
+      expect(result.dateExact.getUTCFullYear()).toBe(2026);
+      expect(result.dateExact.getUTCMonth()).toBe(6);
+      expect(result.dateExact.getUTCDate()).toBe(25);
+    }
+  });
+
+  it("falls back to TBD for an invalid ISO date", () => {
+    expect(parseFlexibleDate("2024-02-30").dateType).toBe("TBD");
+  });
+
   it("parses 'Month Year' (no day) as a one-month WINDOW", () => {
     const result = parseFlexibleDate("December 1993");
     expect(result.dateType).toBe("WINDOW");
