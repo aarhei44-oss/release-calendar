@@ -96,4 +96,110 @@ describe("runDedupPass", () => {
     const remaining = await prisma.releaseEvent.findMany({ where: { productSetId } });
     expect(remaining).toHaveLength(1);
   });
+
+  it("merges two ProductSets in the same install whose names are identical after normalization", async () => {
+    // Created after the beforeEach ProductSet, so it's the later-created one
+    // and should be treated as the duplicate (earliest-created survives).
+    const duplicate = await prisma.productSet.create({
+      data: {
+        tcgProfileInstallId: installId,
+        code: "DP-2",
+        name: "DEDUP PASS SET (Reprint)!!",
+      },
+    });
+    const event = await prisma.releaseEvent.create({
+      data: {
+        productSetId: duplicate.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-01"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+      },
+    });
+
+    const result = await runDedupPass({ installIds: [installId] });
+
+    expect(result.productSetsMerged).toBe(1);
+    expect(await prisma.productSet.findUnique({ where: { id: duplicate.id } })).toBeNull();
+    const survivor = await prisma.productSet.findUniqueOrThrow({ where: { id: productSetId } });
+    expect(survivor.name).toBe("Dedup Pass Set");
+    const movedEvent = await prisma.releaseEvent.findUnique({ where: { id: event.id } });
+    expect(movedEvent?.productSetId).toBe(productSetId);
+  });
+
+  it("does not merge ProductSets with genuinely different normalized names", async () => {
+    const other = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-2", name: "Dedup Pass Set 2" },
+    });
+
+    const result = await runDedupPass({ installIds: [installId] });
+
+    expect(result.productSetsMerged).toBe(0);
+    expect(await prisma.productSet.findUnique({ where: { id: other.id } })).not.toBeNull();
+    expect(await prisma.productSet.findUnique({ where: { id: productSetId } })).not.toBeNull();
+  });
+
+  it("does not merge ProductSets with matching names across two different installs", async () => {
+    const pkg2 = await prisma.tcgProfilePackage.create({
+      data: {
+        slug: `dedup-pass-test-2-${crypto.randomUUID()}`,
+        name: "Dedup Pass Test 2",
+        version: "1.0.0",
+        discoveryConfig: {},
+        sourceConfigs: {},
+      },
+    });
+    const install2 = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg2.id, installedVersion: "1.0.0", enabled: true },
+    });
+    const sameNameOtherInstall = await prisma.productSet.create({
+      data: { tcgProfileInstallId: install2.id, code: "DP-1", name: "Dedup Pass Set" },
+    });
+
+    const result = await runDedupPass({ installIds: [installId, install2.id] });
+
+    expect(result.productSetsMerged).toBe(0);
+    expect(await prisma.productSet.findUnique({ where: { id: productSetId } })).not.toBeNull();
+    expect(await prisma.productSet.findUnique({ where: { id: sameNameOtherInstall.id } })).not.toBeNull();
+  });
+
+  it("cascades a ProductSet merge into the existing event-proximity merge in the same pass", async () => {
+    const duplicate = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-2", name: "dedup PASS set" },
+    });
+    await createEvent({ dateExact: new Date("2026-05-01") }); // on productSetId
+    await prisma.releaseEvent.create({
+      data: {
+        productSetId: duplicate.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-03"), // within the 14-day proximity window
+        status: "ANNOUNCED",
+        confidence: 0.3,
+      },
+    });
+
+    const result = await runDedupPass({ installIds: [installId] });
+
+    expect(result.productSetsMerged).toBe(1);
+    expect(result.eventsMerged).toBe(1);
+    const remainingEvents = await prisma.releaseEvent.findMany({ where: { productSetId } });
+    expect(remainingEvents).toHaveLength(1);
+  });
+
+  it("never merges ProductSets whose names normalize to an empty or too-short string", async () => {
+    const a = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-A", name: "(2026)" },
+    });
+    const b = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-B", name: "??" },
+    });
+
+    const result = await runDedupPass({ installIds: [installId] });
+
+    expect(result.productSetsMerged).toBe(0);
+    expect(await prisma.productSet.findUnique({ where: { id: a.id } })).not.toBeNull();
+    expect(await prisma.productSet.findUnique({ where: { id: b.id } })).not.toBeNull();
+  });
 });

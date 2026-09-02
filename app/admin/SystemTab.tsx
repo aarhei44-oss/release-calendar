@@ -50,7 +50,7 @@ export function SystemTab({
         setMessage(
           result.skipped
             ? `Rescan skipped: ${result.reason}`
-            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.errors} error(s)).`,
+            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.errors} error(s)).`,
         );
         router.refresh();
       } catch (e) {
@@ -65,7 +65,7 @@ export function SystemTab({
       try {
         const result = await triggerDedup();
         setMessage(
-          `Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s).`,
+          `Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s) and ${result.productSetsMerged} duplicate product set(s).`,
         );
         router.refresh();
       } catch (e) {

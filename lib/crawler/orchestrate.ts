@@ -1,6 +1,7 @@
 import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { logEvent } from "@/lib/logger";
+import { runDedupPass } from "./dedupPass";
 import { getAdapter } from "./adapters/registry";
 import type { ParsedCandidate, SourceConfig } from "./adapters/types";
 import { computeConfidenceAndStatus } from "./confidence";
@@ -16,6 +17,8 @@ export type ScanTotals = {
   eventsCreated: number;
   eventsUpdated: number;
   errors: number;
+  eventsMerged: number;
+  productSetsMerged: number;
 };
 
 export type ScanResult =
@@ -55,6 +58,8 @@ export async function runScan(params: {
     eventsCreated: 0,
     eventsUpdated: 0,
     errors: 0,
+    eventsMerged: 0,
+    productSetsMerged: 0,
   };
 
   try {
@@ -98,6 +103,20 @@ export async function runScan(params: {
           });
         }
       }
+    }
+
+    try {
+      const dedupResult = await runDedupPass({ installIds: installs.map((install) => install.id) });
+      totals.eventsMerged = dedupResult.eventsMerged;
+      totals.productSetsMerged = dedupResult.productSetsMerged;
+    } catch (error) {
+      totals.errors += 1;
+      logEvent({
+        action: "crawler.postScanDedup",
+        scanRunId: scanRun.id,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     await crawlerRepo.finalizeScanRun(scanRun.id, {

@@ -134,3 +134,50 @@ describe("runScan (fixture adapter, end-to-end)", () => {
     await crawlerRepo.releaseJobLock("crawler", installId);
   });
 });
+
+describe("runScan (automatic post-scan dedup)", () => {
+  let dedupInstallId: string;
+
+  beforeAll(async () => {
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: {
+        slug: "crawler-orchestrate-dedup-test",
+        name: "Crawler Orchestrate Dedup Test",
+        version: "1.0.0",
+        discoveryConfig: {},
+        sourceConfigs: [fixtureSourceConfig] as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const install = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
+    });
+    dedupInstallId = install.id;
+  });
+
+  it("merges a pre-existing near-duplicate ProductSet automatically, with no separate triggerDedup() call", async () => {
+    // Normalizes identically to the "Fixture Booster One" set the fixture
+    // scan is about to create, and is created first, so it should survive
+    // as the merge target (earliest-created wins).
+    const preExisting = await prisma.productSet.create({
+      data: {
+        tcgProfileInstallId: dedupInstallId,
+        code: "PRE-EXISTING",
+        name: "Fixture Booster One (Reprint)",
+      },
+    });
+
+    const result = await runScan({ scopeType: "INSTALL", scopeId: dedupInstallId, trigger: "MANUAL" });
+
+    expect(result.skipped).toBe(false);
+    if (result.skipped) return;
+    expect(result.totals.productSetsMerged).toBe(1);
+
+    const productSets = await prisma.productSet.findMany({ where: { tcgProfileInstallId: dedupInstallId } });
+    expect(productSets.map((p) => p.name).sort()).toEqual(
+      ["Fixture Booster One (Reprint)", "Fixture Booster Three", "Fixture Booster Two"].sort(),
+    );
+
+    const event = await prisma.releaseEvent.findFirstOrThrow({ where: { productSetId: preExisting.id } });
+    expect(event.dateType).toBe("EXACT");
+  });
+});

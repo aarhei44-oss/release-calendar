@@ -145,8 +145,34 @@ export async function mergeReleaseEvents(primaryId: string, duplicateId: string)
   ]);
 }
 
-export async function getAllReleaseEventsForDedup() {
+/**
+ * Moves a duplicate ProductSet's release events onto the primary, then
+ * deletes the duplicate. Order matters: ProductSet.releaseEvents cascades on
+ * delete, so reassigning first is what preserves them on the survivor
+ * instead of losing them.
+ */
+export async function mergeProductSets(primaryId: string, duplicateId: string) {
+  await prisma.$transaction([
+    prisma.releaseEvent.updateMany({ where: { productSetId: duplicateId }, data: { productSetId: primaryId } }),
+    prisma.productSet.delete({ where: { id: duplicateId } }),
+  ]);
+}
+
+/** Named product sets, optionally scoped to specific installs, for cross-source identity matching. */
+export async function getProductSetsForFuzzyMerge(installIds?: string[]) {
+  return prisma.productSet.findMany({
+    where: {
+      name: { not: null },
+      ...(installIds ? { tcgProfileInstallId: { in: installIds } } : {}),
+    },
+    select: { id: true, tcgProfileInstallId: true, name: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getAllReleaseEventsForDedup(installIds?: string[]) {
   return prisma.releaseEvent.findMany({
+    where: installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : undefined,
     select: {
       id: true,
       productSetId: true,

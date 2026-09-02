@@ -12,6 +12,32 @@ export type EventDateInfo = {
 };
 
 const PROXIMITY_DAYS = 14;
+const MIN_NORMALIZED_NAME_LENGTH = 3;
+
+/**
+ * Normalizes a ProductSet name for cross-source identity matching: lowercase,
+ * strip parenthetical annotations (e.g. a trailing set-code like "(EB-05)"),
+ * strip all non-alphanumeric characters. Deliberately more aggressive/lossy
+ * than the crawler adapters' own `slugify()` (which preserves structure for
+ * a stable id) -- this only ever answers "do these two scraped names mean
+ * the same real product," never used as an id itself.
+ *
+ * Returns "" for names that are entirely punctuation/parenthetical content
+ * (e.g. "(2026)") -- callers must treat an empty (or otherwise too-short)
+ * result as "not matchable," never as a valid grouping key, or every such
+ * ProductSet in an install would collide with each other.
+ */
+export function normalizeProductSetName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+}
+
+export function isMatchableNormalizedName(normalized: string): boolean {
+  return normalized.length >= MIN_NORMALIZED_NAME_LENGTH;
+}
 
 function primaryDate(info: EventDateInfo): Date | null {
   return info.dateExact ?? info.dateStart ?? info.windowStart ?? null;
