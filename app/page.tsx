@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/auth";
 import { getLandingStats } from "@/data/calendar/calendarRepo";
 
 // The production SQLite file lives on a Docker volume only present at
@@ -33,6 +36,15 @@ const FEATURES = [
 ];
 
 export default async function Home() {
+  // A signed-in visitor already knows what this is -- send them straight to
+  // their dashboard instead of the marketing pitch. DashboardShell already
+  // handles the "no subscriptions yet" case gracefully, so this is safe even
+  // for a brand-new user who just signed in for the first time.
+  const session = await getServerSession(authOptions);
+  if (session?.user) {
+    redirect("/dashboard");
+  }
+
   // Degrades gracefully if the database is briefly unreachable -- the pitch
   // and CTAs below don't depend on it, only this one stat line does.
   const stats = await getLandingStats().catch(() => null);
