@@ -1,5 +1,8 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/auth";
 import { getFilteredEvents } from "./actions";
 import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
+import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { parseCalendarSearchParams, monthRange, type RawSearchParams } from "./searchParams";
 import { CalendarShell } from "./CalendarShell";
 
@@ -19,7 +22,24 @@ function dateRangeFor(parsed: ReturnType<typeof parseCalendarSearchParams>) {
 }
 
 export default async function CalendarPage({ searchParams }: Props) {
-  const parsed = parseCalendarSearchParams(await searchParams);
+  const rawParams = await searchParams;
+  const parsed = parseCalendarSearchParams(rawParams);
+
+  // A signed-in visitor landing on a completely bare /calendar (no query
+  // string at all) gets their subscribed games pre-selected instead of every
+  // install, so the page opens already relevant to them. Once any tab/month/
+  // filter interaction happens, CalendarShell's navigate() always carries
+  // those params forward explicitly, so this only ever fires on a fresh
+  // visit, never overriding a filter the user has touched (including
+  // clearing it back to "all games").
+  const session = await getServerSession(authOptions);
+  if (session?.user && Object.keys(rawParams).length === 0) {
+    const subscriptions = await listSubscriptions(session.user.id);
+    if (subscriptions.length > 0) {
+      parsed.installIds = subscriptions.map((s) => s.tcgProfileInstallId);
+    }
+  }
+
   const { from, to } = dateRangeFor(parsed);
 
   const [events, installs] = await Promise.all([
