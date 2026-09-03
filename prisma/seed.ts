@@ -212,6 +212,43 @@ const GUNDAM_SOURCES: SourceConfig[] = [
   },
 ];
 
+// Both spot-checked manually against live pages. Dates from both cross-
+// verified against ICv2's 2026 TCG calendar (e.g. "Magnificent Monsters"
+// Sept 4 2026 on both). Deliberately excludes Yugipedia's "Set chronology"
+// page despite otherwise being the most complete source: it's one page with
+// OCG (Japan), TCG (English), and Rush Duel set tables -- all using the
+// *same* column headers -- interleaved as 27 separate <table>s under one URL
+// with no way to select just the TCG ones (MediaWiki's action=render&section=
+// was tried and just returns the full page here), so including it would
+// label Japan-only OCG sets as GLOBAL/English releases under the wrong dates
+// -- same call as rejecting lorcana.gg in LORCANA_SOURCES, for a worse reason.
+const YUGIOH_SOURCES: SourceConfig[] = [
+  {
+    // "Set"/"Release" headers match the adapter's default hints, no
+    // overrides needed. The name cell also carries two secondary links
+    // ("card list", "prices") glued onto the set name by cheerio's
+    // text-extraction (e.g. "Magnificent Maestroscard list · prices") --
+    // noisy but not garbage, same class of defect as Bulbapedia's glued
+    // native+translated names in POKEMON_SOURCES and Scryfall's appended
+    // code suffix in MTG_SOURCES; dates and set identity are unaffected.
+    url: "https://yugiohcardlist.com/sets",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "YGO", eventType: "SHELF", region: "GLOBAL" },
+  },
+  // Japan-only OCG release schedule -- Konami's OCG (Japan) and TCG
+  // (English/global) product lines share set names but ship on different
+  // dates (e.g. "Chaos Origins" OCG Apr 25 2026 vs. TCG Jul 3 2026), so this
+  // is tagged region: "JP" rather than folded into the GLOBAL source above.
+  // "Set Name"/"Release Date" headers also match the default hints as-is.
+  {
+    url: "https://japan-figure.com/blogs/news/yugioh-card-release-date",
+    tier: "COMMUNITY",
+    parser: "html-table",
+    options: { codePrefix: "YGO", eventType: "SHELF", region: "JP" },
+  },
+];
+
 const LAUNCH_PACKAGES = [
   {
     slug: "pokemon-tcg",
@@ -283,6 +320,18 @@ const LAUNCH_PACKAGES = [
     installedVersion: "1.0.0",
     productSets: [
       { code: "RIFT-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+    ],
+  },
+  {
+    slug: "yugioh-tcg",
+    name: "Yu-Gi-Oh! Trading Card Game",
+    version: "1.0.0",
+    description: "Core booster sets, structure decks, and special releases for the Yu-Gi-Oh! Trading Card Game.",
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: YUGIOH_SOURCES,
+    installedVersion: "1.0.0",
+    productSets: [
+      { code: "YGO-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
     ],
   },
 ] as const;
