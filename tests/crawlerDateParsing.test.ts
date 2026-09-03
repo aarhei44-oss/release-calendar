@@ -47,6 +47,20 @@ describe("parseFlexibleDate", () => {
     }
   });
 
+  it("parses a bare 4-digit year as a whole-year WINDOW", () => {
+    const result = parseFlexibleDate("1997");
+    expect(result.dateType).toBe("WINDOW");
+    if (result.dateType === "WINDOW") {
+      expect(result.windowGranularity).toBe("YEAR");
+      expect(result.windowStart.getUTCFullYear()).toBe(1997);
+      expect(result.windowStart.getUTCMonth()).toBe(0);
+      expect(result.windowStart.getUTCDate()).toBe(1);
+      expect(result.windowEnd.getUTCFullYear()).toBe(1997);
+      expect(result.windowEnd.getUTCMonth()).toBe(11);
+      expect(result.windowEnd.getUTCDate()).toBe(31);
+    }
+  });
+
   it("falls back to TBD for unrecognized text", () => {
     expect(parseFlexibleDate("TBA").dateType).toBe("TBD");
     expect(parseFlexibleDate("").dateType).toBe("TBD");

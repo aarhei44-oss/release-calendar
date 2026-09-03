@@ -1,11 +1,13 @@
 export type ParsedDate =
   | { dateType: "EXACT"; dateExact: Date }
   | { dateType: "WINDOW"; windowGranularity: "MONTH"; windowStart: Date; windowEnd: Date }
+  | { dateType: "WINDOW"; windowGranularity: "YEAR"; windowStart: Date; windowEnd: Date }
   | { dateType: "TBD" };
 
 const MONTH_DAY_YEAR = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/;
 const MONTH_YEAR = /^([A-Za-z]+)\.?\s+(\d{4})$/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const YEAR_ONLY = /^(\d{4})$/;
 
 const MONTH_INDEX: Record<string, number> = {
   jan: 0, january: 0,
@@ -62,6 +64,20 @@ export function parseFlexibleDate(raw: string): ParsedDate {
       const windowEnd = new Date(Date.UTC(year, month + 1, 0));
       return { dateType: "WINDOW", windowGranularity: "MONTH", windowStart, windowEnd };
     }
+  }
+
+  // A bare 4-digit year, as Wikipedia-style historical set-list tables
+  // commonly give for decades-old products (e.g. MTG's discontinued 1997-
+  // 2004 "World Championship Decks" series) instead of a full date -- a
+  // whole-year WINDOW is coarse but still a real, comparable date, unlike
+  // TBD (which the calendar has to treat as "no date at all" and therefore
+  // can't ever flag as past-due).
+  const yearOnly = YEAR_ONLY.exec(text);
+  if (yearOnly) {
+    const year = Number(yearOnly[1]);
+    const windowStart = new Date(Date.UTC(year, 0, 1));
+    const windowEnd = new Date(Date.UTC(year, 11, 31));
+    return { dateType: "WINDOW", windowGranularity: "YEAR", windowStart, windowEnd };
   }
 
   return { dateType: "TBD" };
