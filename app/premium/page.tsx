@@ -22,6 +22,12 @@ const ROWS: { label: string; anonymous: boolean; free: boolean; premium: boolean
   { label: "Daily/weekly digest email", anonymous: false, free: false, premium: true },
   { label: "Configurable lead-time reminders", anonymous: false, free: false, premium: true },
   { label: "Personal calendar export (.ics feed)", anonymous: false, free: false, premium: true },
+  {
+    label: "One-click add to Google Calendar / Outlook (feed & per-event)",
+    anonymous: false,
+    free: false,
+    premium: true,
+  },
   { label: "Event-level follow & personal notes", anonymous: false, free: false, premium: true },
   { label: "Configurable dashboard cards", anonymous: false, free: false, premium: true },
   { label: "Official set marketing images", anonymous: false, free: false, premium: true },

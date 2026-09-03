@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { X, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useUserTimeZone } from "@/lib/useUserTimeZone";
+import { googleCalendarEventUrl, outlookComEventUrl, office365EventUrl } from "@/lib/calendarLinks";
 import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
@@ -155,6 +156,8 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       )}
                     </div>
 
+                    <AddToCalendar detail={detail} isPremium={isPremium} />
+
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Source claims ({detail.sourceClaims.length})
@@ -207,5 +210,56 @@ export function EventDrawer({ eventId, onClose }: Props) {
         )}
       </AnimatePresence>
     </Dialog.Root>
+  );
+}
+
+const CALENDAR_LINK_CLASS =
+  "rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800";
+
+/**
+ * Per-event "Add to Calendar" -- a premium feature (same tier as the
+ * personal iCal feed, see app/profile/IcalFeedForm.tsx), not a data-security
+ * gate: the event's date/title are already public elsewhere in this drawer.
+ * Google/Outlook are plain external links (safe to compute client-side);
+ * the .ics download still goes through a real server-side premium check
+ * (app/api/events/[eventId]/ics/route.ts) since that one's a same-origin
+ * request a free user could otherwise script around the UI.
+ */
+function AddToCalendar({ detail, isPremium }: { detail: NonNullable<EventDetail>; isPremium: boolean }) {
+  if (!isPremium) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <Lock className="h-3.5 w-3.5 shrink-0" />
+        <Link href="/premium" className="text-blue-600 hover:underline dark:text-blue-400">
+          Upgrade to Premium
+        </Link>{" "}
+        to add this event to Google Calendar, Outlook, or download it as .ics
+      </p>
+    );
+  }
+
+  const googleUrl = googleCalendarEventUrl(detail);
+  const outlookComUrl = outlookComEventUrl(detail);
+  const office365Url = office365EventUrl(detail);
+  if (!googleUrl || !outlookComUrl || !office365Url) return null;
+
+  return (
+    <div>
+      <h3 className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Add to calendar</h3>
+      <div className="flex flex-wrap gap-2">
+        <a href={googleUrl} target="_blank" rel="noopener noreferrer" className={CALENDAR_LINK_CLASS}>
+          Google Calendar
+        </a>
+        <a href={outlookComUrl} target="_blank" rel="noopener noreferrer" className={CALENDAR_LINK_CLASS}>
+          Outlook.com
+        </a>
+        <a href={office365Url} target="_blank" rel="noopener noreferrer" className={CALENDAR_LINK_CLASS}>
+          Office 365
+        </a>
+        <a href={`/api/events/${detail.id}/ics`} className={CALENDAR_LINK_CLASS}>
+          Download .ics
+        </a>
+      </div>
+    </div>
   );
 }

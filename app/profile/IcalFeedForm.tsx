@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { googleCalendarSubscribeUrl, outlookComSubscribeUrl, office365SubscribeUrl } from "@/lib/calendarLinks";
 import { regenerateIcalToken } from "./actions";
+
+const SUBSCRIBE_LINK_CLASS =
+  "rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800";
+const FEED_NAME = "Release Watcher";
 
 export function IcalFeedForm({
   isPremium,
@@ -62,22 +67,53 @@ export function IcalFeedForm({
         )}
       </p>
       {isPremium && feedUrl && (
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            readOnly
-            value={feedUrl}
-            onFocus={(e) => e.target.select()}
-            className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-          />
-          <button
-            type="button"
-            onClick={copyToClipboard}
-            className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-          >
-            {copied ? "Copied!" : "Copy"}
-          </button>
-        </div>
+        <>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={feedUrl}
+              onFocus={(e) => e.target.select()}
+              className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+            />
+            <button
+              type="button"
+              onClick={copyToClipboard}
+              className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <a
+              href={googleCalendarSubscribeUrl(feedUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={SUBSCRIBE_LINK_CLASS}
+            >
+              Add to Google Calendar
+            </a>
+            <a
+              href={outlookComSubscribeUrl(feedUrl, FEED_NAME)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={SUBSCRIBE_LINK_CLASS}
+            >
+              Add to Outlook.com
+            </a>
+            <a
+              href={office365SubscribeUrl(feedUrl, FEED_NAME)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={SUBSCRIBE_LINK_CLASS}
+            >
+              Add to Office 365
+            </a>
+          </div>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Apple Calendar: paste the URL above into Settings &rarr; Add subscription calendar.
+          </p>
+        </>
       )}
       {isPremium && (
         <button

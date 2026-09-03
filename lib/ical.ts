@@ -5,7 +5,7 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function formatIcsDate(date: Date): string {
+export function formatIcsDate(date: Date): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
 }
 
@@ -24,7 +24,7 @@ function escapeIcsText(text: string): string {
 // DTEND is exclusive for an all-day VEVENT (RFC 5545 §3.6.1), so a
 // single-day EXACT event spans [date, date+1) and a multi-day RANGE/WINDOW
 // spans [start, end+1).
-function eventSpan(event: CalendarEvent): { start: Date; end: Date } | null {
+export function eventSpan(event: CalendarEvent): { start: Date; end: Date } | null {
   switch (event.dateType) {
     case "EXACT":
       return event.dateExact ? { start: event.dateExact, end: addDays(event.dateExact, 1) } : null;
