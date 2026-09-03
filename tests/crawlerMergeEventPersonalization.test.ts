@@ -113,3 +113,29 @@ describe("mergeReleaseEvents: EventPersonalNote reassignment", () => {
     expect(notes[0].content).toContain("duplicate note");
   });
 });
+
+describe("mergeReleaseEvents: EventReaction reassignment", () => {
+  it("moves a reaction from the duplicate onto the primary, stamped with movedFromReleaseEventId", async () => {
+    await prisma.eventReaction.create({ data: { userId, releaseEventId: duplicateId, emoji: "\u{1F525}" } });
+
+    await crawlerRepo.mergeReleaseEvents(primaryId, duplicateId);
+
+    const reactions = await prisma.eventReaction.findMany({ where: { userId } });
+    expect(reactions).toHaveLength(1);
+    expect(reactions[0].releaseEventId).toBe(primaryId);
+    expect(reactions[0].movedFromReleaseEventId).toBe(duplicateId);
+    expect(reactions[0].emoji).toBe("\u{1F525}");
+  });
+
+  it("drops the duplicate's reaction (not both) when the user already reacted to the primary too", async () => {
+    await prisma.eventReaction.create({ data: { userId, releaseEventId: primaryId, emoji: "\u{1F60D}" } });
+    await prisma.eventReaction.create({ data: { userId, releaseEventId: duplicateId, emoji: "\u{1F525}" } });
+
+    await expect(crawlerRepo.mergeReleaseEvents(primaryId, duplicateId)).resolves.not.toThrow();
+
+    const reactions = await prisma.eventReaction.findMany({ where: { userId } });
+    expect(reactions).toHaveLength(1);
+    expect(reactions[0].releaseEventId).toBe(primaryId);
+    expect(reactions[0].emoji).toBe("\u{1F60D}");
+  });
+});

@@ -175,6 +175,7 @@ model ReleaseEvent {
   eventFollows       EventFollow[]
   eventPersonalNotes EventPersonalNote[]
   eventDismissals    EventDismissal[]
+  eventReactions     EventReaction[]
 
   @@index([productSetId, type])
   @@index([dateType, dateExact, dateStart])
@@ -282,6 +283,7 @@ model User {
   eventFollows       EventFollow[]
   eventPersonalNotes EventPersonalNote[]
   eventDismissals    EventDismissal[]
+  eventReactions     EventReaction[]
 }
 
 model Account {
@@ -396,5 +398,27 @@ model EventDismissal {
   releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
 
   @@unique([userId, releaseEventId])
+  @@index([movedFromReleaseEventId])
+}
+
+// Free-tier emoji reactions (item 32): one reaction per (user, event), like
+// EventFollow/EventDismissal above -- not premium-gated, requireUser() only.
+// A user's reaction is just an emoji string from a fixed set (see
+// eventDisplay.ts's REACTION_EMOJIS); changing their pick updates the row
+// rather than adding a second one.
+model EventReaction {
+  id                      String   @id @default(cuid())
+  userId                  String
+  releaseEventId          String
+  emoji                   String
+  movedFromReleaseEventId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseEventId])
+  @@index([releaseEventId, emoji])
   @@index([movedFromReleaseEventId])
 }

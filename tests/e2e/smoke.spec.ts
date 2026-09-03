@@ -47,6 +47,20 @@ test("view detail: clicking an event opens the drawer with its source claims sec
   await expect(dialog).not.toBeVisible();
 });
 
+test("view detail: reactions section shows emoji buttons, disabled and prompting sign-in for an anonymous visitor", async ({ page }) => {
+  await page.goto("/calendar?tab=upcoming");
+  await page.getByTestId("event-row").first().click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Reactions")).toBeVisible();
+
+  const reactionButton = dialog.getByRole("button", { name: "Hype" });
+  await expect(reactionButton).toBeVisible();
+  await expect(reactionButton).toBeDisabled();
+  await expect(dialog.getByText("Sign in to react.")).toBeVisible();
+});
+
 test("filter: TCG checkbox selection persists across a reload (regression guard)", async ({ page }) => {
   // Regression coverage for a bug where installIds were parsed with an
   // empty whitelist, silently stripping every selected TCG on every

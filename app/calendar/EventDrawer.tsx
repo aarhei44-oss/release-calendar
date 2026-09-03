@@ -13,6 +13,7 @@ import { formatEventDate, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
 import { CommentsForEvent } from "./CommentsForEvent";
 import { EventPersonalization } from "./EventPersonalization";
+import { EventReactions } from "./EventReactions";
 
 type EventDetail = Awaited<ReturnType<typeof getEventDetail>>;
 
@@ -168,6 +169,8 @@ export function EventDrawer({ eventId, onClose }: Props) {
                         </p>
                       )}
                     </div>
+
+                    <EventReactions key={detail.id} eventId={detail.id} />
 
                     <AddToCalendar detail={detail} isPremium={isPremium} />
 

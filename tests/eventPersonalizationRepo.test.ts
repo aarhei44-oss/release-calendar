@@ -8,6 +8,9 @@ import {
   savePersonalNote,
   getEventPersonalization,
   getDismissedEventIds,
+  setEventReaction,
+  clearEventReaction,
+  getEventReactionSummary,
 } from "@/data/events/eventPersonalizationRepo";
 
 let userId: string;
@@ -121,5 +124,54 @@ describe("savePersonalNote", () => {
     await savePersonalNote(userId, eventId, "my private note");
     const otherUser = await prisma.user.create({ data: { email: `event-personalization-other2-${crypto.randomUUID()}@example.com` } });
     expect((await getEventPersonalization(otherUser.id, eventId)).personalNote).toBeNull();
+  });
+});
+
+describe("setEventReaction / clearEventReaction / getEventReactionSummary", () => {
+  it("returns empty counts and null myReaction for an event no one has reacted to", async () => {
+    expect(await getEventReactionSummary(eventId)).toEqual({ counts: {}, myReaction: null });
+  });
+
+  it("sets a reaction and reflects it in both counts and myReaction", async () => {
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    expect(await getEventReactionSummary(eventId, userId)).toEqual({
+      counts: { "\u{1F525}": 1 },
+      myReaction: "\u{1F525}",
+    });
+  });
+
+  it("changes an existing reaction rather than adding a second row", async () => {
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    await setEventReaction(userId, eventId, "\u{1F60D}");
+
+    const rows = await prisma.eventReaction.findMany({ where: { userId, releaseEventId: eventId } });
+    expect(rows).toHaveLength(1);
+    expect(await getEventReactionSummary(eventId, userId)).toEqual({
+      counts: { "\u{1F60D}": 1 },
+      myReaction: "\u{1F60D}",
+    });
+  });
+
+  it("clears a reaction", async () => {
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    await clearEventReaction(userId, eventId);
+    expect(await getEventReactionSummary(eventId, userId)).toEqual({ counts: {}, myReaction: null });
+  });
+
+  it("does not affect a different event", async () => {
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    expect(await getEventReactionSummary(otherEventId, userId)).toEqual({ counts: {}, myReaction: null });
+  });
+
+  it("aggregates multiple users' reactions and only reports myReaction for the given user", async () => {
+    const otherUser = await prisma.user.create({ data: { email: `event-personalization-other3-${crypto.randomUUID()}@example.com` } });
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    await setEventReaction(otherUser.id, eventId, "\u{1F525}");
+
+    expect(await getEventReactionSummary(eventId, userId)).toEqual({
+      counts: { "\u{1F525}": 2 },
+      myReaction: "\u{1F525}",
+    });
+    expect(await getEventReactionSummary(eventId)).toEqual({ counts: { "\u{1F525}": 2 }, myReaction: null });
   });
 });

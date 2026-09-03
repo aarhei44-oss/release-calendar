@@ -114,3 +114,18 @@ const STATUS_STYLES: Record<CalendarEvent["status"], string> = {
 export function statusBadgeClass(status: CalendarEvent["status"]): string {
   return STATUS_STYLES[status];
 }
+
+/**
+ * Fixed emoji reaction set for the free-tier "hype" feature (item 32) --
+ * deliberately a closed list (not free-text emoji) so counts stay
+ * meaningful and there's nothing for the server action's zod schema to
+ * sanitize beyond membership. Shared between the client component and
+ * app/calendar/actions.ts's validation so both sides can't drift.
+ */
+export const REACTION_EMOJIS = [
+  { emoji: "\u{1F525}", label: "Hype" },
+  { emoji: "\u{1F60D}", label: "Want it" },
+  { emoji: "\u{1F440}", label: "Watching" },
+  { emoji: "\u{1F614}", label: "Meh" },
+  { emoji: "\u{1F644}", label: "Skip" },
+] as const;

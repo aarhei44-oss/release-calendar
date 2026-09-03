@@ -10,7 +10,7 @@ import {
   getCommentById,
   deleteCommentById,
 } from "@/data/calendar/calendarRepo";
-import { stripPremiumImageUrls, stripDescriptionForAnonymous } from "./eventDisplay";
+import { stripPremiumImageUrls, stripDescriptionForAnonymous, REACTION_EMOJIS } from "./eventDisplay";
 import {
   followEvent as repoFollowEvent,
   unfollowEvent as repoUnfollowEvent,
@@ -18,6 +18,9 @@ import {
   undismissEvent as repoUndismissEvent,
   savePersonalNote as repoSavePersonalNote,
   getEventPersonalization as repoGetEventPersonalization,
+  setEventReaction as repoSetEventReaction,
+  clearEventReaction as repoClearEventReaction,
+  getEventReactionSummary as repoGetEventReactionSummary,
 } from "@/data/events/eventPersonalizationRepo";
 import { requireUser, requirePremium, ForbiddenError } from "@/lib/authGuards";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -167,5 +170,39 @@ export async function savePersonalNote(eventId: string, content: string) {
     const parsedEventId = eventIdSchema.parse(eventId);
     const parsedContent = personalNoteSchema.parse(content);
     return repoSavePersonalNote(user.id, parsedEventId, parsedContent);
+  });
+}
+
+// Free-tier emoji reactions (item 32) -- unlike the premium personalization
+// above, reading the aggregate counts is public (no sign-in required) since
+// it's meant to show at a glance how hyped the community is about a release;
+// only casting/clearing a reaction requires requireUser().
+
+const reactionEmojiSchema = z.enum(REACTION_EMOJIS.map((r) => r.emoji) as [string, ...string[]]);
+
+export async function getEventReactionSummary(eventId: string) {
+  return withActionLogging("calendar.getEventReactionSummary", async () => {
+    const parsed = eventIdSchema.parse(eventId);
+    const session = await getServerSession(authOptions);
+    return repoGetEventReactionSummary(parsed, session?.user?.id);
+  });
+}
+
+export async function setEventReaction(eventId: string, emoji: string) {
+  return withActionLogging("calendar.setEventReaction", async () => {
+    const user = await requireUser();
+    const parsedEventId = eventIdSchema.parse(eventId);
+    const parsedEmoji = reactionEmojiSchema.parse(emoji);
+    await repoSetEventReaction(user.id, parsedEventId, parsedEmoji);
+    return repoGetEventReactionSummary(parsedEventId, user.id);
+  });
+}
+
+export async function clearEventReaction(eventId: string) {
+  return withActionLogging("calendar.clearEventReaction", async () => {
+    const user = await requireUser();
+    const parsedEventId = eventIdSchema.parse(eventId);
+    await repoClearEventReaction(user.id, parsedEventId);
+    return repoGetEventReactionSummary(parsedEventId, user.id);
   });
 }

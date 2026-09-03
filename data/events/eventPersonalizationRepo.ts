@@ -63,3 +63,36 @@ export async function getDismissedEventIds(userId: string): Promise<string[]> {
   const rows = await prisma.eventDismissal.findMany({ where: { userId }, select: { releaseEventId: true } });
   return rows.map((r) => r.releaseEventId);
 }
+
+/** Sets (or changes) the calling user's single emoji reaction on an event. Free tier -- no premium check here, that lives in the server action's requireUser(). */
+export async function setEventReaction(userId: string, releaseEventId: string, emoji: string) {
+  return prisma.eventReaction.upsert({
+    where: { userId_releaseEventId: { userId, releaseEventId } },
+    update: { emoji },
+    create: { userId, releaseEventId, emoji },
+  });
+}
+
+export async function clearEventReaction(userId: string, releaseEventId: string) {
+  await prisma.eventReaction.deleteMany({ where: { userId, releaseEventId } });
+}
+
+export type EventReactionSummary = {
+  counts: Record<string, number>;
+  myReaction: string | null;
+};
+
+/** Aggregate counts are public (shown to every viewer, signed in or not); myReaction is only filled in for the given userId, if any. */
+export async function getEventReactionSummary(releaseEventId: string, userId?: string): Promise<EventReactionSummary> {
+  const [grouped, mine] = await Promise.all([
+    prisma.eventReaction.groupBy({ by: ["emoji"], where: { releaseEventId }, _count: { emoji: true } }),
+    userId
+      ? prisma.eventReaction.findUnique({ where: { userId_releaseEventId: { userId, releaseEventId } } })
+      : null,
+  ]);
+
+  const counts: Record<string, number> = {};
+  for (const row of grouped) counts[row.emoji] = row._count.emoji;
+
+  return { counts, myReaction: mine?.emoji ?? null };
+}

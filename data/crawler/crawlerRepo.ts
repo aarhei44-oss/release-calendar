@@ -233,6 +233,31 @@ async function reassignEventDismissals(tx: Prisma.TransactionClient, primaryId: 
   }
 }
 
+/** Same reasoning and collision handling as reassignEventFollows, for EventReaction -- a user's pick is just a flag-like emoji string, nothing lost by keeping whichever row already exists on the primary. */
+async function reassignEventReactions(tx: Prisma.TransactionClient, primaryId: string, duplicateId: string) {
+  const primaryUserIds = new Set(
+    (await tx.eventReaction.findMany({ where: { releaseEventId: primaryId }, select: { userId: true } })).map(
+      (r) => r.userId,
+    ),
+  );
+  const duplicateRows = await tx.eventReaction.findMany({
+    where: { releaseEventId: duplicateId },
+    select: { id: true, userId: true },
+  });
+  const collidingIds = duplicateRows.filter((r) => primaryUserIds.has(r.userId)).map((r) => r.id);
+  const movableIds = duplicateRows.filter((r) => !primaryUserIds.has(r.userId)).map((r) => r.id);
+
+  if (collidingIds.length > 0) {
+    await tx.eventReaction.deleteMany({ where: { id: { in: collidingIds } } });
+  }
+  if (movableIds.length > 0) {
+    await tx.eventReaction.updateMany({
+      where: { id: { in: movableIds } },
+      data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+    });
+  }
+}
+
 /**
  * Same collision as reassignFlagRows, but a personal note has real content
  * to lose -- silently dropping the duplicate's note the way a flag can be
@@ -291,10 +316,11 @@ export async function mergeReleaseEvents(primaryId: string, duplicateId: string)
     await reassignEventFollows(tx, primaryId, duplicateId);
     await reassignEventDismissals(tx, primaryId, duplicateId);
     await reassignEventPersonalNotes(tx, primaryId, duplicateId);
+    await reassignEventReactions(tx, primaryId, duplicateId);
 
     // Note: undoReleaseEventMerge below only restores SourceClaim/UserNote
     // (movedFromReleaseEventId-stamped) back to the duplicate -- it does not
-    // reverse the follow/dismissal/note reassignment above. A deliberate,
+    // reverse the follow/dismissal/note/reaction reassignment above. A deliberate,
     // documented simplification: undo is a rare admin recovery action, and
     // unlike SourceClaim/UserNote's simple move, the collision-handling
     // above (drop/merge) isn't cleanly reversible in the general case.
