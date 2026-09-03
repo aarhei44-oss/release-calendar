@@ -10,7 +10,7 @@ import {
   getCommentById,
   deleteCommentById,
 } from "@/data/calendar/calendarRepo";
-import { stripPremiumImageUrls } from "./eventDisplay";
+import { stripPremiumImageUrls, stripDescriptionForAnonymous } from "./eventDisplay";
 import {
   followEvent as repoFollowEvent,
   unfollowEvent as repoUnfollowEvent,
@@ -40,7 +40,8 @@ export async function getFilteredEvents(input: z.infer<typeof filtersSchema>) {
     const filters = filtersSchema.parse(input);
     const events = await repoGetFilteredEvents(filters);
     const session = await getServerSession(authOptions);
-    return stripPremiumImageUrls(events, session?.user?.isPremium ?? false);
+    const withoutImages = stripPremiumImageUrls(events, session?.user?.isPremium ?? false);
+    return stripDescriptionForAnonymous(withoutImages, !!session?.user);
   });
 }
 
@@ -54,7 +55,10 @@ const eventIdSchema = z.string().min(1);
  * real URL in a response the client just blurs with CSS would mean the
  * "premium" asset is one Network-tab inspection away from anyone, premium
  * or not. hasMarketingImage lets the UI still show a locked/upsell state
- * without needing the URL itself.
+ * without needing the URL itself. description gets the same treatment for
+ * signed-out visitors -- it's free once signed in, not premium, but still
+ * shouldn't ride along in the payload to an anonymous caller; hasDescription
+ * lets the drawer show a "sign in to view" prompt without the text itself.
  */
 export async function getEventDetail(eventId: string) {
   return withActionLogging("calendar.getEventDetail", async () => {
@@ -64,6 +68,7 @@ export async function getEventDetail(eventId: string) {
 
     const session = await getServerSession(authOptions);
     const isPremium = session?.user?.isPremium ?? false;
+    const isLoggedIn = !!session?.user;
 
     return {
       ...detail,
@@ -71,6 +76,8 @@ export async function getEventDetail(eventId: string) {
         ...detail.productSet,
         imageUrl: isPremium ? detail.productSet.imageUrl : null,
         hasMarketingImage: detail.productSet.imageUrl !== null,
+        description: isLoggedIn ? detail.productSet.description : null,
+        hasDescription: !!detail.productSet.description,
       },
     };
   });

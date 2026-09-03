@@ -132,4 +132,28 @@ describe("htmlTableAdapter.parse", () => {
   it("returns an empty array when the page has no tables at all", () => {
     expect(htmlTableAdapter.parse(raw("<html><body><p>no tables here</p></body></html>"), config())).toEqual([]);
   });
+
+  it("captures a Details/Notes column as the candidate description", () => {
+    const html = `
+      <table class="wikitable">
+        <tr><th>Name</th><th>Release date</th><th>Details</th></tr>
+        <tr><td>Base Set</td><td>January 9, 1999</td><td>The original TCG set.</td></tr>
+        <tr><td>Jungle</td><td>June 16, 1999</td><td></td></tr>
+      </table>
+    `;
+    const candidates = htmlTableAdapter.parse(raw(html), config());
+    expect(candidates[0].description).toBe("The original TCG set.");
+    expect(candidates[1].description).toBeUndefined();
+  });
+
+  it("omits description when no source has a details/notes-like column", () => {
+    const html = `
+      <table class="wikitable">
+        <tr><th>Name</th><th>Release date</th></tr>
+        <tr><td>Base Set</td><td>January 9, 1999</td></tr>
+      </table>
+    `;
+    const candidates = htmlTableAdapter.parse(raw(html), config());
+    expect(candidates[0].description).toBeUndefined();
+  });
 });

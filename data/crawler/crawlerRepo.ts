@@ -132,6 +132,8 @@ export async function findOrCreateProductSet(
     tcgProfileInstallId: string;
     code: string;
     name: string;
+    /** Only overwritten when a source actually yields one, so a source without a description column can't clobber one captured earlier from a richer source. */
+    description?: string;
   },
   db: Db = prisma,
 ) {
@@ -142,7 +144,7 @@ export async function findOrCreateProductSet(
         code: params.code,
       },
     },
-    update: { name: params.name },
+    update: { name: params.name, ...(params.description ? { description: params.description } : {}) },
     create: params,
   });
 }

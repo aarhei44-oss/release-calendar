@@ -306,6 +306,7 @@ async function applyCandidate(
         tcgProfileInstallId: install.id,
         code: candidate.productSetCode,
         name: candidate.productSetName,
+        description: candidate.description,
       },
       tx,
     );

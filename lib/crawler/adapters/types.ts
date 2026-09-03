@@ -11,6 +11,8 @@ export type RawFetchResult = {
 export type ParsedCandidate = {
   productSetCode: string;
   productSetName: string;
+  /** Set/release blurb, when the source page has one (e.g. a "Details" or "Notes" column). */
+  description?: string;
   eventType: ReleaseEventType;
   region: Region;
 } & ParsedDate;

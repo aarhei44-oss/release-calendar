@@ -99,6 +99,19 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       </p>
                     </div>
 
+                    {detail.productSet.hasDescription && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Description</h3>
+                        {session?.user ? (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{detail.productSet.description}</p>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Sign in to view the set description.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {detail.productSet.hasMarketingImage &&
                       (isPremium && detail.productSet.imageUrl ? (
                         // Arbitrary external per-TCG source host, unknown ahead of time, so

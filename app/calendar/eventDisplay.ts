@@ -19,6 +19,21 @@ export function stripPremiumImageUrls(events: CalendarEvent[], isPremium: boolea
   );
 }
 
+/**
+ * ProductSet.description is free once signed in, but still not for anonymous
+ * visitors -- same wire-payload reasoning as stripPremiumImageUrls above:
+ * list views don't render it today, but leaving it in the serialized props
+ * would make it one Network-tab inspection away regardless.
+ */
+export function stripDescriptionForAnonymous(events: CalendarEvent[], isLoggedIn: boolean): CalendarEvent[] {
+  if (isLoggedIn) return events;
+  return events.map((event) =>
+    event.productSet.description === null
+      ? event
+      : { ...event, productSet: { ...event.productSet, description: null } },
+  );
+}
+
 // Cached per timeZone (including the "browser/server default" case, keyed
 // under undefined) since Intl.DateTimeFormat construction isn't free and
 // these render inside list/grid loops.

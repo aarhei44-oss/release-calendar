@@ -10,6 +10,8 @@ type HtmlTableOptions = {
   nameColumnHints?: string[];
   /** Case-insensitive substring(s) to find the release-date column header. Tried in order. */
   dateColumnHints?: string[];
+  /** Case-insensitive substring(s) to find an optional set-description column header. Tried in order; sources without such a column simply yield no description. */
+  descriptionColumnHints?: string[];
   codePrefix?: string;
   eventType?: ReleaseEventType;
   region?: Region;
@@ -34,6 +36,7 @@ type HtmlTableOptions = {
 
 const DEFAULT_NAME_HINTS = ["name", "set"];
 const DEFAULT_DATE_HINTS = ["release date", "en release", "release"];
+const DEFAULT_DESCRIPTION_HINTS = ["details", "description", "notes", "summary"];
 
 /**
  * Generic adapter for MediaWiki-style (and similarly shaped) HTML data
@@ -56,6 +59,9 @@ export const htmlTableAdapter: ParserAdapter = {
     const options = (config.options ?? {}) as HtmlTableOptions;
     const nameHints = (options.nameColumnHints ?? DEFAULT_NAME_HINTS).map((h) => h.toLowerCase());
     const dateHints = (options.dateColumnHints ?? DEFAULT_DATE_HINTS).map((h) => h.toLowerCase());
+    const descriptionHints = (options.descriptionColumnHints ?? DEFAULT_DESCRIPTION_HINTS).map((h) =>
+      h.toLowerCase(),
+    );
     const eventType = options.eventType ?? "SHELF";
     const region = options.region ?? "GLOBAL";
     const codePrefix = options.codePrefix ?? "SET";
@@ -85,6 +91,9 @@ export const htmlTableAdapter: ParserAdapter = {
       const dateColIdx = findColumn(headerCells, dateHints);
       if (nameColIdx === -1 || dateColIdx === -1 || nameColIdx === dateColIdx) return;
 
+      let descriptionColIdx = findColumn(headerCells, descriptionHints);
+      if (descriptionColIdx === nameColIdx || descriptionColIdx === dateColIdx) descriptionColIdx = -1;
+
       for (const row of rows.slice(1)) {
         const cells = $(row)
           .find("td")
@@ -97,10 +106,13 @@ export const htmlTableAdapter: ParserAdapter = {
         if (!name) continue;
 
         const parsedDate = parseFlexibleDate(dateText ?? "");
+        const description =
+          descriptionColIdx !== -1 && cells.length > descriptionColIdx ? cells[descriptionColIdx] : "";
 
         candidates.push({
           productSetCode: `${codePrefix}-${slugify(name)}`,
           productSetName: name,
+          ...(description ? { description } : {}),
           eventType,
           region,
           ...parsedDate,
