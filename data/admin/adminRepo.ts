@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/app/generated/prisma/client";
 import { runScan } from "@/lib/crawler/orchestrate";
 import { runDedupPass } from "@/lib/crawler/dedupPass";
+import { runReleaseLifecyclePass } from "@/lib/crawler/lifecycle";
 
 export async function listPackagesWithInstalls() {
   return prisma.tcgProfilePackage.findMany({
@@ -71,4 +72,8 @@ export async function triggerRescan(installId: string) {
 
 export async function triggerDedup() {
   return runDedupPass();
+}
+
+export async function triggerReleaseLifecycle() {
+  return runReleaseLifecyclePass();
 }

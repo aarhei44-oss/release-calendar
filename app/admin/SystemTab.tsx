@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { triggerRescan, triggerDedup } from "./actions";
+import { triggerRescan, triggerDedup, triggerReleaseLifecycle } from "./actions";
 
 type ScanRun = {
   id: string;
@@ -50,7 +50,7 @@ export function SystemTab({
         setMessage(
           result.skipped
             ? `Rescan skipped: ${result.reason}`
-            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.errors} error(s)).`,
+            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.errors} error(s)).`,
         );
         router.refresh();
       } catch (e) {
@@ -70,6 +70,19 @@ export function SystemTab({
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Dedup pass failed.");
+      }
+    });
+  }
+
+  function runReleaseLifecycle() {
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        const result = await triggerReleaseLifecycle();
+        setMessage(`Release lifecycle pass complete: ${result.eventsReleased} event(s) transitioned to RELEASED.`);
+        router.refresh();
+      } catch (e) {
+        setMessage(e instanceof Error ? e.message : "Release lifecycle pass failed.");
       }
     });
   }
@@ -103,6 +116,14 @@ export function SystemTab({
           className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
         >
           Trigger dedup pass
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={runReleaseLifecycle}
+          className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
+        >
+          Trigger release lifecycle pass
         </button>
       </div>
 

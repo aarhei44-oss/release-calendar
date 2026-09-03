@@ -17,6 +17,7 @@ import {
   listScanRuns,
   triggerRescan,
   triggerDedup,
+  triggerReleaseLifecycle,
 } from "@/app/admin/actions";
 
 const mockGetServerSession = vi.mocked(getServerSession);
@@ -60,6 +61,7 @@ describe("admin Server Actions -- authorization", () => {
     ["listScanRuns", () => listScanRuns()],
     ["triggerRescan", () => triggerRescan(installId)],
     ["triggerDedup", () => triggerDedup()],
+    ["triggerReleaseLifecycle", () => triggerReleaseLifecycle()],
   ];
 
   for (const [name, call] of unauthenticatedCases) {
@@ -114,6 +116,12 @@ describe("triggerRescan / triggerDedup (System tab)", () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
     const result = await triggerDedup();
     expect(result.groupsChecked).toBeGreaterThanOrEqual(0);
+  });
+
+  it("lets an admin run a release lifecycle pass", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const result = await triggerReleaseLifecycle();
+    expect(result.eventsReleased).toBeGreaterThanOrEqual(0);
   });
 });
 

@@ -70,6 +70,11 @@ describe("runScan (fixture adapter, end-to-end)", () => {
     expect(exactEvent.sourceClaims[0].disposition).toBe("SUPPORTS");
     expect(exactEvent.confidence).toBeGreaterThan(0);
     expect(exactEvent.status).not.toBe("CANCELLED");
+    // March 15, 2026 has already passed as of this test run, and the
+    // post-scan release lifecycle pass (orchestrate.ts) should have caught
+    // it without needing a separate triggerReleaseLifecycle() call.
+    expect(exactEvent.status).toBe("RELEASED");
+    expect(result.totals.eventsReleased).toBeGreaterThanOrEqual(1);
 
     const windowEvent = await prisma.releaseEvent.findFirstOrThrow({
       where: { productSet: { name: "Fixture Booster Two" } },

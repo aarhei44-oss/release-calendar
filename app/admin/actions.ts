@@ -84,3 +84,10 @@ export async function triggerDedup() {
     return adminRepo.triggerDedup();
   });
 }
+
+export async function triggerReleaseLifecycle() {
+  return withActionLogging("admin.triggerReleaseLifecycle", async () => {
+    await requireAdmin();
+    return adminRepo.triggerReleaseLifecycle();
+  });
+}

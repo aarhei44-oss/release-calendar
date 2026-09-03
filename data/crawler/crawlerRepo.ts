@@ -170,6 +170,31 @@ export async function getProductSetsForFuzzyMerge(installIds?: string[]) {
   });
 }
 
+/**
+ * Flips every non-terminal (not already RELEASED/CANCELLED) ReleaseEvent
+ * whose known date has passed to RELEASED, and returns how many were
+ * changed. TBD events are never matched (no date to compare), and a
+ * RANGE/WINDOW event only releases once its *end* has passed, not its
+ * start. A single bulk update, not a read-then-write loop: this never
+ * depends on anything other than "is today past this event's date."
+ */
+export async function releasePastDueEvents(installIds?: string[]) {
+  const now = new Date();
+  const result = await prisma.releaseEvent.updateMany({
+    where: {
+      status: { notIn: ["RELEASED", "CANCELLED"] },
+      ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+      OR: [
+        { dateType: "EXACT", dateExact: { lt: now } },
+        { dateType: "RANGE", dateEnd: { lt: now } },
+        { dateType: "WINDOW", windowEnd: { lt: now } },
+      ],
+    },
+    data: { status: "RELEASED" },
+  });
+  return result.count;
+}
+
 export async function getAllReleaseEventsForDedup(installIds?: string[]) {
   return prisma.releaseEvent.findMany({
     where: installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : undefined,
