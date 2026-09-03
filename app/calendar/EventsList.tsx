@@ -1,6 +1,7 @@
 "use client";
 
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "./mapEvents";
 import { formatEventDate, formatRelativeTime, sortKeyFor, statusBadgeClass } from "./eventDisplay";
 
@@ -18,6 +19,7 @@ export function EventsList({
   emptyMessage = "No releases match the current filters.",
   sortBy = "date",
 }: Props) {
+  const timeZone = useUserTimeZone();
   const sorted =
     sortBy === "recentlyUpdated"
       ? [...events].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -41,7 +43,7 @@ export function EventsList({
               <p className="font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {event.productSet.install.package.name} ·{" "}
-                {sortBy === "recentlyUpdated" ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event)}
+                {sortBy === "recentlyUpdated" ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event, timeZone)}
               </p>
             </div>
             <span

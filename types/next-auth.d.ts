@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       role: UserRole;
       active: boolean;
+      timezone: string | null;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -15,5 +16,6 @@ declare module "next-auth" {
   interface User {
     role: UserRole;
     active: boolean;
+    timezone: string | null;
   }
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Sparkles, PartyPopper, ChevronRight } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "@/app/calendar/mapEvents";
 import { formatEventDate, formatRelativeTime, statusBadgeClass } from "@/app/calendar/eventDisplay";
 
@@ -42,6 +43,7 @@ function EventCard({
   onSelect: (id: string) => void;
   showRelativeTime?: boolean;
 }) {
+  const timeZone = useUserTimeZone();
   return (
     <button
       type="button"
@@ -53,7 +55,7 @@ function EventCard({
         <p className="truncate font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
         <p className="truncate text-sm text-gray-500 dark:text-gray-400">
           {event.productSet.install.package.name} ·{" "}
-          {showRelativeTime ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event)}
+          {showRelativeTime ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event, timeZone)}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">

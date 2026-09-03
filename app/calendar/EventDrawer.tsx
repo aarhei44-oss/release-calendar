@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
+import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
@@ -21,6 +22,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
     eventId: string;
     detail: EventDetail;
   } | null>(null);
+  const timeZone = useUserTimeZone();
   const open = eventId !== null;
   const loading = eventId !== null && fetched?.eventId !== eventId;
   const detail = fetched?.eventId === eventId ? fetched.detail : null;
@@ -110,7 +112,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Date</h3>
                       <p className="text-sm text-gray-900 dark:text-gray-100">
-                        {formatEventDate(detail)}{" "}
+                        {formatEventDate(detail, timeZone)}{" "}
                         <span className="text-gray-500 dark:text-gray-400">
                           ({detail.dateType.toLowerCase()})
                         </span>
