@@ -6,6 +6,7 @@ import {
   isFuzzyProductSetNameMatch,
   isMatchableNormalizedName,
   normalizeProductSetName,
+  significantTokenSet,
 } from "./dedup";
 
 export type DedupPassResult = { groupsChecked: number; eventsMerged: number; productSetsMerged: number };
@@ -75,17 +76,43 @@ export async function runDedupPass(params: { installIds?: string[] } = {}): Prom
     for (const survivors of survivorsByInstall.values()) {
       const sorted = [...survivors].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
       const mergedAway = new Set<string>();
-      for (let i = 0; i < sorted.length; i++) {
-        const primary = sorted[i];
-        if (mergedAway.has(primary.id)) continue;
-        for (let j = i + 1; j < sorted.length; j++) {
-          const candidate = sorted[j];
-          if (mergedAway.has(candidate.id)) continue;
-          if (!isFuzzyProductSetNameMatch(primary.name, candidate.name)) continue;
-          await crawlerRepo.mergeProductSets(primary.id, candidate.id);
-          mergedAway.add(candidate.id);
-          productSetsMerged += 1;
+
+      // Bucket by shared significant token instead of comparing every pair
+      // -- see significantTokenSet's docstring for why this is safe (drops
+      // zero true matches). `candidatePairs` collects each (i, j) with i<j
+      // at most once even if the pair shares several tokens, then they're
+      // visited in the same (i, then j) order the old nested loop used, so
+      // "the earliest unmerged entry always survives as primary" still
+      // holds exactly as before.
+      const byToken = new Map<string, number[]>();
+      sorted.forEach((entry, idx) => {
+        for (const token of significantTokenSet(entry.name)) {
+          const list = byToken.get(token);
+          if (list) list.push(idx);
+          else byToken.set(token, [idx]);
         }
+      });
+
+      const candidatePairs = new Set<number>();
+      for (const indices of byToken.values()) {
+        for (let a = 0; a < indices.length; a++) {
+          for (let b = a + 1; b < indices.length; b++) {
+            candidatePairs.add(indices[a] * sorted.length + indices[b]);
+          }
+        }
+      }
+
+      const sortedPairs = [...candidatePairs].sort((a, b) => a - b);
+      for (const key of sortedPairs) {
+        const i = Math.floor(key / sorted.length);
+        const j = key % sorted.length;
+        const primary = sorted[i];
+        const candidate = sorted[j];
+        if (mergedAway.has(primary.id) || mergedAway.has(candidate.id)) continue;
+        if (!isFuzzyProductSetNameMatch(primary.name, candidate.name)) continue;
+        await crawlerRepo.mergeProductSets(primary.id, candidate.id);
+        mergedAway.add(candidate.id);
+        productSetsMerged += 1;
       }
     }
 

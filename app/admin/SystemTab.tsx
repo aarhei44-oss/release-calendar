@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   triggerRescan,
@@ -52,17 +52,29 @@ export function SystemTab({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
+  // Rescans (manual and the daily scheduled one) now run in the background
+  // rather than blocking a request on them, so the only way this page
+  // reflects a finished run is a fresh server render. Poll while a run is
+  // still in progress instead of requiring a manual refresh; stops itself
+  // once the table's most recent RUNNING row is gone.
+  const hasRunningScan = scanRuns.some((run) => run.status === "RUNNING");
+  useEffect(() => {
+    if (!hasRunningScan) return;
+    const interval = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [hasRunningScan, router]);
+
   function runRescan() {
     if (!selectedInstall) return;
     setMessage(null);
     startTransition(async () => {
       try {
-        const result = await triggerRescan(selectedInstall);
-        setMessage(
-          result.skipped
-            ? `Rescan skipped: ${result.reason}`
-            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.imagesFetched} image(s) fetched, ${result.totals.eventsDeleted} deleted, ${result.totals.productSetsPurged} product set(s) purged, ${result.totals.errors} error(s)).`,
-        );
+        // A full rescan can take a while for a large install, so this only
+        // starts it in the background rather than waiting for it to finish
+        // -- the scan runs table below polls while a run is in progress
+        // (see the effect above) and shows the final totals once it lands.
+        await triggerRescan(selectedInstall);
+        setMessage("Rescan started -- see the scan runs table below for progress.");
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Rescan failed.");

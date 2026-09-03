@@ -13,6 +13,16 @@ import type {
   WindowGranularity,
 } from "@/app/generated/prisma/client";
 
+/**
+ * Accepted by every crawler-write function below in place of the shared
+ * `prisma` client -- orchestrate.ts's applyCandidate passes a
+ * `$transaction` callback's `tx` through this parameter so a single
+ * candidate's whole read-modify-write sequence (product set, event match,
+ * claim, confidence recompute) commits once instead of once per statement,
+ * without duplicating any of this module's logic for that hot path.
+ */
+type Db = typeof prisma | Prisma.TransactionClient;
+
 export async function createScanRun(params: { scopeType: ScanScopeType; scopeId?: string; trigger: ScanTrigger }) {
   return prisma.scanRun.create({
     data: {
@@ -58,19 +68,22 @@ export async function recordDiscoveryHit(params: {
   });
 }
 
-export async function recordSourceClaim(params: {
-  releaseEventId: string;
-  tier: SourceTier;
-  disposition: SourceDisposition;
-  confidenceWeight: number;
-  url: string;
-  host?: string;
-  dateExact?: Date;
-  dateStart?: Date;
-  dateEnd?: Date;
-  raw?: Prisma.InputJsonValue;
-}) {
-  return prisma.sourceClaim.create({
+export async function recordSourceClaim(
+  params: {
+    releaseEventId: string;
+    tier: SourceTier;
+    disposition: SourceDisposition;
+    confidenceWeight: number;
+    url: string;
+    host?: string;
+    dateExact?: Date;
+    dateStart?: Date;
+    dateEnd?: Date;
+    raw?: Prisma.InputJsonValue;
+  },
+  db: Db = prisma,
+) {
+  return db.sourceClaim.create({
     data: { ...params, lastVerifiedAt: new Date() },
   });
 }
@@ -114,12 +127,15 @@ export async function getInstallsForScan(scopeType: ScanScopeType, scopeId?: str
   });
 }
 
-export async function findOrCreateProductSet(params: {
-  tcgProfileInstallId: string;
-  code: string;
-  name: string;
-}) {
-  return prisma.productSet.upsert({
+export async function findOrCreateProductSet(
+  params: {
+    tcgProfileInstallId: string;
+    code: string;
+    name: string;
+  },
+  db: Db = prisma,
+) {
+  return db.productSet.upsert({
     where: {
       tcgProfileInstallId_code: {
         tcgProfileInstallId: params.tcgProfileInstallId,
@@ -137,8 +153,12 @@ export async function findOrCreateProductSet(params: {
  * could silently attach to a frozen duplicate instead of the live survivor,
  * since after a merge they still share the same (productSetId, type).
  */
-export async function findEventsForProductSetType(productSetId: string, type: ReleaseEventType) {
-  return prisma.releaseEvent.findMany({ where: { productSetId, type, archivedAt: null } });
+export async function findEventsForProductSetType(
+  productSetId: string,
+  type: ReleaseEventType,
+  db: Db = prisma,
+) {
+  return db.releaseEvent.findMany({ where: { productSetId, type, archivedAt: null } });
 }
 
 /**
@@ -554,24 +574,27 @@ export async function setProductSetImageUrl(id: string, imageUrl: string) {
   return prisma.productSet.update({ where: { id }, data: { imageUrl } });
 }
 
-export async function getClaimsForEvent(eventId: string) {
-  return prisma.sourceClaim.findMany({
+export async function getClaimsForEvent(eventId: string, db: Db = prisma) {
+  return db.sourceClaim.findMany({
     where: { releaseEventId: eventId },
     select: { tier: true, disposition: true, confidenceWeight: true },
   });
 }
 
-export async function createReleaseEventFromCandidate(params: {
-  productSetId: string;
-  type: ReleaseEventType;
-  region: Region;
-  dateType: DateType;
-  dateExact?: Date | null;
-  windowGranularity?: WindowGranularity | null;
-  windowStart?: Date | null;
-  windowEnd?: Date | null;
-}) {
-  return prisma.releaseEvent.create({ data: params });
+export async function createReleaseEventFromCandidate(
+  params: {
+    productSetId: string;
+    type: ReleaseEventType;
+    region: Region;
+    dateType: DateType;
+    dateExact?: Date | null;
+    windowGranularity?: WindowGranularity | null;
+    windowStart?: Date | null;
+    windowEnd?: Date | null;
+  },
+  db: Db = prisma,
+) {
+  return db.releaseEvent.create({ data: params });
 }
 
 type EventDateFields = {
@@ -587,20 +610,34 @@ type EventDateFields = {
  * is under manual override, its date fields too -- crawler writes to dates
  * are skipped for manually-overridden events, but claims are still
  * recorded for visibility (technical-spec.md §6.3 step 5).
+ *
+ * `isManualOverride` lets a caller that already knows the event's current
+ * value (e.g. orchestrate.ts's applyCandidate, from the row it just matched
+ * or created) skip the extra lookup below -- it's only fetched when omitted
+ * and `dateInfo` is actually present (dedupPass.ts/mergeUndo.ts never pass
+ * dateInfo, so they never pay for it either way).
  */
 export async function updateEventFromClaims(
   eventId: string,
-  params: { confidence: number; status: ReleaseStatus; dateInfo?: EventDateFields },
+  params: { confidence: number; status: ReleaseStatus; dateInfo?: EventDateFields; isManualOverride?: boolean },
+  db: Db = prisma,
 ) {
-  const event = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: eventId } });
+  let dateFields: EventDateFields | Record<string, never> = {};
+  if (params.dateInfo) {
+    const isManualOverride =
+      params.isManualOverride ??
+      (await db.releaseEvent.findUniqueOrThrow({ where: { id: eventId }, select: { isManualOverride: true } }))
+        .isManualOverride;
+    if (!isManualOverride) dateFields = params.dateInfo;
+  }
 
-  return prisma.releaseEvent.update({
+  return db.releaseEvent.update({
     where: { id: eventId },
     data: {
       confidence: params.confidence,
       status: params.status,
       lastSeenAt: new Date(),
-      ...(event.isManualOverride || !params.dateInfo ? {} : params.dateInfo),
+      ...dateFields,
     },
   });
 }

@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { logEvent, withActionLogging } from "@/lib/logger";
+import { fetchWithRetry } from "./httpFetch";
 import type { ImageSourceConfig } from "./adapters/types";
 
 export type ImageEnrichmentResult = { imagesFetched: number; errors: number };
@@ -61,19 +62,9 @@ function buildProductPageUrl(
 
 /** Fetches a product page and reads its og:image meta tag, resolved to an absolute URL. Returns null if the page has none. */
 async function fetchOgImage(pageUrl: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
-  let html: string;
-  try {
-    const response = await fetch(pageUrl, {
-      signal: controller.signal,
-      headers: { "User-Agent": "release-watcher-crawler/1.0 (self-hosted TCG calendar)" },
-    });
-    if (!response.ok) return null;
-    html = await response.text();
-  } finally {
-    clearTimeout(timeout);
-  }
+  const response = await fetchWithRetry(pageUrl);
+  if (!response.ok) return null;
+  const html = await response.text();
 
   const $ = cheerio.load(html);
   const content = $('meta[property="og:image"]').attr("content") ?? $('meta[name="og:image"]').attr("content");

@@ -94,6 +94,21 @@ function significantTokens(name: string): { tokens: Set<string>; numbers: Set<st
 }
 
 /**
+ * The same significant (stopword-filtered) tokens productSetNameSimilarity
+ * scores on, exposed for bucketing candidates before a pairwise fuzzy-match
+ * scan (see dedupPass.ts): two names with zero tokens in common always
+ * score 0 (Dice's numerator is literally the shared-token count, and the
+ * exact-match-after-code-strip path requires a nonempty, equal token set,
+ * which also implies overlap), so grouping by shared token first -- instead
+ * of comparing every pair in an install -- drops zero true matches while
+ * turning an O(n^2) scan into one bounded by how many *other* sets share a
+ * word with each set, which stopword-filtering already keeps small.
+ */
+export function significantTokenSet(name: string): Set<string> {
+  return significantTokens(name).tokens;
+}
+
+/**
  * Dice coefficient over significant (stopword-filtered) name tokens, for
  * catching cross-source ProductSet name variants that share no substring
  * after `normalizeProductSetName` -- e.g. a redundant sequence-label prefix

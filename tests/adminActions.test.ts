@@ -27,6 +27,20 @@ import {
 
 const mockGetServerSession = vi.mocked(getServerSession);
 
+/** Polls for the ScanRun a background (fire-and-forget) triggerRescan writes, instead of a fixed sleep. */
+async function waitForScanRun(scopeId: string, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const run = await prisma.scanRun.findFirst({
+      where: { scopeId, status: { not: "RUNNING" } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (run) return run;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`no completed ScanRun for scopeId ${scopeId} within ${timeoutMs}ms`);
+}
+
 function sessionFor(user: { id: string; role?: "USER" | "ADMIN"; active?: boolean }) {
   return {
     user: { id: user.id, role: user.role ?? "USER", active: user.active ?? true },
@@ -113,13 +127,19 @@ describe("enableAndSeedInstall", () => {
 });
 
 describe("triggerRescan / triggerDedup (System tab)", () => {
-  it("lets an admin run a rescan (this test install has no sourceConfigs, so it's network-free)", async () => {
+  it("lets an admin start a rescan (this test install has no sourceConfigs, so it's network-free)", async () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
     const result = await triggerRescan(installId);
-    expect(result.skipped).toBe(false);
-    if (!result.skipped) {
-      expect(result.totals.sourcesFetched).toBe(0);
-    }
+    expect(result).toEqual({ started: true });
+
+    // triggerRescan fires the scan in the background rather than awaiting
+    // it (a real scan can take too long for the Server Action's caller to
+    // wait on) -- poll for the ScanRun it writes instead of a fixed sleep,
+    // since this install's empty sourceConfigs mean the background scan is
+    // network-free and finishes within a handful of event-loop turns.
+    const scanRun = await waitForScanRun(installId);
+    expect(scanRun.status).toBe("SUCCEEDED");
+    expect((scanRun.totals as { sourcesFetched?: number } | null)?.sourcesFetched).toBe(0);
   });
 
   it("lets an admin run a dedup pass", async () => {

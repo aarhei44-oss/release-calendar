@@ -5,6 +5,7 @@ import { runDedupPass } from "@/lib/crawler/dedupPass";
 import { runReleaseLifecyclePass } from "@/lib/crawler/lifecycle";
 import { runRetentionCleanupPass } from "@/lib/crawler/retention";
 import { undoProductSetMergeAndRecompute, undoReleaseEventMergeAndRecompute } from "@/lib/crawler/mergeUndo";
+import { logEvent } from "@/lib/logger";
 
 export async function listPackagesWithInstalls() {
   return prisma.tcgProfilePackage.findMany({
@@ -78,8 +79,28 @@ export async function listScanRuns(installId?: string) {
   });
 }
 
-export async function triggerRescan(installId: string) {
-  return runScan({ scopeType: "INSTALL", scopeId: installId, trigger: "MANUAL" });
+/**
+ * Fire-and-forget, same pattern as the daily scheduled scan in
+ * scheduler.ts: a full rescan can take upwards of 20-60+ seconds for a
+ * large install, and this is called directly from a Server Action awaited
+ * by the browser (SystemTab.tsx) -- awaiting it here risks the request
+ * outliving the reverse proxy's read timeout even though the scan itself
+ * would have succeeded. runScan logs its own outcome and writes a ScanRun
+ * row the admin System tab already polls, so there's nothing this loses
+ * except the immediate "already running" skip reason, which only matters
+ * for the rare case of a double-click or two admins racing the same
+ * install.
+ */
+export async function triggerRescan(installId: string): Promise<{ started: true }> {
+  runScan({ scopeType: "INSTALL", scopeId: installId, trigger: "MANUAL" }).catch((error) => {
+    logEvent({
+      action: "admin.triggerRescan.background",
+      tcgProfileInstallId: installId,
+      outcome: "error",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  return { started: true };
 }
 
 export async function triggerDedup() {
