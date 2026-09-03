@@ -4,6 +4,8 @@ import { runScan } from "@/lib/crawler/orchestrate";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { SourceConfig } from "@/lib/crawler/adapters/types";
+import { createFixtureAdapter } from "@/lib/crawler/adapters/fixtureAdapter";
+import { registerAdapter } from "@/lib/crawler/adapters/registry";
 
 let installId: string;
 
@@ -240,5 +242,78 @@ describe("runScan (automatic post-scan dedup)", () => {
     const candidateEvents = await crawlerRepo.findEventsForProductSetType(productSet.id, "SHELF");
     expect(candidateEvents.map((e) => e.id)).toEqual([primary.id]);
     expect(candidateEvents.map((e) => e.id)).not.toContain(archivedDuplicate.id);
+  });
+});
+
+describe("runScan (resolving a dateless TBD placeholder with a fresh dated candidate)", () => {
+  // Regression test for a real production bug: e176e8c's bare-year date
+  // parsing (dateParsing.ts) lets a candidate for a decades-old historical
+  // product resolve to a real WINDOW/YEAR date instead of TBD, but
+  // findMatchingEvent (dedup.ts) never matches a dated candidate against a
+  // dateless existing event -- so the fresh candidate created a sibling
+  // ReleaseEvent instead of updating the pre-existing TBD one, and that
+  // sibling (dated decades in the past) was then immediately hard-deleted
+  // by this same scan's own retention pass, before the resolved date was
+  // ever visible. Verified live against production (see project memory)
+  // before this fix.
+  const HISTORICAL_FIXTURE_HTML = `
+<html><body>
+<table class="wikitable">
+  <tr><th>Set No.</th><th>Name</th><th>Release date</th><th>Details</th></tr>
+  <tr><td>1</td><td>Historical Fixture Set</td><td>1997</td><td>Bare-year historical date</td></tr>
+</table>
+</body></html>
+`;
+  const historicalSourceConfig: SourceConfig = {
+    url: "https://example.com/historical-fixture-sets",
+    tier: "COMMUNITY",
+    parser: "fixture-tbd-resolve",
+  };
+
+  beforeAll(() => {
+    registerAdapter(createFixtureAdapter(HISTORICAL_FIXTURE_HTML, "fixture-tbd-resolve"));
+  });
+
+  it("resolves the sole existing TBD event in place instead of creating (and same-scan-purging) a sibling, and excludes it from this scan's retention purge", async () => {
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: {
+        slug: "crawler-orchestrate-tbd-resolve-test",
+        name: "Crawler Orchestrate TBD Resolve Test",
+        version: "1.0.0",
+        discoveryConfig: {},
+        sourceConfigs: [historicalSourceConfig] as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const install = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
+    });
+
+    // Pre-seed exactly the TBD row a pre-fix crawl of this same source
+    // would have left behind -- same productSetCode the fixture's adapter
+    // will independently derive (SET-<slugified name>), so this scan's
+    // candidate matches this ProductSet rather than creating a new one.
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: install.id, code: "SET-HISTORICAL-FIXTURE-SET", name: "Historical Fixture Set" },
+    });
+    const tbdEvent = await prisma.releaseEvent.create({
+      data: { productSetId: productSet.id, type: "SHELF", dateType: "TBD", status: "RUMORED", confidence: 0.1 },
+    });
+
+    const result = await runScan({ scopeType: "INSTALL", scopeId: install.id, trigger: "MANUAL" });
+    expect(result.skipped).toBe(false);
+    if (result.skipped) return;
+
+    const events = await prisma.releaseEvent.findMany({ where: { productSetId: productSet.id } });
+    // Resolved in place -- same row, not a new sibling -- and still
+    // present despite its real date being decades past the 30-day
+    // retention cutoff, since it was excluded from this scan's own
+    // retention pass.
+    expect(events).toHaveLength(1);
+    expect(events[0].id).toBe(tbdEvent.id);
+    expect(events[0].dateType).toBe("WINDOW");
+    expect(events[0].windowGranularity).toBe("YEAR");
+    expect(events[0].windowStart?.getUTCFullYear()).toBe(1997);
+    expect(events[0].windowEnd?.getUTCFullYear()).toBe(1997);
+    expect(result.totals.eventsDeleted).toBe(0);
   });
 });

@@ -512,12 +512,20 @@ export async function getChangeContextForEvents(eventIds: string[]) {
  * PROXIMITY_DAYS), so both sides of a merge age out together. Cascades to
  * SourceClaim/UserNote via the existing onDelete: Cascade. TBD events have
  * no date and are never matched, so they're never deleted by age.
+ *
+ * `excludeEventIds`, when given, is skipped regardless of date -- see
+ * runRetentionCleanupPass's docstring for why orchestrate.ts passes one.
  */
-export async function deleteOldEvents(installIds?: string[], olderThanDays = 30): Promise<number> {
+export async function deleteOldEvents(
+  installIds?: string[],
+  olderThanDays = 30,
+  excludeEventIds?: string[],
+): Promise<number> {
   const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
   const result = await prisma.releaseEvent.deleteMany({
     where: {
       ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+      ...(excludeEventIds && excludeEventIds.length > 0 ? { id: { notIn: excludeEventIds } } : {}),
       OR: [
         { dateType: "EXACT", dateExact: { lt: cutoff } },
         { dateType: "RANGE", dateEnd: { lt: cutoff } },

@@ -39,9 +39,9 @@ export const FIXTURE_HTML = `
 </body></html>
 `;
 
-export function createFixtureAdapter(html: string = FIXTURE_HTML): ParserAdapter {
+export function createFixtureAdapter(html: string = FIXTURE_HTML, key: string = "fixture"): ParserAdapter {
   return {
-    key: "fixture",
+    key,
     async fetch(config: SourceConfig): Promise<RawFetchResult> {
       return { url: config.url, status: 200, html, fetchedAt: new Date() };
     },

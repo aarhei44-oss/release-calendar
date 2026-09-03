@@ -83,6 +83,12 @@ export async function runScan(params: {
   };
 
   const changes: ScanChange[] = [];
+  // Event ids whose dateless TBD placeholder just got resolved to a real
+  // date by this scan (see applyCandidate) -- excluded from this same
+  // scan's retention purge below so a decades-old resolved date is
+  // visible for at least one cycle instead of vanishing the instant it's
+  // discovered.
+  const resolvedFromTbdIds = new Set<string>();
 
   try {
     const installs = await crawlerRepo.getInstallsForScan(params.scopeType, params.scopeId);
@@ -98,7 +104,7 @@ export async function runScan(params: {
     }
 
     await mapWithConcurrency(tasks, SOURCE_FETCH_CONCURRENCY, ({ install, sourceConfig }) =>
-      scanSource(install, sourceConfig, scanRun.id, totals, changes),
+      scanSource(install, sourceConfig, scanRun.id, totals, changes, resolvedFromTbdIds),
     );
 
     await runPassSafely("crawler.postScanDedup", scanRun.id, totals, async () => {
@@ -132,7 +138,10 @@ export async function runScan(params: {
     });
 
     await runPassSafely("crawler.postScanRetention", scanRun.id, totals, async () => {
-      const retentionResult = await runRetentionCleanupPass({ installIds: installs.map((install) => install.id) });
+      const retentionResult = await runRetentionCleanupPass({
+        installIds: installs.map((install) => install.id),
+        excludeEventIds: [...resolvedFromTbdIds],
+      });
       totals.eventsDeleted = retentionResult.eventsDeleted;
       totals.productSetsPurged = retentionResult.productSetsPurged;
     });
@@ -225,6 +234,7 @@ async function scanSource(
   scanRunId: string,
   totals: ScanTotals,
   changes: ScanChange[],
+  resolvedFromTbdIds: Set<string>,
 ): Promise<void> {
   const adapter = getAdapter(sourceConfig.parser);
   if (!adapter) {
@@ -257,11 +267,12 @@ async function scanSource(
       // beats an all-or-nothing batch here, since each candidate is an
       // independent claim).
       try {
-        const { created, change } = await applyCandidate(install, sourceConfig, candidate);
+        const { created, change, resolvedFromTbdEventId } = await applyCandidate(install, sourceConfig, candidate);
         totals.claimsCreated += 1;
         if (created) totals.eventsCreated += 1;
         else totals.eventsUpdated += 1;
         if (change) changes.push(change);
+        if (resolvedFromTbdEventId) resolvedFromTbdIds.add(resolvedFromTbdEventId);
       } catch (error) {
         totals.errors += 1;
         logEvent({
@@ -299,7 +310,7 @@ async function applyCandidate(
   install: TcgProfileInstall & { package: TcgProfilePackage },
   sourceConfig: SourceConfig,
   candidate: ParsedCandidate,
-): Promise<{ created: boolean; change: ScanChange | null }> {
+): Promise<{ created: boolean; change: ScanChange | null; resolvedFromTbdEventId?: string }> {
   return prisma.$transaction(async (tx) => {
     const productSet = await crawlerRepo.findOrCreateProductSet(
       {
@@ -313,10 +324,35 @@ async function applyCandidate(
 
     const candidateDateInfo = toDateInfo(candidate);
     const existingEvents = await crawlerRepo.findEventsForProductSetType(productSet.id, candidate.eventType, tx);
-    const matchedExisting = findMatchingEvent(candidateDateInfo, existingEvents);
+    let matchedExisting = findMatchingEvent(candidateDateInfo, existingEvents);
+
+    // findMatchingEvent above never matches a dated candidate to a
+    // dateless existing event (there's no date to compare) -- exactly
+    // the rule dedupPass.ts's own Phase 1 relies on to keep an unrelated
+    // TBD row from swallowing two already-distinct dated duplicates. But
+    // here, with no *other* event on record for this productSet+type,
+    // that lone TBD placeholder is this same product, just previously
+    // unable to resolve a date -- resolve it in place instead of
+    // spawning a sibling event that the same scan's retention pass would
+    // immediately purge as "decades past its date" (this is what let
+    // e176e8c's bare-year date-parsing fix reach real historical
+    // candidates like MTG's 1997-2004 World Championship Decks without
+    // ever actually updating the stranded TBD row retention couldn't
+    // touch, and couldn't touch precisely because it stayed TBD).
+    let resolvedFromTbdEventId: string | undefined;
+    if (
+      !matchedExisting &&
+      candidateDateInfo.dateType !== "TBD" &&
+      existingEvents.length === 1 &&
+      existingEvents[0].dateType === "TBD"
+    ) {
+      matchedExisting = existingEvents[0];
+      resolvedFromTbdEventId = matchedExisting.id;
+    }
+    const resolvedExisting = matchedExisting;
 
     const event =
-      matchedExisting ??
+      resolvedExisting ??
       (await crawlerRepo.createReleaseEventFromCandidate(
         {
           productSetId: productSet.id,
@@ -326,9 +362,9 @@ async function applyCandidate(
         },
         tx,
       ));
-    const created = !matchedExisting;
+    const created = !resolvedExisting;
 
-    const disposition = dispositionFor(candidateDateInfo, created ? null : matchedExisting);
+    const disposition = dispositionFor(candidateDateInfo, created ? null : resolvedExisting);
 
     await crawlerRepo.recordSourceClaim(
       {
@@ -345,14 +381,14 @@ async function applyCandidate(
 
     const claims = await crawlerRepo.getClaimsForEvent(event.id, tx);
     const { confidence, status } = computeConfidenceAndStatus(claims);
-    const previousStatus = created ? null : matchedExisting.status;
+    const previousStatus = created ? null : resolvedExisting.status;
     const updated = await crawlerRepo.updateEventFromClaims(
       event.id,
       {
         confidence,
         status,
         dateInfo: candidateDateInfo,
-        isManualOverride: created ? false : matchedExisting.isManualOverride,
+        isManualOverride: created ? false : resolvedExisting.isManualOverride,
       },
       tx,
     );
@@ -380,7 +416,7 @@ async function applyCandidate(
       };
     }
 
-    return { created, change };
+    return { created, change, resolvedFromTbdEventId };
   });
 }
 

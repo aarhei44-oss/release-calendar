@@ -10,3 +10,8 @@ const registry = new Map<string, ParserAdapter>([
 export function getAdapter(key: string): ParserAdapter | undefined {
   return registry.get(key);
 }
+
+/** Test-only seam: registers an extra adapter (e.g. a custom-HTML fixture variant) without touching the two production entries above. */
+export function registerAdapter(adapter: ParserAdapter): void {
+  registry.set(adapter.key, adapter);
+}
