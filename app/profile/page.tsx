@@ -18,7 +18,11 @@ export default async function ProfilePage() {
     <div className="mx-auto flex max-w-lg flex-col gap-8 p-4">
       <h1 className="text-xl font-semibold">Profile</h1>
       <ProfileForm timezones={timezones} initialTimezone={profile.timezone} />
-      <AlertsForm initialEmailAlertsEnabled={profile.emailAlertsEnabled} />
+      <AlertsForm
+        initialEmailAlertsEnabled={profile.emailAlertsEnabled}
+        initialDiscordWebhookUrl={profile.discordWebhookUrl}
+        initialDiscordAlertsEnabled={profile.discordAlertsEnabled}
+      />
     </div>
   );
 }

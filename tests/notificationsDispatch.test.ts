@@ -3,10 +3,14 @@ import type { ScanChange } from "@/lib/notifications/types";
 import type { InstallSubscriber } from "@/data/notifications/notificationsRepo";
 
 const sendEmailAlert = vi.fn().mockResolvedValue(undefined);
+const sendDiscordAlert = vi.fn().mockResolvedValue(undefined);
 const getSubscribersForInstalls = vi.fn<(installIds: string[]) => Promise<InstallSubscriber[]>>();
 
 vi.mock("@/lib/notifications/email", () => ({
   sendEmailAlert: (...args: unknown[]) => sendEmailAlert(...args),
+}));
+vi.mock("@/lib/notifications/discord", () => ({
+  sendDiscordAlert: (...args: unknown[]) => sendDiscordAlert(...args),
 }));
 vi.mock("@/data/notifications/notificationsRepo", () => ({
   getSubscribersForInstalls: (...args: [string[]]) => getSubscribersForInstalls(...args),
@@ -30,12 +34,15 @@ function subscriber(overrides: Partial<InstallSubscriber> = {}): InstallSubscrib
     installId: "install-1",
     email: "user@example.com",
     emailAlertsEnabled: true,
+    discordWebhookUrl: null,
+    discordAlertsEnabled: false,
     ...overrides,
   };
 }
 
 beforeEach(() => {
   sendEmailAlert.mockClear();
+  sendDiscordAlert.mockClear();
   getSubscribersForInstalls.mockReset();
 });
 
@@ -89,6 +96,70 @@ describe("dispatchScanChangeNotifications", () => {
 
     expect(sendEmailAlert).toHaveBeenCalledTimes(1);
     expect(sendEmailAlert).toHaveBeenCalledWith("user@example.com", [changeA, changeB]);
+  });
+
+  it("does not post to Discord for a subscriber with alerts enabled but no webhook URL set", async () => {
+    getSubscribersForInstalls.mockResolvedValue([subscriber({ discordAlertsEnabled: true, discordWebhookUrl: null })]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change()]);
+
+    expect(sendDiscordAlert).not.toHaveBeenCalled();
+  });
+
+  it("does not post to Discord for a subscriber with a webhook URL but alerts disabled", async () => {
+    getSubscribersForInstalls.mockResolvedValue([
+      subscriber({ discordAlertsEnabled: false, discordWebhookUrl: "https://discord.com/api/webhooks/1/a" }),
+    ]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change()]);
+
+    expect(sendDiscordAlert).not.toHaveBeenCalled();
+  });
+
+  it("posts to Discord for a subscriber with both alerts enabled and a webhook URL set", async () => {
+    getSubscribersForInstalls.mockResolvedValue([
+      subscriber({ discordAlertsEnabled: true, discordWebhookUrl: "https://discord.com/api/webhooks/1/a" }),
+    ]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change()]);
+
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+    expect(sendDiscordAlert).toHaveBeenCalledWith("https://discord.com/api/webhooks/1/a", [change()]);
+  });
+
+  it("sends both email and Discord independently when a subscriber has both enabled", async () => {
+    getSubscribersForInstalls.mockResolvedValue([
+      subscriber({
+        emailAlertsEnabled: true,
+        discordAlertsEnabled: true,
+        discordWebhookUrl: "https://discord.com/api/webhooks/1/a",
+      }),
+    ]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change()]);
+
+    expect(sendEmailAlert).toHaveBeenCalledTimes(1);
+    expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps sending email when the Discord send for the same user fails", async () => {
+    getSubscribersForInstalls.mockResolvedValue([
+      subscriber({
+        emailAlertsEnabled: true,
+        discordAlertsEnabled: true,
+        discordWebhookUrl: "https://discord.com/api/webhooks/1/a",
+      }),
+    ]);
+    sendDiscordAlert.mockRejectedValueOnce(new Error("Discord down"));
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await expect(dispatchScanChangeNotifications([change()])).resolves.toBeUndefined();
+
+    expect(sendEmailAlert).toHaveBeenCalledTimes(1);
   });
 
   it("keeps going for other subscribers when one send fails", async () => {

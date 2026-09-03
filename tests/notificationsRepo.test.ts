@@ -25,14 +25,26 @@ describe("getSubscribersForInstalls", () => {
 
   it("returns a subscriber's alert preferences alongside their subscription", async () => {
     const user = await prisma.user.create({
-      data: { email: `notif-repo-${crypto.randomUUID()}@example.com`, emailAlertsEnabled: true },
+      data: {
+        email: `notif-repo-${crypto.randomUUID()}@example.com`,
+        emailAlertsEnabled: true,
+        discordWebhookUrl: "https://discord.com/api/webhooks/123/abc",
+        discordAlertsEnabled: true,
+      },
     });
     await prisma.subscription.create({ data: { userId: user.id, tcgProfileInstallId: installId } });
 
     const result = await getSubscribersForInstalls([installId]);
 
     expect(result).toEqual([
-      { userId: user.id, installId, email: user.email, emailAlertsEnabled: true },
+      {
+        userId: user.id,
+        installId,
+        email: user.email,
+        emailAlertsEnabled: true,
+        discordWebhookUrl: "https://discord.com/api/webhooks/123/abc",
+        discordAlertsEnabled: true,
+      },
     ]);
   });
 

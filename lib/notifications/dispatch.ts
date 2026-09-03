@@ -1,6 +1,7 @@
 import { getSubscribersForInstalls } from "@/data/notifications/notificationsRepo";
 import { logEvent } from "@/lib/logger";
 import { sendEmailAlert } from "./email";
+import { sendDiscordAlert } from "./discord";
 import type { ScanChange } from "./types";
 
 /**
@@ -27,6 +28,7 @@ export async function dispatchScanChangeNotifications(changes: ScanChange[]): Pr
   }
 
   const emailChangesByUser = new Map<string, { email: string; changes: ScanChange[] }>();
+  const discordChangesByUser = new Map<string, { webhookUrl: string; changes: ScanChange[] }>();
   for (const subscriber of subscribers) {
     const installChanges = changesByInstall.get(subscriber.installId);
     if (!installChanges) continue;
@@ -36,6 +38,15 @@ export async function dispatchScanChangeNotifications(changes: ScanChange[]): Pr
       entry.changes.push(...installChanges);
       emailChangesByUser.set(subscriber.userId, entry);
     }
+
+    if (subscriber.discordAlertsEnabled && subscriber.discordWebhookUrl) {
+      const entry = discordChangesByUser.get(subscriber.userId) ?? {
+        webhookUrl: subscriber.discordWebhookUrl,
+        changes: [],
+      };
+      entry.changes.push(...installChanges);
+      discordChangesByUser.set(subscriber.userId, entry);
+    }
   }
 
   for (const [userId, entry] of emailChangesByUser) {
@@ -44,6 +55,19 @@ export async function dispatchScanChangeNotifications(changes: ScanChange[]): Pr
     } catch (error) {
       logEvent({
         action: "notifications.sendEmailAlert",
+        outcome: "error",
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  for (const [userId, entry] of discordChangesByUser) {
+    try {
+      await sendDiscordAlert(entry.webhookUrl, entry.changes);
+    } catch (error) {
+      logEvent({
+        action: "notifications.sendDiscordAlert",
         outcome: "error",
         userId,
         error: error instanceof Error ? error.message : String(error),
