@@ -75,6 +75,13 @@ export async function getEventDetail(eventId: string) {
 
     return {
       ...detail,
+      // Fetched fresh on every drawer open (unlike the client's cached
+      // useSession(), which only refetches on window focus/an explicit
+      // update() -- stale right after a premium status change in an
+      // already-open tab, which silently re-locks every premium control
+      // in the drawer even though the server would allow them). The
+      // drawer should read premium status from here, not from useSession().
+      viewerIsPremium: isPremium,
       productSet: {
         ...detail.productSet,
         imageUrl: isPremium ? detail.productSet.imageUrl : null,

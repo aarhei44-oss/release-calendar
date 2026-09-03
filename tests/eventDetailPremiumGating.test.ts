@@ -76,6 +76,22 @@ describe("getEventDetail premium gating on productSet.imageUrl", () => {
     expect(detail?.productSet.hasMarketingImage).toBe(false);
     expect(detail?.productSet.imageUrl).toBeNull();
   });
+
+  it("reports viewerIsPremium fresh on every call, for the client to gate on instead of its own cached session", async () => {
+    // EventDrawer.tsx reads this instead of useSession()'s isPremium --
+    // that client-side hook only refetches on window focus/an explicit
+    // update(), so it can lag behind a real premium status change for as
+    // long as the tab stays open and focused. This value comes from a
+    // fresh getServerSession() call every time getEventDetail runs (i.e.
+    // every drawer open), so it can never go stale the same way.
+    mockGetServerSession.mockResolvedValueOnce(sessionFor({ isPremium: false }));
+    const notPremium = await getEventDetail(eventWithoutImageId);
+    expect(notPremium?.viewerIsPremium).toBe(false);
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor({ isPremium: true }));
+    const premium = await getEventDetail(eventWithoutImageId);
+    expect(premium?.viewerIsPremium).toBe(true);
+  });
 });
 
 describe("getFilteredEvents premium gating on productSet.imageUrl (list view)", () => {

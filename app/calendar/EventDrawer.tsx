@@ -29,10 +29,16 @@ export function EventDrawer({ eventId, onClose }: Props) {
   } | null>(null);
   const timeZone = useUserTimeZone();
   const { data: session } = useSession();
-  const isPremium = session?.user?.isPremium ?? false;
   const open = eventId !== null;
   const loading = eventId !== null && fetched?.eventId !== eventId;
   const detail = fetched?.eventId === eventId ? fetched.detail : null;
+  // Sourced from the just-fetched detail, not useSession() -- that hook's
+  // cached session only refetches on window focus/an explicit update(),
+  // so it can still say isPremium: false for a while right after a
+  // premium status change in an already-open tab, even though the server
+  // (and getEventDetail below, called fresh every time this drawer opens)
+  // already agrees the viewer is premium. See actions.ts's viewerIsPremium.
+  const isPremium = detail?.viewerIsPremium ?? false;
 
   useEffect(() => {
     if (!eventId) return;
