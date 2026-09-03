@@ -300,20 +300,51 @@ export async function getProductSetsForFuzzyMerge(installIds?: string[]) {
  */
 export async function releasePastDueEvents(installIds?: string[]) {
   const now = new Date();
-  const result = await prisma.releaseEvent.updateMany({
-    where: {
-      status: { notIn: ["RELEASED", "CANCELLED"] },
-      archivedAt: null,
-      ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
-      OR: [
-        { dateType: "EXACT", dateExact: { lt: now } },
-        { dateType: "RANGE", dateEnd: { lt: now } },
-        { dateType: "WINDOW", windowEnd: { lt: now } },
-      ],
+  const where: Prisma.ReleaseEventWhereInput = {
+    status: { notIn: ["RELEASED", "CANCELLED"] },
+    archivedAt: null,
+    ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+    OR: [
+      { dateType: "EXACT", dateExact: { lt: now } },
+      { dateType: "RANGE", dateEnd: { lt: now } },
+      { dateType: "WINDOW", windowEnd: { lt: now } },
+    ],
+  };
+
+  // Selected before the bulk update (rather than read-then-write per row) so
+  // callers can build notification context for exactly the events this pass
+  // touched, without turning this back into a row-by-row update.
+  const toRelease = await prisma.releaseEvent.findMany({ where, select: { id: true } });
+  if (toRelease.length === 0) return { count: 0, eventIds: [] as string[] };
+
+  const eventIds = toRelease.map((event) => event.id);
+  await prisma.releaseEvent.updateMany({ where: { id: { in: eventIds } }, data: { status: "RELEASED" } });
+  return { count: eventIds.length, eventIds };
+}
+
+/** Game/product-set context for a set of release events, for building notification copy after a bulk status change. */
+export async function getChangeContextForEvents(eventIds: string[]) {
+  if (eventIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: { id: { in: eventIds } },
+    select: {
+      id: true,
+      productSet: {
+        select: {
+          name: true,
+          code: true,
+          tcgProfileInstallId: true,
+          install: { select: { package: { select: { name: true } } } },
+        },
+      },
     },
-    data: { status: "RELEASED" },
   });
-  return result.count;
+  return events.map((event) => ({
+    eventId: event.id,
+    installId: event.productSet.tcgProfileInstallId,
+    productSetName: event.productSet.name ?? event.productSet.code ?? "Untitled release",
+    gameName: event.productSet.install.package.name,
+  }));
 }
 
 /**

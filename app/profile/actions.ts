@@ -1,7 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { getProfile, updateTimezone as repoUpdateTimezone } from "@/data/profile/profileRepo";
+import {
+  getProfile,
+  updateTimezone as repoUpdateTimezone,
+  updateEmailAlertsEnabled as repoUpdateEmailAlertsEnabled,
+} from "@/data/profile/profileRepo";
 import { requireUser } from "@/lib/authGuards";
 import { withActionLogging } from "@/lib/logger";
 
@@ -27,5 +31,12 @@ export async function updateTimezone(timezone: string | null) {
     const user = await requireUser();
     const parsed = timezoneSchema.parse(timezone);
     return repoUpdateTimezone(user.id, parsed);
+  });
+}
+
+export async function updateEmailAlertsEnabled(enabled: boolean) {
+  return withActionLogging("profile.updateEmailAlertsEnabled", async () => {
+    const user = await requireUser();
+    return repoUpdateEmailAlertsEnabled(user.id, z.boolean().parse(enabled));
   });
 }

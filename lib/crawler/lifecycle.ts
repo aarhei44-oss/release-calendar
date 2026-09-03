@@ -1,7 +1,7 @@
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { withActionLogging } from "@/lib/logger";
 
-export type ReleaseLifecycleResult = { eventsReleased: number };
+export type ReleaseLifecycleResult = { eventsReleased: number; releasedEventIds: string[] };
 
 /**
  * Transitions ReleaseEvents whose date has passed to RELEASED, independent
@@ -17,7 +17,7 @@ export async function runReleaseLifecyclePass(
   params: { installIds?: string[] } = {},
 ): Promise<ReleaseLifecycleResult> {
   return withActionLogging("crawler.runReleaseLifecyclePass", async () => {
-    const eventsReleased = await crawlerRepo.releasePastDueEvents(params.installIds);
-    return { eventsReleased };
+    const { count, eventIds } = await crawlerRepo.releasePastDueEvents(params.installIds);
+    return { eventsReleased: count, releasedEventIds: eventIds };
   });
 }

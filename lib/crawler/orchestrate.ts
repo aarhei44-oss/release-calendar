@@ -1,6 +1,8 @@
-import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
+import type { Prisma, ScanScopeType, ScanTrigger, TcgProfileInstall, TcgProfilePackage } from "@/app/generated/prisma/client";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { logEvent } from "@/lib/logger";
+import { dispatchScanChangeNotifications } from "@/lib/notifications/dispatch";
+import type { ScanChange } from "@/lib/notifications/types";
 import { runDedupPass } from "./dedupPass";
 import { runReleaseLifecyclePass } from "./lifecycle";
 import { runRetentionCleanupPass } from "./retention";
@@ -70,6 +72,8 @@ export async function runScan(params: {
     productSetsPurged: 0,
   };
 
+  const changes: ScanChange[] = [];
+
   try {
     const installs = await crawlerRepo.getInstallsForScan(params.scopeType, params.scopeId);
 
@@ -95,10 +99,11 @@ export async function runScan(params: {
 
           const candidates = adapter.parse(raw, sourceConfig);
           for (const candidate of candidates) {
-            const { created } = await applyCandidate(install.id, sourceConfig, candidate);
+            const { created, change } = await applyCandidate(install, sourceConfig, candidate);
             totals.claimsCreated += 1;
             if (created) totals.eventsCreated += 1;
             else totals.eventsUpdated += 1;
+            if (change) changes.push(change);
           }
         } catch (error) {
           totals.errors += 1;
@@ -130,6 +135,19 @@ export async function runScan(params: {
     try {
       const lifecycleResult = await runReleaseLifecyclePass({ installIds: installs.map((install) => install.id) });
       totals.eventsReleased = lifecycleResult.eventsReleased;
+      if (lifecycleResult.releasedEventIds.length > 0) {
+        const context = await crawlerRepo.getChangeContextForEvents(lifecycleResult.releasedEventIds);
+        for (const c of context) {
+          changes.push({
+            installId: c.installId,
+            eventId: c.eventId,
+            gameName: c.gameName,
+            productSetName: c.productSetName,
+            status: "RELEASED",
+            kind: "released",
+          });
+        }
+      }
     } catch (error) {
       totals.errors += 1;
       logEvent({
@@ -148,6 +166,18 @@ export async function runScan(params: {
       totals.errors += 1;
       logEvent({
         action: "crawler.postScanRetention",
+        scanRunId: scanRun.id,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await dispatchScanChangeNotifications(changes);
+    } catch (error) {
+      totals.errors += 1;
+      logEvent({
+        action: "crawler.postScanNotifications",
         scanRunId: scanRun.id,
         outcome: "error",
         error: error instanceof Error ? error.message : String(error),
@@ -190,9 +220,13 @@ export async function runScan(params: {
   }
 }
 
-async function applyCandidate(installId: string, sourceConfig: SourceConfig, candidate: ParsedCandidate) {
+async function applyCandidate(
+  install: TcgProfileInstall & { package: TcgProfilePackage },
+  sourceConfig: SourceConfig,
+  candidate: ParsedCandidate,
+): Promise<{ created: boolean; change: ScanChange | null }> {
   const productSet = await crawlerRepo.findOrCreateProductSet({
-    tcgProfileInstallId: installId,
+    tcgProfileInstallId: install.id,
     code: candidate.productSetCode,
     name: candidate.productSetName,
   });
@@ -225,9 +259,33 @@ async function applyCandidate(installId: string, sourceConfig: SourceConfig, can
 
   const claims = await crawlerRepo.getClaimsForEvent(event.id);
   const { confidence, status } = computeConfidenceAndStatus(claims);
-  await crawlerRepo.updateEventFromClaims(event.id, { confidence, status, dateInfo: candidateDateInfo });
+  const previousStatus = created ? null : matchedExisting.status;
+  const updated = await crawlerRepo.updateEventFromClaims(event.id, { confidence, status, dateInfo: candidateDateInfo });
 
-  return { created };
+  const productSetName = productSet.name ?? productSet.code ?? "Untitled release";
+  let change: ScanChange | null = null;
+  if (created) {
+    change = {
+      installId: install.id,
+      eventId: updated.id,
+      gameName: install.package.name,
+      productSetName,
+      status: updated.status,
+      kind: "created",
+    };
+  } else if (previousStatus !== updated.status) {
+    change = {
+      installId: install.id,
+      eventId: updated.id,
+      gameName: install.package.name,
+      productSetName,
+      status: updated.status,
+      kind: "status_changed",
+      previousStatus: previousStatus ?? undefined,
+    };
+  }
+
+  return { created, change };
 }
 
 function toDateInfo(candidate: ParsedCandidate): EventDateInfo {

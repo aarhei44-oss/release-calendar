@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
-import { updateTimezone } from "./actions";
+import { updateTimezone, updateEmailAlertsEnabled } from "./actions";
 
 type Props = {
   timezones: string[];
@@ -49,6 +49,36 @@ export function ProfileForm({ timezones, initialTimezone }: Props) {
         </select>
       </label>
       {saved && !isPending && <p className="mt-2 text-sm text-green-600 dark:text-green-400">Saved.</p>}
+    </section>
+  );
+}
+
+export function AlertsForm({ initialEmailAlertsEnabled }: { initialEmailAlertsEnabled: boolean }) {
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(initialEmailAlertsEnabled);
+  const [isPending, startTransition] = useTransition();
+
+  function handleChange(enabled: boolean) {
+    setEmailAlertsEnabled(enabled);
+    startTransition(async () => {
+      await updateEmailAlertsEnabled(enabled);
+    });
+  }
+
+  return (
+    <section>
+      <h2 className="mb-1 text-lg font-semibold">Alerts</h2>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+        Get notified the moment a subscribed game gets a new or changed release, or progresses toward release.
+      </p>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={emailAlertsEnabled}
+          disabled={isPending}
+          onChange={(e) => handleChange(e.target.checked)}
+        />
+        Email me immediately when a subscribed game changes
+      </label>
     </section>
   );
 }

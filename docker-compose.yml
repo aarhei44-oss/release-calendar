@@ -11,6 +11,12 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       CRAWLER_SCHEDULE: ${CRAWLER_SCHEDULE:-1440}
       SEED_ON_BOOT: ${SEED_ON_BOOT:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Release Watcher <no-reply@releasewatcher.com>}
     volumes:
       - db-data:/app/data
     expose:
