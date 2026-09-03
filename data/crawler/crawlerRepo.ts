@@ -131,38 +131,158 @@ export async function findOrCreateProductSet(params: {
   });
 }
 
-/** Existing events for a product set + type, for dedup matching (business rule 6.4). */
+/**
+ * Existing events for a product set + type, for dedup matching (business
+ * rule 6.4). Excludes archived (merged-away) events -- otherwise a new claim
+ * could silently attach to a frozen duplicate instead of the live survivor,
+ * since after a merge they still share the same (productSetId, type).
+ */
 export async function findEventsForProductSetType(productSetId: string, type: ReleaseEventType) {
-  return prisma.releaseEvent.findMany({ where: { productSetId, type } });
+  return prisma.releaseEvent.findMany({ where: { productSetId, type, archivedAt: null } });
 }
 
-/** Moves a duplicate event's claims and comments onto the primary, then deletes the duplicate. */
+/**
+ * Moves a duplicate event's claims and comments onto the primary, then
+ * archives (not deletes) the duplicate -- undoable via undoReleaseEventMerge.
+ * Each reassigned row is stamped with movedFromReleaseEventId so undo can
+ * find it later. The stamp is written in two passes: rows with no existing
+ * stamp get one (their first hop), rows that already carry one (already
+ * moved by an earlier merge) keep it -- overwriting it would point undo at
+ * the wrong duplicate and orphan whichever one it originally came from.
+ */
 export async function mergeReleaseEvents(primaryId: string, duplicateId: string) {
   await prisma.$transaction([
-    prisma.sourceClaim.updateMany({ where: { releaseEventId: duplicateId }, data: { releaseEventId: primaryId } }),
-    prisma.userNote.updateMany({ where: { releaseEventId: duplicateId }, data: { releaseEventId: primaryId } }),
-    prisma.releaseEvent.delete({ where: { id: duplicateId } }),
+    prisma.sourceClaim.updateMany({
+      where: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
+      data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+    }),
+    prisma.sourceClaim.updateMany({
+      where: { releaseEventId: duplicateId },
+      data: { releaseEventId: primaryId },
+    }),
+    prisma.userNote.updateMany({
+      where: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
+      data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+    }),
+    prisma.userNote.updateMany({
+      where: { releaseEventId: duplicateId },
+      data: { releaseEventId: primaryId },
+    }),
+    prisma.releaseEvent.update({
+      where: { id: duplicateId },
+      data: { archivedAt: new Date(), mergedIntoId: primaryId },
+    }),
   ]);
 }
 
 /**
  * Moves a duplicate ProductSet's release events onto the primary, then
- * deletes the duplicate. Order matters: ProductSet.releaseEvents cascades on
- * delete, so reassigning first is what preserves them on the survivor
- * instead of losing them.
+ * archives (not deletes) the duplicate -- undoable via undoProductSetMerge.
+ * Same two-pass stamping as mergeReleaseEvents, for the same reason (a
+ * ProductSet that survived one merge can later become the duplicate of a
+ * different one, e.g. if its name drifts via findOrCreateProductSet's
+ * same-code upsert until it matches an older ProductSet).
  */
 export async function mergeProductSets(primaryId: string, duplicateId: string) {
   await prisma.$transaction([
-    prisma.releaseEvent.updateMany({ where: { productSetId: duplicateId }, data: { productSetId: primaryId } }),
-    prisma.productSet.delete({ where: { id: duplicateId } }),
+    prisma.releaseEvent.updateMany({
+      where: { productSetId: duplicateId, movedFromProductSetId: null },
+      data: { productSetId: primaryId, movedFromProductSetId: duplicateId },
+    }),
+    prisma.releaseEvent.updateMany({
+      where: { productSetId: duplicateId },
+      data: { productSetId: primaryId },
+    }),
+    prisma.productSet.update({
+      where: { id: duplicateId },
+      data: { archivedAt: new Date(), mergedIntoId: primaryId },
+    }),
   ]);
 }
 
-/** Named product sets, optionally scoped to specific installs, for cross-source identity matching. */
+/**
+ * Undoes a ProductSet merge: moves every ReleaseEvent stamped with this
+ * duplicate's id back onto it (wherever those events currently live, which
+ * may not be the immediate primary if it was itself later merged away) and
+ * un-archives the duplicate. Throws if the ProductSet isn't currently
+ * archived as a merge duplicate -- callers should only offer this action for
+ * rows listed as recently merged in the first place.
+ */
+export async function undoProductSetMerge(duplicateId: string): Promise<{ movedEventIds: string[] }> {
+  const duplicate = await prisma.productSet.findUniqueOrThrow({ where: { id: duplicateId } });
+  if (!duplicate.archivedAt || !duplicate.mergedIntoId) {
+    throw new Error("This product set is not currently merged into another -- nothing to undo.");
+  }
+
+  const moved = await prisma.releaseEvent.findMany({
+    where: { movedFromProductSetId: duplicateId },
+    select: { id: true },
+  });
+
+  await prisma.$transaction([
+    prisma.releaseEvent.updateMany({
+      where: { movedFromProductSetId: duplicateId },
+      data: { productSetId: duplicateId, movedFromProductSetId: null },
+    }),
+    prisma.productSet.update({
+      where: { id: duplicateId },
+      data: { archivedAt: null, mergedIntoId: null },
+    }),
+  ]);
+
+  return { movedEventIds: moved.map((e) => e.id) };
+}
+
+/**
+ * Undoes a ReleaseEvent merge: moves every SourceClaim/UserNote stamped with
+ * this duplicate's id back onto it (wherever they currently live) and
+ * un-archives the duplicate. Returns the distinct set of event ids that
+ * actually lost data (not necessarily the original primary, if it was later
+ * merged away itself) so the caller can recompute their confidence/status.
+ * Throws if the event isn't currently archived as a merge duplicate.
+ */
+export async function undoReleaseEventMerge(duplicateId: string): Promise<{ affectedEventIds: string[] }> {
+  const duplicate = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: duplicateId } });
+  if (!duplicate.archivedAt || !duplicate.mergedIntoId) {
+    throw new Error("This event is not currently merged into another -- nothing to undo.");
+  }
+
+  const [movedClaims, movedNotes] = await Promise.all([
+    prisma.sourceClaim.findMany({
+      where: { movedFromReleaseEventId: duplicateId },
+      select: { releaseEventId: true },
+    }),
+    prisma.userNote.findMany({
+      where: { movedFromReleaseEventId: duplicateId },
+      select: { releaseEventId: true },
+    }),
+  ]);
+  const affectedEventIds = [...new Set([...movedClaims, ...movedNotes].map((r) => r.releaseEventId))];
+
+  await prisma.$transaction([
+    prisma.sourceClaim.updateMany({
+      where: { movedFromReleaseEventId: duplicateId },
+      data: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
+    }),
+    prisma.userNote.updateMany({
+      where: { movedFromReleaseEventId: duplicateId },
+      data: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
+    }),
+    prisma.releaseEvent.update({
+      where: { id: duplicateId },
+      data: { archivedAt: null, mergedIntoId: null },
+    }),
+  ]);
+
+  return { affectedEventIds };
+}
+
+/** Named product sets, optionally scoped to specific installs, for cross-source identity matching. Excludes already-archived (merged-away) sets so a dedup pass never re-merges the same duplicate. */
 export async function getProductSetsForFuzzyMerge(installIds?: string[]) {
   return prisma.productSet.findMany({
     where: {
       name: { not: null },
+      archivedAt: null,
       ...(installIds ? { tcgProfileInstallId: { in: installIds } } : {}),
     },
     select: { id: true, tcgProfileInstallId: true, name: true, createdAt: true },
@@ -183,6 +303,7 @@ export async function releasePastDueEvents(installIds?: string[]) {
   const result = await prisma.releaseEvent.updateMany({
     where: {
       status: { notIn: ["RELEASED", "CANCELLED"] },
+      archivedAt: null,
       ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
       OR: [
         { dateType: "EXACT", dateExact: { lt: now } },
@@ -195,9 +316,54 @@ export async function releasePastDueEvents(installIds?: string[]) {
   return result.count;
 }
 
+/**
+ * Permanently deletes ReleaseEvents whose date is more than `olderThanDays`
+ * in the past, to keep the live dataset lean -- this is a real delete, not
+ * an archive, and deliberately has no archivedAt filter: it applies to
+ * merged-away duplicates too, not just live events. A merged duplicate's own
+ * date is always close to its survivor's (dedup only merges within
+ * PROXIMITY_DAYS), so both sides of a merge age out together. Cascades to
+ * SourceClaim/UserNote via the existing onDelete: Cascade. TBD events have
+ * no date and are never matched, so they're never deleted by age.
+ */
+export async function deleteOldEvents(installIds?: string[], olderThanDays = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.releaseEvent.deleteMany({
+    where: {
+      ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+      OR: [
+        { dateType: "EXACT", dateExact: { lt: cutoff } },
+        { dateType: "RANGE", dateEnd: { lt: cutoff } },
+        { dateType: "WINDOW", windowEnd: { lt: cutoff } },
+      ],
+    },
+  });
+  return result.count;
+}
+
+/**
+ * Permanently deletes ProductSets that have sat archived (merged away) for
+ * more than `olderThanDays`. ProductSet has no date field of its own, so
+ * this uses time-since-merge as its clock, independent of deleteOldEvents
+ * (which already handles the events themselves by their own dates).
+ */
+export async function deleteStaleArchivedProductSets(installIds?: string[], olderThanDays = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.productSet.deleteMany({
+    where: {
+      archivedAt: { not: null, lt: cutoff },
+      ...(installIds ? { tcgProfileInstallId: { in: installIds } } : {}),
+    },
+  });
+  return result.count;
+}
+
 export async function getAllReleaseEventsForDedup(installIds?: string[]) {
   return prisma.releaseEvent.findMany({
-    where: installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : undefined,
+    where: {
+      archivedAt: null,
+      ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+    },
     select: {
       id: true,
       productSetId: true,

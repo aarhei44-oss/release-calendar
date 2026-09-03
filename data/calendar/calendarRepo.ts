@@ -25,7 +25,7 @@ const eventWithRelations = {
 export type CalendarEvent = Prisma.ReleaseEventGetPayload<typeof eventWithRelations>;
 
 function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
-  const where: Prisma.ReleaseEventWhereInput = {};
+  const where: Prisma.ReleaseEventWhereInput = { archivedAt: null };
   const productSetWhere: Prisma.ProductSetWhereInput = {};
 
   if (filters.installIds?.length) {

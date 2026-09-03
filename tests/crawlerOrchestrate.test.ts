@@ -70,9 +70,10 @@ describe("runScan (fixture adapter, end-to-end)", () => {
     expect(exactEvent.sourceClaims[0].disposition).toBe("SUPPORTS");
     expect(exactEvent.confidence).toBeGreaterThan(0);
     expect(exactEvent.status).not.toBe("CANCELLED");
-    // March 15, 2026 has already passed as of this test run, and the
-    // post-scan release lifecycle pass (orchestrate.ts) should have caught
-    // it without needing a separate triggerReleaseLifecycle() call.
+    // The fixture's EXACT date is a few days in the past (see
+    // fixtureAdapter.ts), and the post-scan release lifecycle pass
+    // (orchestrate.ts) should have caught it without needing a separate
+    // triggerReleaseLifecycle() call.
     expect(exactEvent.status).toBe("RELEASED");
     expect(result.totals.eventsReleased).toBeGreaterThanOrEqual(1);
 
@@ -177,12 +178,67 @@ describe("runScan (automatic post-scan dedup)", () => {
     if (result.skipped) return;
     expect(result.totals.productSetsMerged).toBe(1);
 
-    const productSets = await prisma.productSet.findMany({ where: { tcgProfileInstallId: dedupInstallId } });
+    const productSets = await prisma.productSet.findMany({
+      where: { tcgProfileInstallId: dedupInstallId, archivedAt: null },
+    });
     expect(productSets.map((p) => p.name).sort()).toEqual(
       ["Fixture Booster One (Reprint)", "Fixture Booster Three", "Fixture Booster Two"].sort(),
     );
 
     const event = await prisma.releaseEvent.findFirstOrThrow({ where: { productSetId: preExisting.id } });
     expect(event.dateType).toBe("EXACT");
+
+    // The scan's own freshly-created "Fixture Booster One" ProductSet is
+    // the duplicate here (later createdAt than the pre-existing one) --
+    // archived, not deleted, and undoable (see tests/crawlerMergeUndo.test.ts).
+    const archivedDuplicate = await prisma.productSet.findFirstOrThrow({
+      where: { tcgProfileInstallId: dedupInstallId, name: "Fixture Booster One" },
+    });
+    expect(archivedDuplicate.archivedAt).not.toBeNull();
+    expect(archivedDuplicate.mergedIntoId).toBe(preExisting.id);
+  });
+
+  it("does not re-match a scanned candidate to an archived (merged-away) duplicate event on a later scan", async () => {
+    // Regression test: after an event-level merge archives a duplicate
+    // ReleaseEvent, it still shares (productSetId, type) with the live
+    // primary. Without excluding archived rows from
+    // crawlerRepo.findEventsForProductSetType, a later scan's
+    // findMatchingEvent could match a new claim to the frozen duplicate
+    // instead of the live primary.
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: {
+        slug: "crawler-orchestrate-archived-match-test",
+        name: "Crawler Orchestrate Archived Match Test",
+        version: "1.0.0",
+        discoveryConfig: {},
+        sourceConfigs: [fixtureSourceConfig] as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const install = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
+    });
+
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: install.id, code: "ARCHIVED-MATCH-1", name: "Archived Match Set" },
+    });
+    const primary = await prisma.releaseEvent.create({
+      data: { productSetId: productSet.id, type: "SHELF", dateType: "EXACT", dateExact: new Date("2026-05-01"), status: "ANNOUNCED", confidence: 0.3 },
+    });
+    const archivedDuplicate = await prisma.releaseEvent.create({
+      data: {
+        productSetId: productSet.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-03"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+        archivedAt: new Date(),
+        mergedIntoId: primary.id,
+      },
+    });
+
+    const candidateEvents = await crawlerRepo.findEventsForProductSetType(productSet.id, "SHELF");
+    expect(candidateEvents.map((e) => e.id)).toEqual([primary.id]);
+    expect(candidateEvents.map((e) => e.id)).not.toContain(archivedDuplicate.id);
   });
 });

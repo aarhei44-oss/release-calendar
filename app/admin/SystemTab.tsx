@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { triggerRescan, triggerDedup, triggerReleaseLifecycle } from "./actions";
+import {
+  triggerRescan,
+  triggerDedup,
+  triggerReleaseLifecycle,
+  triggerRetentionCleanup,
+  undoProductSetMerge,
+  undoReleaseEventMerge,
+  type listRecentMerges,
+} from "./actions";
 
 type ScanRun = {
   id: string;
@@ -15,6 +23,7 @@ type ScanRun = {
 };
 
 type InstallOption = { id: string; label: string };
+type RecentMerges = Awaited<ReturnType<typeof listRecentMerges>>;
 
 const STATUS_STYLES: Record<string, string> = {
   RUNNING: "bg-blue-100 text-blue-700",
@@ -32,9 +41,11 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 export function SystemTab({
   installs,
   scanRuns,
+  recentMerges,
 }: {
   installs: InstallOption[];
   scanRuns: ScanRun[];
+  recentMerges: RecentMerges;
 }) {
   const router = useRouter();
   const [selectedInstall, setSelectedInstall] = useState(installs[0]?.id ?? "");
@@ -50,7 +61,7 @@ export function SystemTab({
         setMessage(
           result.skipped
             ? `Rescan skipped: ${result.reason}`
-            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.errors} error(s)).`,
+            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.eventsDeleted} deleted, ${result.totals.productSetsPurged} product set(s) purged, ${result.totals.errors} error(s)).`,
         );
         router.refresh();
       } catch (e) {
@@ -83,6 +94,47 @@ export function SystemTab({
         router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Release lifecycle pass failed.");
+      }
+    });
+  }
+
+  function runRetentionCleanup() {
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        const result = await triggerRetentionCleanup();
+        setMessage(
+          `Retention cleanup complete: ${result.eventsDeleted} event(s) deleted, ${result.productSetsPurged} product set(s) purged.`,
+        );
+        router.refresh();
+      } catch (e) {
+        setMessage(e instanceof Error ? e.message : "Retention cleanup failed.");
+      }
+    });
+  }
+
+  function undoProductSet(id: string) {
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        await undoProductSetMerge(id);
+        setMessage("Product set merge undone.");
+        router.refresh();
+      } catch (e) {
+        setMessage(e instanceof Error ? e.message : "Undo failed.");
+      }
+    });
+  }
+
+  function undoReleaseEvent(id: string) {
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        await undoReleaseEventMerge(id);
+        setMessage("Event merge undone.");
+        router.refresh();
+      } catch (e) {
+        setMessage(e instanceof Error ? e.message : "Undo failed.");
       }
     });
   }
@@ -124,6 +176,14 @@ export function SystemTab({
           className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
         >
           Trigger release lifecycle pass
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={runRetentionCleanup}
+          className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
+        >
+          Trigger retention cleanup (deletes events 30+ days old)
         </button>
       </div>
 
@@ -168,6 +228,90 @@ export function SystemTab({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-medium text-gray-700">Recently merged product sets</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                <th className="py-2">Name</th>
+                <th>Merged into</th>
+                <th>Archived</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentMerges.productSets.map((ps) => (
+                <tr key={ps.id} className="border-b border-gray-100">
+                  <td className="py-2">{ps.name ?? "(unnamed)"}</td>
+                  <td>{ps.mergedIntoName ?? "(unknown)"}</td>
+                  <td>{ps.archivedAt ? DATE_FORMATTER.format(ps.archivedAt) : "—"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => undoProductSet(ps.id)}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      Undo
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {recentMerges.productSets.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-4 text-center text-gray-500">
+                    No product set merges yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-medium text-gray-700">Recently merged events</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                <th className="py-2">Product set</th>
+                <th>Merged into</th>
+                <th>Archived</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentMerges.releaseEvents.map((event) => (
+                <tr key={event.id} className="border-b border-gray-100">
+                  <td className="py-2">{event.productSet.name ?? "(unnamed)"}</td>
+                  <td>{event.mergedIntoName ?? "(unknown)"}</td>
+                  <td>{event.archivedAt ? DATE_FORMATTER.format(event.archivedAt) : "—"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => undoReleaseEvent(event.id)}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      Undo
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {recentMerges.releaseEvents.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-4 text-center text-gray-500">
+                    No event merges yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

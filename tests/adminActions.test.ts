@@ -19,6 +19,10 @@ import {
   triggerDedup,
   triggerReleaseLifecycle,
   listContradictedEvents,
+  triggerRetentionCleanup,
+  listRecentMerges,
+  undoProductSetMerge,
+  undoReleaseEventMerge,
 } from "@/app/admin/actions";
 
 const mockGetServerSession = vi.mocked(getServerSession);
@@ -64,6 +68,10 @@ describe("admin Server Actions -- authorization", () => {
     ["triggerDedup", () => triggerDedup()],
     ["triggerReleaseLifecycle", () => triggerReleaseLifecycle()],
     ["listContradictedEvents", () => listContradictedEvents()],
+    ["triggerRetentionCleanup", () => triggerRetentionCleanup()],
+    ["listRecentMerges", () => listRecentMerges()],
+    ["undoProductSetMerge", () => undoProductSetMerge(installId)],
+    ["undoReleaseEventMerge", () => undoReleaseEventMerge(installId)],
   ];
 
   for (const [name, call] of unauthenticatedCases) {
@@ -225,6 +233,70 @@ describe("listContradictedEvents (Review tab)", () => {
 
     expect(results.map((e) => e.id)).not.toContain(released.id);
     expect(results.map((e) => e.id)).not.toContain(cancelled.id);
+  });
+});
+
+describe("triggerRetentionCleanup / listRecentMerges / undo*Merge (System tab)", () => {
+  it("lets an admin run a retention cleanup pass", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const result = await triggerRetentionCleanup();
+    expect(result.eventsDeleted).toBeGreaterThanOrEqual(0);
+    expect(result.productSetsPurged).toBeGreaterThanOrEqual(0);
+  });
+
+  it("lets an admin list and undo a recent ProductSet merge", async () => {
+    const primary = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "MERGE-P", name: "Merge Primary" },
+    });
+    const duplicate = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "MERGE-D", name: "Merge Duplicate" },
+    });
+    await prisma.productSet.update({
+      where: { id: duplicate.id },
+      data: { archivedAt: new Date(), mergedIntoId: primary.id },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const merges = await listRecentMerges();
+    expect(merges.productSets.map((p) => p.id)).toContain(duplicate.id);
+    expect(merges.productSets.find((p) => p.id === duplicate.id)?.mergedIntoName).toBe("Merge Primary");
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await undoProductSetMerge(duplicate.id);
+
+    const restored = await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } });
+    expect(restored.archivedAt).toBeNull();
+  });
+
+  it("lets an admin list and undo a recent ReleaseEvent merge", async () => {
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "MERGE-EVENT-SET", name: "Merge Event Set" },
+    });
+    const primary = await prisma.releaseEvent.create({
+      data: { productSetId: productSet.id, type: "SHELF", dateType: "EXACT", dateExact: new Date("2026-05-01"), status: "ANNOUNCED", confidence: 0.3 },
+    });
+    const duplicate = await prisma.releaseEvent.create({
+      data: {
+        productSetId: productSet.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-01"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+        archivedAt: new Date(),
+        mergedIntoId: primary.id,
+      },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const merges = await listRecentMerges();
+    expect(merges.releaseEvents.map((e) => e.id)).toContain(duplicate.id);
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await undoReleaseEventMerge(duplicate.id);
+
+    const restored = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: duplicate.id } });
+    expect(restored.archivedAt).toBeNull();
   });
 });
 

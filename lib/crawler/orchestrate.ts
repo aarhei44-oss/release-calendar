@@ -3,6 +3,7 @@ import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { logEvent } from "@/lib/logger";
 import { runDedupPass } from "./dedupPass";
 import { runReleaseLifecyclePass } from "./lifecycle";
+import { runRetentionCleanupPass } from "./retention";
 import { getAdapter } from "./adapters/registry";
 import type { ParsedCandidate, SourceConfig } from "./adapters/types";
 import { computeConfidenceAndStatus } from "./confidence";
@@ -21,6 +22,8 @@ export type ScanTotals = {
   eventsMerged: number;
   productSetsMerged: number;
   eventsReleased: number;
+  eventsDeleted: number;
+  productSetsPurged: number;
 };
 
 export type ScanResult =
@@ -63,6 +66,8 @@ export async function runScan(params: {
     eventsMerged: 0,
     productSetsMerged: 0,
     eventsReleased: 0,
+    eventsDeleted: 0,
+    productSetsPurged: 0,
   };
 
   try {
@@ -129,6 +134,20 @@ export async function runScan(params: {
       totals.errors += 1;
       logEvent({
         action: "crawler.postScanReleaseLifecycle",
+        scanRunId: scanRun.id,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      const retentionResult = await runRetentionCleanupPass({ installIds: installs.map((install) => install.id) });
+      totals.eventsDeleted = retentionResult.eventsDeleted;
+      totals.productSetsPurged = retentionResult.productSetsPurged;
+    } catch (error) {
+      totals.errors += 1;
+      logEvent({
+        action: "crawler.postScanRetention",
         scanRunId: scanRun.id,
         outcome: "error",
         error: error instanceof Error ? error.message : String(error),

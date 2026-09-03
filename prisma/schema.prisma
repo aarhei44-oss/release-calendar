@@ -119,41 +119,47 @@ model TcgProfileInstall {
 }
 
 model ProductSet {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   tcgProfileInstallId String
   code                String?
   name                String?
   releaseQuarter      String?
   meta                Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  archivedAt          DateTime?
+  mergedIntoId        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   install       TcgProfileInstall @relation(fields: [tcgProfileInstallId], references: [id], onDelete: Cascade)
   releaseEvents ReleaseEvent[]
 
   @@unique([tcgProfileInstallId, code])
+  @@index([archivedAt])
 }
 
 model ReleaseEvent {
-  id                String             @id @default(cuid())
-  productSetId      String
-  type              ReleaseEventType
-  dateType          DateType
-  dateExact         DateTime?
-  dateStart         DateTime?
-  dateEnd           DateTime?
-  windowGranularity WindowGranularity?
-  windowStart       DateTime?
-  windowEnd         DateTime?
-  region            Region             @default(GLOBAL)
-  status            ReleaseStatus      @default(RUMORED)
-  confidence        Float              @default(0)
-  sourceSummary     String?
-  lastSeenAt        DateTime?
-  isManualOverride  Boolean            @default(false)
-  manualNotes       String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  productSetId           String
+  type                   ReleaseEventType
+  dateType               DateType
+  dateExact              DateTime?
+  dateStart              DateTime?
+  dateEnd                DateTime?
+  windowGranularity      WindowGranularity?
+  windowStart            DateTime?
+  windowEnd              DateTime?
+  region                 Region             @default(GLOBAL)
+  status                 ReleaseStatus      @default(RUMORED)
+  confidence             Float              @default(0)
+  sourceSummary          String?
+  lastSeenAt             DateTime?
+  isManualOverride       Boolean            @default(false)
+  manualNotes            String?
+  archivedAt             DateTime?
+  mergedIntoId           String?
+  movedFromProductSetId  String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   productSet   ProductSet    @relation(fields: [productSetId], references: [id], onDelete: Cascade)
   sourceClaims SourceClaim[]
@@ -161,27 +167,31 @@ model ReleaseEvent {
 
   @@index([productSetId, type])
   @@index([dateType, dateExact, dateStart])
+  @@index([archivedAt])
+  @@index([movedFromProductSetId])
 }
 
 model SourceClaim {
-  id               String            @id @default(cuid())
-  releaseEventId   String
-  tier             SourceTier
-  disposition      SourceDisposition
-  confidenceWeight Float
-  url              String
-  host             String?
-  dateExact        DateTime?
-  dateStart        DateTime?
-  dateEnd          DateTime?
-  lastVerifiedAt   DateTime?
-  raw              Json?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                      String            @id @default(cuid())
+  releaseEventId          String
+  tier                    SourceTier
+  disposition             SourceDisposition
+  confidenceWeight        Float
+  url                     String
+  host                    String?
+  dateExact               DateTime?
+  dateStart               DateTime?
+  dateEnd                 DateTime?
+  lastVerifiedAt          DateTime?
+  raw                     Json?
+  movedFromReleaseEventId String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
 
   releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
 
   @@index([releaseEventId, lastVerifiedAt])
+  @@index([movedFromReleaseEventId])
 }
 
 model ScanRun {
@@ -299,15 +309,17 @@ model Subscription {
 }
 
 model UserNote {
-  id             String   @id @default(cuid())
-  userId         String
-  releaseEventId String
-  content        String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  userId                  String
+  releaseEventId          String
+  content                 String
+  movedFromReleaseEventId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
 
   @@index([userId, releaseEventId])
+  @@index([movedFromReleaseEventId])
 }

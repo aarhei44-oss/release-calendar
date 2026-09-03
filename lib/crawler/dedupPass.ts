@@ -19,9 +19,10 @@ export type DedupPassResult = { groupsChecked: number; eventsMerged: number; pro
  * orchestrate.ts), scoped to just the installs that were scanned.
  *
  * Conservative on purpose: it only ever merges claims/comments from a
- * duplicate onto a survivor and deletes the duplicate. It never rewrites
- * the survivor's own date fields, so a dedup pass can't silently change an
- * event's displayed date.
+ * duplicate onto a survivor and archives the duplicate (soft-delete --
+ * undoable via lib/crawler/mergeUndo.ts, until retention eventually purges
+ * it). It never rewrites the survivor's own date fields, so a dedup pass
+ * can't silently change an event's displayed date.
  */
 export async function runDedupPass(params: { installIds?: string[] } = {}): Promise<DedupPassResult> {
   return withActionLogging("crawler.runDedupPass", async () => {

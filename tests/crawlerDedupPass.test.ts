@@ -60,7 +60,10 @@ describe("runDedupPass", () => {
     // global count that other tests' data could also contribute to.
     await runDedupPass();
 
-    const remaining = await prisma.releaseEvent.findMany({ where: { productSetId }, include: { sourceClaims: true } });
+    const remaining = await prisma.releaseEvent.findMany({
+      where: { productSetId, archivedAt: null },
+      include: { sourceClaims: true },
+    });
     expect(remaining).toHaveLength(1);
     expect(remaining[0].sourceClaims).toHaveLength(2);
     // Confidence recomputed from both now-combined claims (higher than either alone).
@@ -83,11 +86,14 @@ describe("runDedupPass", () => {
 
     await runDedupPass();
 
-    const remaining = await prisma.releaseEvent.findMany({ where: { productSetId } });
+    const remaining = await prisma.releaseEvent.findMany({ where: { productSetId, archivedAt: null } });
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe(overridden.id);
     expect(remaining[0].dateExact?.getTime()).toBe(new Date("2099-01-01").getTime());
-    expect(await prisma.releaseEvent.findUnique({ where: { id: discovered.id } })).toBeNull();
+
+    const archivedDiscovered = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: discovered.id } });
+    expect(archivedDiscovered.archivedAt).not.toBeNull();
+    expect(archivedDiscovered.mergedIntoId).toBe(overridden.id);
   });
 
   it("is a no-op when there is only one event in a group", async () => {
@@ -121,11 +127,14 @@ describe("runDedupPass", () => {
     const result = await runDedupPass({ installIds: [installId] });
 
     expect(result.productSetsMerged).toBe(1);
-    expect(await prisma.productSet.findUnique({ where: { id: duplicate.id } })).toBeNull();
+    const archivedDuplicate = await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } });
+    expect(archivedDuplicate.archivedAt).not.toBeNull();
+    expect(archivedDuplicate.mergedIntoId).toBe(productSetId);
     const survivor = await prisma.productSet.findUniqueOrThrow({ where: { id: productSetId } });
     expect(survivor.name).toBe("Dedup Pass Set");
     const movedEvent = await prisma.releaseEvent.findUnique({ where: { id: event.id } });
     expect(movedEvent?.productSetId).toBe(productSetId);
+    expect(movedEvent?.movedFromProductSetId).toBe(duplicate.id);
   });
 
   it("does not merge ProductSets with genuinely different normalized names", async () => {
@@ -184,7 +193,7 @@ describe("runDedupPass", () => {
 
     expect(result.productSetsMerged).toBe(1);
     expect(result.eventsMerged).toBe(1);
-    const remainingEvents = await prisma.releaseEvent.findMany({ where: { productSetId } });
+    const remainingEvents = await prisma.releaseEvent.findMany({ where: { productSetId, archivedAt: null } });
     expect(remainingEvents).toHaveLength(1);
   });
 
@@ -197,7 +206,9 @@ describe("runDedupPass", () => {
     const result = await runDedupPass({ installIds: [installId] });
 
     expect(result.productSetsMerged).toBe(1);
-    expect(await prisma.productSet.findUnique({ where: { id: duplicate.id } })).toBeNull();
+    const archivedDuplicate = await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } });
+    expect(archivedDuplicate.archivedAt).not.toBeNull();
+    expect(archivedDuplicate.mergedIntoId).toBe(productSetId);
     const survivor = await prisma.productSet.findUniqueOrThrow({ where: { id: productSetId } });
     expect(survivor.name).toBe("Set 1: The First Chapter");
   });
@@ -251,5 +262,66 @@ describe("runDedupPass", () => {
     expect(result.productSetsMerged).toBe(0);
     expect(await prisma.productSet.findUnique({ where: { id: a.id } })).not.toBeNull();
     expect(await prisma.productSet.findUnique({ where: { id: b.id } })).not.toBeNull();
+  });
+
+  it("preserves a duplicate's original movedFromProductSetId stamp across a second merge hop", async () => {
+    // productSetId ("Dedup Pass Set", from beforeEach) is the earliest --
+    // it'll end up the final survivor once both hops resolve.
+    const p1 = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-P1", name: "Totally Different Name" },
+    });
+    const duplicate = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-D", name: "TOTALLY DIFFERENT NAME" },
+    });
+    const event = await prisma.releaseEvent.create({
+      data: {
+        productSetId: duplicate.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-01"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+      },
+    });
+
+    // Hop 1: duplicate merges into p1 (p1 doesn't match productSetId's name yet).
+    const firstPass = await runDedupPass({ installIds: [installId] });
+    expect(firstPass.productSetsMerged).toBe(1);
+    const afterFirstHop = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+    expect(afterFirstHop.productSetId).toBe(p1.id);
+    expect(afterFirstHop.movedFromProductSetId).toBe(duplicate.id);
+
+    // p1's name drifts (e.g. a source's own upsert changing it) to match the
+    // earlier-created productSetId -- p1 is now the duplicate of *that* merge.
+    await prisma.productSet.update({ where: { id: p1.id }, data: { name: "Dedup Pass Set" } });
+
+    const secondPass = await runDedupPass({ installIds: [installId] });
+    expect(secondPass.productSetsMerged).toBe(1);
+    const afterSecondHop = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+    expect(afterSecondHop.productSetId).toBe(productSetId);
+    // The critical assertion: still stamped with the *original* duplicate's
+    // id, not overwritten to p1's id by the second merge.
+    expect(afterSecondHop.movedFromProductSetId).toBe(duplicate.id);
+
+    const p1AfterSecondHop = await prisma.productSet.findUniqueOrThrow({ where: { id: p1.id } });
+    expect(p1AfterSecondHop.archivedAt).not.toBeNull();
+    expect(p1AfterSecondHop.mergedIntoId).toBe(productSetId);
+  });
+
+  it("does not re-touch an already-archived ProductSet or ReleaseEvent on a repeat pass", async () => {
+    const duplicate = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "DP-2", name: "DEDUP PASS SET!!" },
+    });
+
+    const firstPass = await runDedupPass({ installIds: [installId] });
+    expect(firstPass.productSetsMerged).toBe(1);
+    const archivedAtFirstPass = (await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } }))
+      .archivedAt;
+
+    const secondPass = await runDedupPass({ installIds: [installId] });
+    expect(secondPass.productSetsMerged).toBe(0);
+    const archivedAtSecondPass = (await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } }))
+      .archivedAt;
+    expect(archivedAtSecondPass?.getTime()).toBe(archivedAtFirstPass?.getTime());
   });
 });

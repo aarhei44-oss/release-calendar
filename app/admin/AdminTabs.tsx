@@ -10,6 +10,7 @@ import type {
   listUsers,
   listScanRuns,
   listContradictedEvents,
+  listRecentMerges,
 } from "./actions";
 
 type AdminTab = "profiles" | "users" | "system" | "review";
@@ -26,9 +27,10 @@ type Props = {
   users: Awaited<ReturnType<typeof listUsers>>;
   scanRuns: Awaited<ReturnType<typeof listScanRuns>>;
   contradictedEvents: Awaited<ReturnType<typeof listContradictedEvents>>;
+  recentMerges: Awaited<ReturnType<typeof listRecentMerges>>;
 };
 
-export function AdminTabs({ packages, users, scanRuns, contradictedEvents }: Props) {
+export function AdminTabs({ packages, users, scanRuns, contradictedEvents, recentMerges }: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
 
   const installOptions = packages.flatMap((pkg) =>
@@ -117,7 +119,7 @@ export function AdminTabs({ packages, users, scanRuns, contradictedEvents }: Pro
           aria-labelledby="admin-tab-system"
           tabIndex={0}
         >
-          <SystemTab installs={installOptions} scanRuns={scanRuns} />
+          <SystemTab installs={installOptions} scanRuns={scanRuns} recentMerges={recentMerges} />
         </div>
       )}
       {active === "review" && (

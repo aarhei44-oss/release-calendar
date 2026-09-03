@@ -3,6 +3,8 @@ import type { UserRole } from "@/app/generated/prisma/client";
 import { runScan } from "@/lib/crawler/orchestrate";
 import { runDedupPass } from "@/lib/crawler/dedupPass";
 import { runReleaseLifecyclePass } from "@/lib/crawler/lifecycle";
+import { runRetentionCleanupPass } from "@/lib/crawler/retention";
+import { undoProductSetMergeAndRecompute, undoReleaseEventMergeAndRecompute } from "@/lib/crawler/mergeUndo";
 
 export async function listPackagesWithInstalls() {
   return prisma.tcgProfilePackage.findMany({
@@ -91,6 +93,7 @@ export async function getEventsWithHighTierContradiction() {
     where: {
       isManualOverride: false,
       status: { notIn: ["RELEASED", "CANCELLED"] },
+      archivedAt: null,
       sourceClaims: { some: { disposition: "CONTRADICTS", tier: { in: ["OFFICIAL", "RETAILER"] } } },
     },
     include: {
@@ -99,4 +102,59 @@ export async function getEventsWithHighTierContradiction() {
     },
     orderBy: { updatedAt: "desc" },
   });
+}
+
+export async function triggerRetentionCleanup() {
+  return runRetentionCleanupPass();
+}
+
+/**
+ * Most-recently-merged ProductSets/ReleaseEvents (undoable from the System
+ * tab), with the survivor each one is currently merged into resolved to a
+ * display name -- a plain mergedIntoId isn't a relation (see schema.prisma),
+ * so that's a small follow-up query rather than an include.
+ */
+export async function listRecentMerges() {
+  const [productSets, releaseEvents] = await Promise.all([
+    prisma.productSet.findMany({
+      where: { archivedAt: { not: null }, mergedIntoId: { not: null } },
+      orderBy: { archivedAt: "desc" },
+      take: 20,
+    }),
+    prisma.releaseEvent.findMany({
+      where: { archivedAt: { not: null }, mergedIntoId: { not: null } },
+      orderBy: { archivedAt: "desc" },
+      take: 20,
+      include: { productSet: { select: { name: true } } },
+    }),
+  ]);
+
+  const survivorProductSetIds = [...new Set(productSets.map((p) => p.mergedIntoId!))];
+  const survivorEventIds = [...new Set(releaseEvents.map((e) => e.mergedIntoId!))];
+
+  const [survivorProductSets, survivorEvents] = await Promise.all([
+    prisma.productSet.findMany({ where: { id: { in: survivorProductSetIds } }, select: { id: true, name: true } }),
+    prisma.releaseEvent.findMany({
+      where: { id: { in: survivorEventIds } },
+      select: { id: true, productSet: { select: { name: true } } },
+    }),
+  ]);
+  const survivorProductSetNames = new Map(survivorProductSets.map((p) => [p.id, p.name]));
+  const survivorEventNames = new Map(survivorEvents.map((e) => [e.id, e.productSet.name]));
+
+  return {
+    productSets: productSets.map((p) => ({ ...p, mergedIntoName: survivorProductSetNames.get(p.mergedIntoId!) ?? null })),
+    releaseEvents: releaseEvents.map((e) => ({
+      ...e,
+      mergedIntoName: survivorEventNames.get(e.mergedIntoId!) ?? null,
+    })),
+  };
+}
+
+export async function undoProductSetMerge(productSetId: string) {
+  return undoProductSetMergeAndRecompute(productSetId);
+}
+
+export async function undoReleaseEventMerge(releaseEventId: string) {
+  return undoReleaseEventMergeAndRecompute(releaseEventId);
 }

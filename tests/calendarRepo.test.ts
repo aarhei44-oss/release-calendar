@@ -146,6 +146,25 @@ describe("getFilteredEvents", () => {
     expect(events.map((e) => e.id)).toEqual([windowEventId]);
   });
 
+  it("excludes an archived (merged-away) event even when it matches every other filter", async () => {
+    const pokemonSet = await prisma.productSet.findFirstOrThrow({ where: { tcgProfileInstallId: pokemonInstallId } });
+    const archivedEvent = await prisma.releaseEvent.create({
+      data: {
+        productSetId: pokemonSet.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-03-15"),
+        status: "CONFIRMED",
+        confidence: 0.9,
+        archivedAt: new Date(),
+        mergedIntoId: exactEventId,
+      },
+    });
+
+    const events = await getFilteredEvents({ installIds: [pokemonInstallId] });
+    expect(events.map((e) => e.id)).not.toContain(archivedEvent.id);
+  });
+
   it("includes EXACT/RANGE/WINDOW events overlapping a date range, plus TBD", async () => {
     const events = await getFilteredEvents({
       installIds: [pokemonInstallId, mtgInstallId],
