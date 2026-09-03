@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import type { ReleaseEventType, Region } from "@/app/generated/prisma/client";
 import { parseFlexibleDate } from "../dateParsing";
+import { fetchWithRetry } from "../httpFetch";
 import type { ParserAdapter, ParsedCandidate, RawFetchResult, SourceConfig } from "./types";
 
 type HtmlTableOptions = {
@@ -11,6 +13,23 @@ type HtmlTableOptions = {
   codePrefix?: string;
   eventType?: ReleaseEventType;
   region?: Region;
+  /**
+   * Case-insensitive trailing text to strip from the parsed name (tried in
+   * order, first match wins) -- for sources whose name cell has known
+   * site-chrome glued onto the real product name by cellText's inserted
+   * separator, e.g. yugiohcardlist.com's name link is followed by a nested
+   * "card list · prices" sublink pair with no space in the source markup,
+   * which cellText correctly renders as "Magnificent Maestros card list ·
+   * prices" rather than silently swallowing it -- that text is real (it
+   * came from the page), just not part of the product's name. Left in,
+   * it's not just a cosmetic wart: the boilerplate suffix is identical
+   * across every row from a chrome-heavy source, so it inflates
+   * dedup.ts's fuzzy name-similarity score for every pair drawn from that
+   * source, enough to wrongly merge unrelated products (e.g. "Abyss
+   * Rising" into "Rage of the Abyss") purely on the strength of the shared
+   * chrome text they both carry.
+   */
+  nameStripSuffixes?: string[];
 };
 
 const DEFAULT_NAME_HINTS = ["name", "set"];
@@ -28,18 +47,9 @@ export const htmlTableAdapter: ParserAdapter = {
   key: "html-table",
 
   async fetch(config: SourceConfig): Promise<RawFetchResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const response = await fetch(config.url, {
-        signal: controller.signal,
-        headers: { "User-Agent": "release-watcher-crawler/1.0 (self-hosted TCG calendar)" },
-      });
-      const html = await response.text();
-      return { url: config.url, status: response.status, html, fetchedAt: new Date() };
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetchWithRetry(config.url);
+    const html = await response.text();
+    return { url: config.url, status: response.status, html, fetchedAt: new Date() };
   },
 
   parse(raw: RawFetchResult, config: SourceConfig): ParsedCandidate[] {
@@ -60,7 +70,7 @@ export const htmlTableAdapter: ParserAdapter = {
       const headerCells = $(rows[0])
         .find("th,td")
         .toArray()
-        .map((cell) => cleanText($(cell).text()).toLowerCase());
+        .map((cell) => cellText($, cell).toLowerCase());
 
       // Real set-list tables always have a distinct name column and date
       // column. A single-cell "header" (e.g. a Wikipedia navbox caption row
@@ -79,10 +89,10 @@ export const htmlTableAdapter: ParserAdapter = {
         const cells = $(row)
           .find("td")
           .toArray()
-          .map((cell) => cleanText($(cell).text()));
+          .map((cell) => cellText($, cell));
         if (cells.length <= Math.max(nameColIdx, dateColIdx)) continue;
 
-        const name = cells[nameColIdx];
+        const name = stripKnownSuffix(cells[nameColIdx], options.nameStripSuffixes);
         const dateText = cells[dateColIdx];
         if (!name) continue;
 
@@ -126,6 +136,38 @@ function findColumn(headers: string[], hints: string[]): number {
 
 function cleanText(text: string): string {
   return text.replace(/\[\d+\]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * A cell's text, with a space forced between its direct children before
+ * cheerio's own `.text()` concatenates them. Plain `$(cell).text()` glues
+ * adjacent child elements with no separator at all when the source markup
+ * has no whitespace between them (e.g. yugiohcardlist.com's
+ * `<a>Set Name</a><span>card list</span>`, which `.text()` alone renders as
+ * "Set Namecard list") -- besides being cosmetically wrong, a glued-on
+ * trailing word can absorb a real token (e.g. a sequence number: "Pack
+ * 25card" is no longer recognized as ending in the standalone number "25"),
+ * which is exactly what dedup.ts's fuzzy-match number veto relies on to
+ * keep sequential releases like "Pack 25" and "Pack 30" apart. Splitting on
+ * direct children rather than just text nodes also fixes the same glued-text
+ * artifact called out on Bulbapedia's Japanese name cells in seed.ts.
+ */
+function cellText($: cheerio.CheerioAPI, cell: Element): string {
+  const parts = $(cell)
+    .contents()
+    .toArray()
+    .map((node) => $(node).text());
+  return cleanText(parts.join(" "));
+}
+
+function stripKnownSuffix(name: string, suffixes?: string[]): string {
+  if (!suffixes) return name;
+  for (const suffix of suffixes) {
+    if (name.toLowerCase().endsWith(suffix.toLowerCase())) {
+      return name.slice(0, name.length - suffix.length).trim();
+    }
+  }
+  return name;
 }
 
 function slugify(text: string): string {

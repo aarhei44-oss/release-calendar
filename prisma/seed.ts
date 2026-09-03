@@ -225,16 +225,23 @@ const GUNDAM_SOURCES: SourceConfig[] = [
 const YUGIOH_SOURCES: SourceConfig[] = [
   {
     // "Set"/"Release" headers match the adapter's default hints, no
-    // overrides needed. The name cell also carries two secondary links
-    // ("card list", "prices") glued onto the set name by cheerio's
-    // text-extraction (e.g. "Magnificent Maestroscard list · prices") --
-    // noisy but not garbage, same class of defect as Bulbapedia's glued
-    // native+translated names in POKEMON_SOURCES and Scryfall's appended
-    // code suffix in MTG_SOURCES; dates and set identity are unaffected.
+    // overrides needed. The name cell carries two secondary links ("card
+    // list", "prices") after the real name on every single row -- initially
+    // shipped assuming that was cosmetic noise like Bulbapedia's/Scryfall's,
+    // but it isn't: identical boilerplate on ~1000 of this install's ~1040
+    // product sets was inflating dedup.ts's fuzzy name-similarity score
+    // across the board, wrongly merging unrelated sets (e.g. "Abyss Rising"
+    // into "Rage of the Abyss") on the strength of shared chrome text alone.
+    // nameStripSuffixes removes it outright rather than tolerating it.
     url: "https://yugiohcardlist.com/sets",
     tier: "COMMUNITY",
     parser: "html-table",
-    options: { codePrefix: "YGO", eventType: "SHELF", region: "GLOBAL" },
+    options: {
+      codePrefix: "YGO",
+      eventType: "SHELF",
+      region: "GLOBAL",
+      nameStripSuffixes: ["card list · prices"],
+    },
   },
   // Japan-only OCG release schedule -- Konami's OCG (Japan) and TCG
   // (English/global) product lines share set names but ship on different
