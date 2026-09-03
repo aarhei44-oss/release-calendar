@@ -1,0 +1,5 @@
+# Shell scripts run on Linux (in the Docker build and directly on the
+# droplet) and break immediately if checked out with CRLF line endings
+# (bad shebang) -- this repo's core.autocrlf=true on Windows would
+# otherwise silently corrupt them on checkout.
+*.sh text eol=lf
