@@ -3,6 +3,8 @@ import { authOptions } from "@/app/auth";
 import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { ProfileForm, AlertsForm } from "./ProfileForm";
+import { DashboardCardsForm } from "./DashboardCardsForm";
+import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "@/app/dashboard/cards";
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -22,6 +24,12 @@ export default async function ProfilePage() {
         initialEmailAlertsEnabled={profile.emailAlertsEnabled}
         initialDiscordWebhookUrl={profile.discordWebhookUrl}
         initialDiscordAlertsEnabled={profile.discordAlertsEnabled}
+      />
+      <DashboardCardsForm
+        isPremium={profile.isPremium}
+        initialCardIds={
+          profile.isPremium ? resolveDashboardCardOrder(profile.dashboardCardIds) : DEFAULT_DASHBOARD_CARD_ORDER
+        }
       />
     </div>
   );

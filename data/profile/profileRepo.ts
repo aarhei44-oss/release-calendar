@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/app/generated/prisma/client";
 
 export async function getProfile(userId: string) {
   return prisma.user.findUniqueOrThrow({
@@ -8,6 +9,8 @@ export async function getProfile(userId: string) {
       emailAlertsEnabled: true,
       discordWebhookUrl: true,
       discordAlertsEnabled: true,
+      isPremium: true,
+      dashboardCardIds: true,
     },
   });
 }
@@ -41,5 +44,13 @@ export async function updateDiscordAlertsEnabled(userId: string, enabled: boolea
     where: { id: userId },
     data: { discordAlertsEnabled: enabled },
     select: { discordAlertsEnabled: true },
+  });
+}
+
+export async function updateDashboardCardIds(userId: string, cardIds: string[] | null) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { dashboardCardIds: cardIds ?? Prisma.JsonNull },
+    select: { dashboardCardIds: true },
   });
 }

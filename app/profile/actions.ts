@@ -7,9 +7,11 @@ import {
   updateEmailAlertsEnabled as repoUpdateEmailAlertsEnabled,
   updateDiscordWebhookUrl as repoUpdateDiscordWebhookUrl,
   updateDiscordAlertsEnabled as repoUpdateDiscordAlertsEnabled,
+  updateDashboardCardIds as repoUpdateDashboardCardIds,
 } from "@/data/profile/profileRepo";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
-import { requireUser } from "@/lib/authGuards";
+import { isDashboardCardId } from "@/app/dashboard/cards";
+import { requireUser, requirePremium } from "@/lib/authGuards";
 import { withActionLogging } from "@/lib/logger";
 
 // Intl.supportedValuesOf("timeZone") on the server is the source of truth
@@ -65,5 +67,19 @@ export async function updateDiscordAlertsEnabled(enabled: boolean) {
   return withActionLogging("profile.updateDiscordAlertsEnabled", async () => {
     const user = await requireUser();
     return repoUpdateDiscordAlertsEnabled(user.id, z.boolean().parse(enabled));
+  });
+}
+
+const dashboardCardIdsSchema = z
+  .array(z.string().refine(isDashboardCardId, { message: "Unknown dashboard card id" }))
+  .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate card id" })
+  .nullable();
+
+/** Premium-only: null resets to the default set/order (see DEFAULT_DASHBOARD_CARD_ORDER). */
+export async function updateDashboardCardIds(cardIds: string[] | null) {
+  return withActionLogging("profile.updateDashboardCardIds", async () => {
+    const user = await requirePremium();
+    const parsed = dashboardCardIdsSchema.parse(cardIds);
+    return repoUpdateDashboardCardIds(user.id, parsed);
   });
 }

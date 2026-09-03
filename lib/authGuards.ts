@@ -16,6 +16,13 @@ export class ForbiddenError extends Error {
   }
 }
 
+export class PremiumRequiredError extends Error {
+  constructor(message = "Premium required") {
+    super(message);
+    this.name = "PremiumRequiredError";
+  }
+}
+
 /** Throws UnauthorizedError if there is no active, signed-in user. */
 export async function requireUser() {
   const session = await getServerSession(authOptions);
@@ -35,5 +42,22 @@ export async function requireAdmin() {
     throw new ForbiddenError();
   }
   logEvent({ event: "auth.requireAdmin", outcome: "allowed", userId: user.id });
+  return user;
+}
+
+/**
+ * Throws UnauthorizedError/PremiumRequiredError unless the signed-in user
+ * is premium. No billing exists yet -- isPremium is currently only set
+ * manually from /admin's Users tab -- but every premium-gated server
+ * action should still go through this so the check is enforced
+ * server-side, not just hidden/disabled in the UI.
+ */
+export async function requirePremium() {
+  const user = await requireUser();
+  if (!user.isPremium) {
+    logEvent({ event: "auth.requirePremium", outcome: "denied", userId: user.id });
+    throw new PremiumRequiredError();
+  }
+  logEvent({ event: "auth.requirePremium", outcome: "allowed", userId: user.id });
   return user;
 }

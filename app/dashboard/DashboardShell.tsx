@@ -7,6 +7,7 @@ import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "@/app/calendar/mapEvents";
 import { formatEventDate, formatRelativeTime, statusBadgeClass } from "@/app/calendar/eventDisplay";
+import { DEFAULT_DASHBOARD_CARD_ORDER, type DashboardCardId } from "./cards";
 
 type SubscribedGame = { id: string; name: string };
 
@@ -14,6 +15,8 @@ type Props = {
   subscribedGames: SubscribedGame[];
   upcoming: CalendarEvent[];
   recentActivity: CalendarEvent[];
+  /** Premium-configurable (see /profile); defaults to every card, in the default order. */
+  cardOrder?: DashboardCardId[];
 };
 
 // Solid dots (not tinted backgrounds) so they stay legible against the dark
@@ -105,7 +108,12 @@ function SectionHeading({ icon: Icon, title, subtitle }: { icon: typeof Calendar
   );
 }
 
-export function DashboardShell({ subscribedGames, upcoming, recentActivity }: Props) {
+export function DashboardShell({
+  subscribedGames,
+  upcoming,
+  recentActivity,
+  cardOrder = DEFAULT_DASHBOARD_CARD_ORDER,
+}: Props) {
   const router = useRouter();
   const newlyConfirmed = recentActivity.filter((e) => e.status === "CONFIRMED");
   // getFilteredEvents (shared with /calendar and /subscriptions) deliberately
@@ -175,35 +183,44 @@ export function DashboardShell({ subscribedGames, upcoming, recentActivity }: Pr
         </div>
       </div>
 
-      <section>
-        <SectionHeading icon={CalendarDays} title="Next 7 days" />
-        <EventCardGrid
-          events={upcomingWithDates}
-          onSelect={openEvent}
-          emptyMessage="Nothing with a set date in your subscriptions over the next 7 days."
-        />
-      </section>
-
-      {newlyConfirmed.length > 0 && (
-        <section>
-          <SectionHeading icon={PartyPopper} title="Newly confirmed" />
-          <EventCardGrid events={newlyConfirmed} onSelect={openEvent} showRelativeTime emptyMessage="" />
-        </section>
-      )}
-
-      <section>
-        <SectionHeading
-          icon={Sparkles}
-          title="What's new"
-          subtitle="scanned in the last 7 days"
-        />
-        <EventCardGrid
-          events={recentActivity}
-          onSelect={openEvent}
-          showRelativeTime
-          emptyMessage="No activity on your subscriptions in the last 7 days."
-        />
-      </section>
+      {cardOrder.map((cardId) => {
+        switch (cardId) {
+          case "upcoming":
+            return (
+              <section key={cardId}>
+                <SectionHeading icon={CalendarDays} title="Next 7 days" />
+                <EventCardGrid
+                  events={upcomingWithDates}
+                  onSelect={openEvent}
+                  emptyMessage="Nothing with a set date in your subscriptions over the next 7 days."
+                />
+              </section>
+            );
+          case "newlyConfirmed":
+            // Unlike the other two cards, this one still hides itself when
+            // empty even when enabled -- "newly confirmed" with nothing to
+            // show reads as a broken section, not an empty state worth
+            // seeing, same as before this became configurable.
+            return newlyConfirmed.length > 0 ? (
+              <section key={cardId}>
+                <SectionHeading icon={PartyPopper} title="Newly confirmed" />
+                <EventCardGrid events={newlyConfirmed} onSelect={openEvent} showRelativeTime emptyMessage="" />
+              </section>
+            ) : null;
+          case "recentActivity":
+            return (
+              <section key={cardId}>
+                <SectionHeading icon={Sparkles} title="What's new" subtitle="scanned in the last 7 days" />
+                <EventCardGrid
+                  events={recentActivity}
+                  onSelect={openEvent}
+                  showRelativeTime
+                  emptyMessage="No activity on your subscriptions in the last 7 days."
+                />
+              </section>
+            );
+        }
+      })}
     </div>
   );
 }
