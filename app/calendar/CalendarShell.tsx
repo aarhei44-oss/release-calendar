@@ -8,6 +8,7 @@ import type {
   ReleaseStatus,
 } from "@/app/generated/prisma/client";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import type { ReactionCounts } from "./eventDisplay";
 import { Tabs, tabPanelId } from "./Tabs";
 import { type InstallOption } from "./FilterBar";
 import { FilterSidebar } from "./FilterSidebar";
@@ -26,9 +27,11 @@ type Props = {
   parsed: ParsedCalendarSearchParams;
   events: CalendarEvent[];
   installOptions: InstallOption[];
+  /** Keyed by event id; events with no reactions are simply absent. */
+  reactionSummaries?: Record<string, ReactionCounts>;
 };
 
-export function CalendarShell({ parsed, events, installOptions }: Props) {
+export function CalendarShell({ parsed, events, installOptions, reactionSummaries }: Props) {
   const router = useRouter();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -130,6 +133,7 @@ export function CalendarShell({ parsed, events, installOptions }: Props) {
                   month={parsed.calMonth}
                   onNavigateMonth={(calMonth) => navigate({ calMonth })}
                   onSelectEvent={setEventIdShallow}
+                  reactionSummaries={reactionSummaries}
                 />
               </div>
             </div>
@@ -148,7 +152,7 @@ export function CalendarShell({ parsed, events, installOptions }: Props) {
                 onChange={(listMonth) => navigate({ listMonth })}
               />
               <div data-testid="tabpanel-scroll" className="min-h-0 flex-1 overflow-y-auto">
-                <EventsList events={events} onSelectEvent={setEventIdShallow} />
+                <EventsList events={events} onSelectEvent={setEventIdShallow} reactionSummaries={reactionSummaries} />
               </div>
             </div>
           )}
@@ -166,6 +170,7 @@ export function CalendarShell({ parsed, events, installOptions }: Props) {
                   events={events}
                   onSelectEvent={setEventIdShallow}
                   emptyMessage="Nothing upcoming in the next 90 days."
+                  reactionSummaries={reactionSummaries}
                 />
               </div>
             </div>

@@ -12,6 +12,7 @@ import {
   clearEventReaction,
   getEventReactionSummary,
   getReactionScoresForEvents,
+  getReactionSummariesForEvents,
 } from "@/data/events/eventPersonalizationRepo";
 
 let userId: string;
@@ -202,5 +203,33 @@ describe("getReactionScoresForEvents", () => {
     await setEventReaction(userId, otherEventId, "\u{1F525}");
     const scores = await getReactionScoresForEvents([eventId]);
     expect(scores.has(otherEventId)).toBe(false);
+  });
+});
+
+describe("getReactionSummariesForEvents", () => {
+  it("returns an empty map for an empty id list", async () => {
+    expect(await getReactionSummariesForEvents([])).toEqual(new Map());
+  });
+
+  it("omits events with no reactions", async () => {
+    const summaries = await getReactionSummariesForEvents([eventId, otherEventId]);
+    expect(summaries.size).toBe(0);
+  });
+
+  it("returns the full per-emoji breakdown for each event", async () => {
+    const otherUser = await prisma.user.create({ data: { email: `event-personalization-summaries-${crypto.randomUUID()}@example.com` } });
+    await setEventReaction(userId, eventId, "\u{1F525}");
+    await setEventReaction(otherUser.id, eventId, "\u{1F525}");
+    await setEventReaction(userId, otherEventId, "\u{1F614}");
+
+    const summaries = await getReactionSummariesForEvents([eventId, otherEventId]);
+    expect(summaries.get(eventId)).toEqual({ "\u{1F525}": 2 });
+    expect(summaries.get(otherEventId)).toEqual({ "\u{1F614}": 1 });
+  });
+
+  it("only reports summaries for the requested event ids", async () => {
+    await setEventReaction(userId, otherEventId, "\u{1F525}");
+    const summaries = await getReactionSummariesForEvents([eventId]);
+    expect(summaries.has(otherEventId)).toBe(false);
   });
 });

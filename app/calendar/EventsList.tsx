@@ -3,7 +3,8 @@
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "./mapEvents";
-import { formatEventDate, formatRelativeTime, sortKeyFor, statusBadgeClass } from "./eventDisplay";
+import { formatEventDate, formatRelativeTime, sortKeyFor, statusBadgeClass, type ReactionCounts } from "./eventDisplay";
+import { ReactionBadges } from "./ReactionBadges";
 
 type Props = {
   events: CalendarEvent[];
@@ -11,6 +12,8 @@ type Props = {
   emptyMessage?: string;
   /** "date" (default) sorts/shows by release date, for a calendar-style list. "recentlyUpdated" sorts by updatedAt desc and shows "updated X ago" instead -- for a "what's new" feed where recency of the change matters more than the release date itself. */
   sortBy?: "date" | "recentlyUpdated";
+  /** Keyed by event id; events with no reactions are simply absent. Optional so other EventsList callers (e.g. dashboard, if any) aren't forced to fetch this. */
+  reactionSummaries?: Record<string, ReactionCounts>;
 };
 
 export function EventsList({
@@ -18,6 +21,7 @@ export function EventsList({
   onSelectEvent,
   emptyMessage = "No releases match the current filters.",
   sortBy = "date",
+  reactionSummaries,
 }: Props) {
   const timeZone = useUserTimeZone();
   const sorted =
@@ -46,11 +50,14 @@ export function EventsList({
                 {sortBy === "recentlyUpdated" ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event, timeZone)}
               </p>
             </div>
-            <span
-              className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(event.status)}`}
-            >
-              {event.status}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <ReactionBadges counts={reactionSummaries?.[event.id]} />
+              <span
+                className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(event.status)}`}
+              >
+                {event.status}
+              </span>
+            </div>
           </button>
         </li>
       ))}

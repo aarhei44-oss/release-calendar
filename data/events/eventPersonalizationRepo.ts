@@ -101,6 +101,32 @@ export async function getEventReactionSummary(releaseEventId: string, userId?: s
   return { counts, myReaction: mine?.emoji ?? null };
 }
 
+/**
+ * Bulk full per-emoji reaction counts for a set of events -- for a compact
+ * read-only badge on calendar cards/rows/grid cells (as opposed to
+ * getEventReactionSummary, which also resolves one user's own reaction for
+ * the interactive picker in EventDrawer). Events with zero reactions are
+ * simply absent from the returned map.
+ */
+export async function getReactionSummariesForEvents(eventIds: string[]): Promise<Map<string, Record<string, number>>> {
+  const summaries = new Map<string, Record<string, number>>();
+  if (eventIds.length === 0) return summaries;
+
+  const grouped = await prisma.eventReaction.groupBy({
+    by: ["releaseEventId", "emoji"],
+    where: { releaseEventId: { in: eventIds } },
+    _count: { emoji: true },
+  });
+
+  for (const row of grouped) {
+    const entry = summaries.get(row.releaseEventId) ?? {};
+    entry[row.emoji] = row._count.emoji;
+    summaries.set(row.releaseEventId, entry);
+  }
+
+  return summaries;
+}
+
 export type ReactionScore = { positive: number; negative: number };
 
 /**

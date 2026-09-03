@@ -3,6 +3,7 @@ import { authOptions } from "@/app/auth";
 import { getFilteredEvents } from "./actions";
 import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
 import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
+import { getReactionSummariesForEvents } from "@/data/events/eventPersonalizationRepo";
 import { parseCalendarSearchParams, monthRange, type RawSearchParams } from "./searchParams";
 import { CalendarShell } from "./CalendarShell";
 
@@ -56,5 +57,19 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   const installOptions = installs.map((install) => ({ id: install.id, name: install.package.name }));
 
-  return <CalendarShell parsed={parsed} events={events} installOptions={installOptions} />;
+  // Reaction counts are public (see EventReactions), so no premium/anon gate
+  // is needed here -- just a plain-object copy of the Map since Server
+  // Component props must be JSON-serializable for the client boundary.
+  const reactionSummaries = Object.fromEntries(
+    await getReactionSummariesForEvents(events.map((e) => e.id)),
+  );
+
+  return (
+    <CalendarShell
+      parsed={parsed}
+      events={events}
+      installOptions={installOptions}
+      reactionSummaries={reactionSummaries}
+    />
+  );
 }

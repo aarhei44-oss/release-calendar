@@ -129,3 +129,14 @@ export const REACTION_EMOJIS = [
   { emoji: "\u{1F614}", label: "Meh", sentiment: "negative" },
   { emoji: "\u{1F644}", label: "Skip", sentiment: "negative" },
 ] as const;
+
+export type ReactionCounts = Record<string, number>;
+
+/** Highest-count emoji first, capped at `limit` -- for a compact badge on a card/list row/grid cell, as opposed to EventReactions' full interactive picker. */
+export function topReactions(counts: ReactionCounts | undefined, limit = 2): { emoji: string; count: number }[] {
+  if (!counts) return [];
+  return Object.entries(counts)
+    .map(([emoji, count]) => ({ emoji, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}

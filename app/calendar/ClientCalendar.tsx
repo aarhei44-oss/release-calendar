@@ -6,6 +6,7 @@ import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./rbc-theme.css";
 import type { MappedCalendarEvent } from "./mapEvents";
+import { topReactions, type ReactionCounts } from "./eventDisplay";
 
 const localizer = dateFnsLocalizer({
   format,
@@ -20,9 +21,11 @@ type Props = {
   month: string; // YYYY-MM
   onNavigateMonth: (month: string) => void;
   onSelectEvent: (eventId: string) => void;
+  /** Keyed by event id; events with no reactions are simply absent. */
+  reactionSummaries?: Record<string, ReactionCounts>;
 };
 
-export function ClientCalendar({ events, month, onNavigateMonth, onSelectEvent }: Props) {
+export function ClientCalendar({ events, month, onNavigateMonth, onSelectEvent, reactionSummaries }: Props) {
   const [year, mon] = month.split("-").map(Number);
   const date = new Date(year, mon - 1, 1);
 
@@ -42,6 +45,17 @@ export function ClientCalendar({ events, month, onNavigateMonth, onSelectEvent }
           eventPropGetter={(event: MappedCalendarEvent) => ({
             className: `rbc-event-status-${event.resource.status.toLowerCase()}`,
           })}
+          components={{
+            event: ({ event }: { event: MappedCalendarEvent }) => {
+              const top = topReactions(reactionSummaries?.[event.id], 1)[0];
+              return (
+                <span>
+                  {top && <span aria-hidden>{top.emoji} </span>}
+                  {event.title}
+                </span>
+              );
+            },
+          }}
           popup
           toolbar={false}
           style={{ height: "100%" }}
