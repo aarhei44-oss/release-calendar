@@ -11,6 +11,7 @@ import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
 import { CommentsForEvent } from "./CommentsForEvent";
+import { EventPersonalization } from "./EventPersonalization";
 
 type EventDetail = Awaited<ReturnType<typeof getEventDetail>>;
 
@@ -193,6 +194,10 @@ export function EventDrawer({ eventId, onClose }: Props) {
                         </ul>
                       )}
                     </div>
+
+                    {session?.user && (
+                      <EventPersonalization key={detail.id} eventId={detail.id} isPremium={isPremium} />
+                    )}
 
                     <CommentsForEvent
                       key={detail.id}

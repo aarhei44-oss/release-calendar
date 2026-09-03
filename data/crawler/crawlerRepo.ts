@@ -150,29 +150,137 @@ export async function findEventsForProductSetType(productSetId: string, type: Re
  * moved by an earlier merge) keep it -- overwriting it would point undo at
  * the wrong duplicate and orphan whichever one it originally came from.
  */
+/**
+ * EventFollow/EventDismissal are unique per (userId, releaseEventId) --
+ * unlike SourceClaim/UserNote, a plain updateMany onto the primary can hit
+ * that constraint if the same user already has a row on both the primary
+ * and the duplicate (rare, but possible if they interacted with both
+ * before this dedup pass ran). Since these are pure flags with nothing to
+ * lose, the collision resolves by just dropping the duplicate's row -- the
+ * user's "I follow/dismissed this" intent is already satisfied by the
+ * primary's row. Written twice (not as one generic helper over a model
+ * name) because Prisma's per-model delegate types don't unify cleanly
+ * under a single dynamic "tx[model]" call without losing type safety.
+ */
+async function reassignEventFollows(tx: Prisma.TransactionClient, primaryId: string, duplicateId: string) {
+  const primaryUserIds = new Set(
+    (await tx.eventFollow.findMany({ where: { releaseEventId: primaryId }, select: { userId: true } })).map(
+      (r) => r.userId,
+    ),
+  );
+  const duplicateRows = await tx.eventFollow.findMany({
+    where: { releaseEventId: duplicateId },
+    select: { id: true, userId: true },
+  });
+  const collidingIds = duplicateRows.filter((r) => primaryUserIds.has(r.userId)).map((r) => r.id);
+  const movableIds = duplicateRows.filter((r) => !primaryUserIds.has(r.userId)).map((r) => r.id);
+
+  if (collidingIds.length > 0) {
+    await tx.eventFollow.deleteMany({ where: { id: { in: collidingIds } } });
+  }
+  if (movableIds.length > 0) {
+    await tx.eventFollow.updateMany({
+      where: { id: { in: movableIds } },
+      data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+    });
+  }
+}
+
+/** Same reasoning and collision handling as reassignEventFollows, for EventDismissal. */
+async function reassignEventDismissals(tx: Prisma.TransactionClient, primaryId: string, duplicateId: string) {
+  const primaryUserIds = new Set(
+    (await tx.eventDismissal.findMany({ where: { releaseEventId: primaryId }, select: { userId: true } })).map(
+      (r) => r.userId,
+    ),
+  );
+  const duplicateRows = await tx.eventDismissal.findMany({
+    where: { releaseEventId: duplicateId },
+    select: { id: true, userId: true },
+  });
+  const collidingIds = duplicateRows.filter((r) => primaryUserIds.has(r.userId)).map((r) => r.id);
+  const movableIds = duplicateRows.filter((r) => !primaryUserIds.has(r.userId)).map((r) => r.id);
+
+  if (collidingIds.length > 0) {
+    await tx.eventDismissal.deleteMany({ where: { id: { in: collidingIds } } });
+  }
+  if (movableIds.length > 0) {
+    await tx.eventDismissal.updateMany({
+      where: { id: { in: movableIds } },
+      data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+    });
+  }
+}
+
+/**
+ * Same collision as reassignFlagRows, but a personal note has real content
+ * to lose -- silently dropping the duplicate's note the way a flag can be
+ * dropped would be actual data loss (something this merge system has never
+ * done to SourceClaim/UserNote). Instead, on collision, both notes'
+ * content is preserved by appending the duplicate's onto the primary's.
+ */
+async function reassignEventPersonalNotes(tx: Prisma.TransactionClient, primaryId: string, duplicateId: string) {
+  const primaryNotes = await tx.eventPersonalNote.findMany({
+    where: { releaseEventId: primaryId },
+    select: { id: true, userId: true, content: true },
+  });
+  const primaryByUser = new Map(primaryNotes.map((n) => [n.userId, n]));
+
+  const duplicateNotes = await tx.eventPersonalNote.findMany({
+    where: { releaseEventId: duplicateId },
+    select: { id: true, userId: true, content: true },
+  });
+
+  for (const note of duplicateNotes) {
+    const existing = primaryByUser.get(note.userId);
+    if (existing) {
+      await tx.eventPersonalNote.update({
+        where: { id: existing.id },
+        data: { content: `${existing.content}\n\n---\n\n${note.content}` },
+      });
+      await tx.eventPersonalNote.delete({ where: { id: note.id } });
+    } else {
+      await tx.eventPersonalNote.update({
+        where: { id: note.id },
+        data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
+      });
+    }
+  }
+}
+
 export async function mergeReleaseEvents(primaryId: string, duplicateId: string) {
-  await prisma.$transaction([
-    prisma.sourceClaim.updateMany({
+  await prisma.$transaction(async (tx) => {
+    await tx.sourceClaim.updateMany({
       where: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
       data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
-    }),
-    prisma.sourceClaim.updateMany({
+    });
+    await tx.sourceClaim.updateMany({
       where: { releaseEventId: duplicateId },
       data: { releaseEventId: primaryId },
-    }),
-    prisma.userNote.updateMany({
+    });
+    await tx.userNote.updateMany({
       where: { releaseEventId: duplicateId, movedFromReleaseEventId: null },
       data: { releaseEventId: primaryId, movedFromReleaseEventId: duplicateId },
-    }),
-    prisma.userNote.updateMany({
+    });
+    await tx.userNote.updateMany({
       where: { releaseEventId: duplicateId },
       data: { releaseEventId: primaryId },
-    }),
-    prisma.releaseEvent.update({
+    });
+
+    await reassignEventFollows(tx, primaryId, duplicateId);
+    await reassignEventDismissals(tx, primaryId, duplicateId);
+    await reassignEventPersonalNotes(tx, primaryId, duplicateId);
+
+    // Note: undoReleaseEventMerge below only restores SourceClaim/UserNote
+    // (movedFromReleaseEventId-stamped) back to the duplicate -- it does not
+    // reverse the follow/dismissal/note reassignment above. A deliberate,
+    // documented simplification: undo is a rare admin recovery action, and
+    // unlike SourceClaim/UserNote's simple move, the collision-handling
+    // above (drop/merge) isn't cleanly reversible in the general case.
+    await tx.releaseEvent.update({
       where: { id: duplicateId },
       data: { archivedAt: new Date(), mergedIntoId: primaryId },
-    }),
-  ]);
+    });
+  });
 }
 
 /**

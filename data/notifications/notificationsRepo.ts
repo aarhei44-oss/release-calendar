@@ -83,3 +83,51 @@ export async function getLeadTimeReminderSubscribers(): Promise<LeadTimeReminder
     timezone: u.timezone,
   }));
 }
+
+export type EventFollower = {
+  userId: string;
+  eventId: string;
+  email: string;
+  emailAlertsEnabled: boolean;
+  discordWebhookUrl: string | null;
+  discordAlertsEnabled: boolean;
+};
+
+/**
+ * Every premium follower (with their alert preferences) across a set of
+ * events -- the event-level counterpart to getSubscribersForInstalls, for
+ * "follow individual events, not just whole games." Non-premium excluded:
+ * unlike the install-subscription channel (free), following a specific
+ * event to get notified about only it is itself the premium feature.
+ */
+export async function getFollowersForEvents(eventIds: string[]): Promise<EventFollower[]> {
+  if (eventIds.length === 0) return [];
+
+  const follows = await prisma.eventFollow.findMany({
+    where: { releaseEventId: { in: eventIds } },
+    select: {
+      releaseEventId: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          isPremium: true,
+          emailAlertsEnabled: true,
+          discordWebhookUrl: true,
+          discordAlertsEnabled: true,
+        },
+      },
+    },
+  });
+
+  return follows
+    .filter((f) => f.user.isPremium)
+    .map((f) => ({
+      userId: f.user.id,
+      eventId: f.releaseEventId,
+      email: f.user.email,
+      emailAlertsEnabled: f.user.emailAlertsEnabled,
+      discordWebhookUrl: f.user.discordWebhookUrl,
+      discordAlertsEnabled: f.user.discordAlertsEnabled,
+    }));
+}

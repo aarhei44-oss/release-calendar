@@ -144,32 +144,35 @@ model ProductSet {
 }
 
 model ReleaseEvent {
-  id                     String             @id @default(cuid())
-  productSetId           String
-  type                   ReleaseEventType
-  dateType               DateType
-  dateExact              DateTime?
-  dateStart              DateTime?
-  dateEnd                DateTime?
-  windowGranularity      WindowGranularity?
-  windowStart            DateTime?
-  windowEnd              DateTime?
-  region                 Region             @default(GLOBAL)
-  status                 ReleaseStatus      @default(RUMORED)
-  confidence             Float              @default(0)
-  sourceSummary          String?
-  lastSeenAt             DateTime?
-  isManualOverride       Boolean            @default(false)
-  manualNotes            String?
-  archivedAt             DateTime?
-  mergedIntoId           String?
-  movedFromProductSetId  String?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  productSetId          String
+  type                  ReleaseEventType
+  dateType              DateType
+  dateExact             DateTime?
+  dateStart             DateTime?
+  dateEnd               DateTime?
+  windowGranularity     WindowGranularity?
+  windowStart           DateTime?
+  windowEnd             DateTime?
+  region                Region             @default(GLOBAL)
+  status                ReleaseStatus      @default(RUMORED)
+  confidence            Float              @default(0)
+  sourceSummary         String?
+  lastSeenAt            DateTime?
+  isManualOverride      Boolean            @default(false)
+  manualNotes           String?
+  archivedAt            DateTime?
+  mergedIntoId          String?
+  movedFromProductSetId String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  productSet   ProductSet    @relation(fields: [productSetId], references: [id], onDelete: Cascade)
-  sourceClaims SourceClaim[]
-  userNotes    UserNote[]
+  productSet         ProductSet          @relation(fields: [productSetId], references: [id], onDelete: Cascade)
+  sourceClaims       SourceClaim[]
+  userNotes          UserNote[]
+  eventFollows       EventFollow[]
+  eventPersonalNotes EventPersonalNote[]
+  eventDismissals    EventDismissal[]
 
   @@index([productSetId, type])
   @@index([dateType, dateExact, dateStart])
@@ -250,30 +253,33 @@ model JobLock {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  image         String?
-  emailVerified DateTime?
-  role          UserRole  @default(USER)
-  active        Boolean   @default(true)
-  timezone      String?
-  emailAlertsEnabled Boolean @default(false)
+  id                   String          @id @default(cuid())
+  email                String          @unique
+  name                 String?
+  image                String?
+  emailVerified        DateTime?
+  role                 UserRole        @default(USER)
+  active               Boolean         @default(true)
+  timezone             String?
+  emailAlertsEnabled   Boolean         @default(false)
   discordWebhookUrl    String?
-  discordAlertsEnabled Boolean @default(false)
-  isPremium     Boolean   @default(false)
-  dashboardCardIds Json?
-  digestEmailEnabled Boolean @default(false)
-  digestFrequency    DigestFrequency @default(DAILY)
+  discordAlertsEnabled Boolean         @default(false)
+  isPremium            Boolean         @default(false)
+  dashboardCardIds     Json?
+  digestEmailEnabled   Boolean         @default(false)
+  digestFrequency      DigestFrequency @default(DAILY)
   leadTimeReminderDays Int?
-  icalToken     String?   @unique
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  icalToken            String?         @unique
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  userNotes     UserNote[]
-  subscriptions Subscription[]
+  accounts           Account[]
+  sessions           Session[]
+  userNotes          UserNote[]
+  subscriptions      Subscription[]
+  eventFollows       EventFollow[]
+  eventPersonalNotes EventPersonalNote[]
+  eventDismissals    EventDismissal[]
 }
 
 model Account {
@@ -337,5 +343,56 @@ model UserNote {
   releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
 
   @@index([userId, releaseEventId])
+  @@index([movedFromReleaseEventId])
+}
+
+// Premium event-level personalization (item 24): follow/dismiss/note are
+// each unique per (user, event), unlike UserNote's public comment thread
+// above. movedFromReleaseEventId carries the same merge-reassignment
+// pattern as SourceClaim/UserNote (see crawlerRepo.mergeReleaseEvents) so
+// a dedup merge doesn't silently orphan a user's follow/note/dismissal
+// onto an archived, invisible duplicate event.
+
+model EventFollow {
+  id                      String   @id @default(cuid())
+  userId                  String
+  releaseEventId          String
+  movedFromReleaseEventId String?
+  createdAt               DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseEventId])
+  @@index([movedFromReleaseEventId])
+}
+
+model EventPersonalNote {
+  id                      String   @id @default(cuid())
+  userId                  String
+  releaseEventId          String
+  content                 String
+  movedFromReleaseEventId String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseEventId])
+  @@index([movedFromReleaseEventId])
+}
+
+model EventDismissal {
+  id                      String   @id @default(cuid())
+  userId                  String
+  releaseEventId          String
+  movedFromReleaseEventId String?
+  createdAt               DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseEventId])
   @@index([movedFromReleaseEventId])
 }

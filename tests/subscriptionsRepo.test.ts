@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getRecentActivityForSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
+import { getRecentActivityForSubscriptions, getUpcomingForSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
+import { dismissEvent } from "@/data/events/eventPersonalizationRepo";
 
 let installId: string;
 let productSetId: string;
@@ -97,5 +98,56 @@ describe("getRecentActivityForSubscriptions", () => {
 
     const result = await getRecentActivityForSubscriptions(userId, 7);
     expect(result.map((e) => e.id)).not.toContain(archived.id);
+  });
+
+  it("excludes an event this user dismissed ('not interested')", async () => {
+    await prisma.subscription.create({ data: { userId, tcgProfileInstallId: installId } });
+    const event = await createEvent({ updatedAt: new Date() });
+    await dismissEvent(userId, event.id);
+
+    const result = await getRecentActivityForSubscriptions(userId, 7);
+    expect(result.map((e) => e.id)).not.toContain(event.id);
+  });
+
+  it("does not exclude an event a different user dismissed", async () => {
+    await prisma.subscription.create({ data: { userId, tcgProfileInstallId: installId } });
+    const event = await createEvent({ updatedAt: new Date() });
+    const otherUser = await prisma.user.create({ data: { email: `subs-repo-other-${crypto.randomUUID()}@example.com` } });
+    await dismissEvent(otherUser.id, event.id);
+
+    const result = await getRecentActivityForSubscriptions(userId, 7);
+    expect(result.map((e) => e.id)).toContain(event.id);
+  });
+});
+
+async function createUpcomingEvent() {
+  const inFuture = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  return prisma.releaseEvent.create({
+    data: { productSetId, type: "SHELF", dateType: "EXACT", dateExact: inFuture, status: "ANNOUNCED", confidence: 0.4 },
+  });
+}
+
+describe("getUpcomingForSubscriptions", () => {
+  it("returns an empty list for a user with no subscriptions", async () => {
+    await createUpcomingEvent();
+    const result = await getUpcomingForSubscriptions(userId, 90);
+    expect(result).toEqual([]);
+  });
+
+  it("returns upcoming events for a subscribed install", async () => {
+    await prisma.subscription.create({ data: { userId, tcgProfileInstallId: installId } });
+    const event = await createUpcomingEvent();
+
+    const result = await getUpcomingForSubscriptions(userId, 90);
+    expect(result.map((e) => e.id)).toContain(event.id);
+  });
+
+  it("excludes an event this user dismissed", async () => {
+    await prisma.subscription.create({ data: { userId, tcgProfileInstallId: installId } });
+    const event = await createUpcomingEvent();
+    await dismissEvent(userId, event.id);
+
+    const result = await getUpcomingForSubscriptions(userId, 90);
+    expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 });

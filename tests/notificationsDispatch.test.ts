@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanChange } from "@/lib/notifications/types";
-import type { InstallSubscriber } from "@/data/notifications/notificationsRepo";
+import type { InstallSubscriber, EventFollower } from "@/data/notifications/notificationsRepo";
 
 const sendEmailAlert = vi.fn().mockResolvedValue(undefined);
 const sendDiscordAlert = vi.fn().mockResolvedValue(undefined);
 const getSubscribersForInstalls = vi.fn<(installIds: string[]) => Promise<InstallSubscriber[]>>();
+const getFollowersForEvents = vi.fn<(eventIds: string[]) => Promise<EventFollower[]>>();
 
 vi.mock("@/lib/notifications/email", () => ({
   sendEmailAlert: (...args: unknown[]) => sendEmailAlert(...args),
@@ -14,7 +15,20 @@ vi.mock("@/lib/notifications/discord", () => ({
 }));
 vi.mock("@/data/notifications/notificationsRepo", () => ({
   getSubscribersForInstalls: (...args: [string[]]) => getSubscribersForInstalls(...args),
+  getFollowersForEvents: (...args: [string[]]) => getFollowersForEvents(...args),
 }));
+
+function follower(overrides: Partial<EventFollower> = {}): EventFollower {
+  return {
+    userId: "follower-1",
+    eventId: "event-1",
+    email: "follower@example.com",
+    emailAlertsEnabled: true,
+    discordWebhookUrl: null,
+    discordAlertsEnabled: false,
+    ...overrides,
+  };
+}
 
 function change(overrides: Partial<ScanChange> = {}): ScanChange {
   return {
@@ -44,6 +58,9 @@ beforeEach(() => {
   sendEmailAlert.mockClear();
   sendDiscordAlert.mockClear();
   getSubscribersForInstalls.mockReset();
+  getSubscribersForInstalls.mockResolvedValue([]);
+  getFollowersForEvents.mockReset();
+  getFollowersForEvents.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -173,5 +190,47 @@ describe("dispatchScanChangeNotifications", () => {
     await expect(dispatchScanChangeNotifications([change()])).resolves.toBeUndefined();
 
     expect(sendEmailAlert).toHaveBeenCalledTimes(2);
+  });
+
+  it("emails a follower of the specific event, even with no install subscription at all", async () => {
+    getFollowersForEvents.mockResolvedValue([follower()]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change({ eventId: "event-1" })]);
+
+    expect(sendEmailAlert).toHaveBeenCalledTimes(1);
+    expect(sendEmailAlert).toHaveBeenCalledWith("follower@example.com", [change({ eventId: "event-1" })]);
+  });
+
+  it("does not notify a follower about a different event, even if it's on the same install", async () => {
+    getFollowersForEvents.mockResolvedValue([follower({ eventId: "event-1" })]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change({ eventId: "event-2", installId: "install-1" })]);
+
+    expect(sendEmailAlert).not.toHaveBeenCalled();
+  });
+
+  it("sends one email, not two, to a user who is both an install subscriber and a follower of the changed event", async () => {
+    getSubscribersForInstalls.mockResolvedValue([subscriber({ userId: "user-1", installId: "install-1" })]);
+    getFollowersForEvents.mockResolvedValue([follower({ userId: "user-1", eventId: "event-1" })]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+
+    await dispatchScanChangeNotifications([change({ installId: "install-1", eventId: "event-1" })]);
+
+    expect(sendEmailAlert).toHaveBeenCalledTimes(1);
+    expect(sendEmailAlert).toHaveBeenCalledWith("user@example.com", [change({ installId: "install-1", eventId: "event-1" })]);
+  });
+
+  it("does not duplicate the change in a user's list when it reaches them via both the install and event path", async () => {
+    getSubscribersForInstalls.mockResolvedValue([subscriber({ userId: "user-1", installId: "install-1" })]);
+    getFollowersForEvents.mockResolvedValue([follower({ userId: "user-1", eventId: "event-1" })]);
+    const { dispatchScanChangeNotifications } = await import("@/lib/notifications/dispatch");
+    const theChange = change({ installId: "install-1", eventId: "event-1" });
+
+    await dispatchScanChangeNotifications([theChange]);
+
+    const [, changesArg] = sendEmailAlert.mock.calls[0];
+    expect(changesArg).toHaveLength(1);
   });
 });
