@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Sparkles, PartyPopper, ChevronRight } from "lucide-react";
+import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "@/app/calendar/mapEvents";
@@ -11,10 +11,15 @@ import { DEFAULT_DASHBOARD_CARD_ORDER, type DashboardCardId } from "./cards";
 
 type SubscribedGame = { id: string; name: string };
 
+export type TrendingEvent = { event: CalendarEvent; score: number };
+
 type Props = {
   subscribedGames: SubscribedGame[];
   upcoming: CalendarEvent[];
   recentActivity: CalendarEvent[];
+  /** Ranked by total positive/negative reaction count, already filtered to score > 0 and capped, see dashboard/page.tsx's topByScore. */
+  mostHyped?: TrendingEvent[];
+  mostMeh?: TrendingEvent[];
   /** Premium-configurable (see /profile); defaults to every card, in the default order. */
   cardOrder?: DashboardCardId[];
 };
@@ -98,6 +103,69 @@ function EventCardGrid({
   );
 }
 
+function TrendingEventRow({
+  event,
+  score,
+  emoji,
+  onSelect,
+}: {
+  event: CalendarEvent;
+  score: number;
+  emoji: string;
+  onSelect: (id: string) => void;
+}) {
+  const timeZone = useUserTimeZone();
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(event.id)}
+      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+    >
+      <div className="min-w-0">
+        <p className="truncate font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
+        <p className="truncate text-sm text-gray-500 dark:text-gray-400">
+          {event.productSet.install.package.name} · {formatEventDate(event, timeZone)}
+        </p>
+      </div>
+      <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <span>{emoji}</span>
+        <span>{score}</span>
+      </span>
+    </button>
+  );
+}
+
+function TrendingColumn({
+  title,
+  emoji,
+  events,
+  onSelect,
+}: {
+  title: string;
+  emoji: string;
+  events: TrendingEvent[];
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+        {emoji} {title}
+      </h3>
+      {events.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+          No reactions yet.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {events.map(({ event, score }) => (
+            <TrendingEventRow key={event.id} event={event} score={score} emoji={emoji} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionHeading({ icon: Icon, title, subtitle }: { icon: typeof CalendarDays; title: string; subtitle?: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
@@ -112,6 +180,8 @@ export function DashboardShell({
   subscribedGames,
   upcoming,
   recentActivity,
+  mostHyped = [],
+  mostMeh = [],
   cardOrder = DEFAULT_DASHBOARD_CARD_ORDER,
 }: Props) {
   const router = useRouter();
@@ -219,6 +289,18 @@ export function DashboardShell({
                 />
               </section>
             );
+          case "communityPulse":
+            // Hides itself when nobody's reacted yet, same as newlyConfirmed --
+            // two empty "no reactions yet" columns reads as broken, not empty.
+            return mostHyped.length > 0 || mostMeh.length > 0 ? (
+              <section key={cardId}>
+                <SectionHeading icon={Flame} title="Community pulse" subtitle="based on reactions" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TrendingColumn title="Most hyped" emoji={"\u{1F525}"} events={mostHyped} onSelect={openEvent} />
+                  <TrendingColumn title="Getting meh reactions" emoji={"\u{1F614}"} events={mostMeh} onSelect={openEvent} />
+                </div>
+              </section>
+            ) : null;
         }
       })}
     </div>

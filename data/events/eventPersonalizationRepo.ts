@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { REACTION_EMOJIS } from "@/app/calendar/eventDisplay";
+
+const POSITIVE_EMOJIS = new Set<string>(REACTION_EMOJIS.filter((r) => r.sentiment === "positive").map((r) => r.emoji));
+const NEGATIVE_EMOJIS = new Set<string>(REACTION_EMOJIS.filter((r) => r.sentiment === "negative").map((r) => r.emoji));
 
 export async function followEvent(userId: string, releaseEventId: string) {
   return prisma.eventFollow.upsert({
@@ -95,4 +99,34 @@ export async function getEventReactionSummary(releaseEventId: string, userId?: s
   for (const row of grouped) counts[row.emoji] = row._count.emoji;
 
   return { counts, myReaction: mine?.emoji ?? null };
+}
+
+export type ReactionScore = { positive: number; negative: number };
+
+/**
+ * Bulk positive/negative reaction totals for a set of events -- for the
+ * dashboard's "hype vs. meh" widget. Collapses REACTION_EMOJIS' 5 emoji into
+ * the 2 sentiment buckets that matter for ranking; "Watching" (neutral)
+ * contributes to neither. Events with zero reactions are simply absent from
+ * the returned map rather than present with {0,0}.
+ */
+export async function getReactionScoresForEvents(eventIds: string[]): Promise<Map<string, ReactionScore>> {
+  const scores = new Map<string, ReactionScore>();
+  if (eventIds.length === 0) return scores;
+
+  const grouped = await prisma.eventReaction.groupBy({
+    by: ["releaseEventId", "emoji"],
+    where: { releaseEventId: { in: eventIds } },
+    _count: { emoji: true },
+  });
+
+  for (const row of grouped) {
+    if (!POSITIVE_EMOJIS.has(row.emoji) && !NEGATIVE_EMOJIS.has(row.emoji)) continue;
+    const entry = scores.get(row.releaseEventId) ?? { positive: 0, negative: 0 };
+    if (POSITIVE_EMOJIS.has(row.emoji)) entry.positive += row._count.emoji;
+    else entry.negative += row._count.emoji;
+    scores.set(row.releaseEventId, entry);
+  }
+
+  return scores;
 }

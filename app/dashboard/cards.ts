@@ -1,13 +1,19 @@
-export type DashboardCardId = "upcoming" | "newlyConfirmed" | "recentActivity";
+export type DashboardCardId = "upcoming" | "newlyConfirmed" | "recentActivity" | "communityPulse";
 
 export const DASHBOARD_CARD_LABELS: Record<DashboardCardId, string> = {
   upcoming: "Next 7 days",
   newlyConfirmed: "Newly confirmed",
   recentActivity: "What's new",
+  communityPulse: "Community pulse (hype & meh)",
 };
 
 /** Every card, in the default order -- what a non-premium (or not-yet-customized) dashboard shows. */
-export const DEFAULT_DASHBOARD_CARD_ORDER: DashboardCardId[] = ["upcoming", "newlyConfirmed", "recentActivity"];
+export const DEFAULT_DASHBOARD_CARD_ORDER: DashboardCardId[] = [
+  "upcoming",
+  "newlyConfirmed",
+  "recentActivity",
+  "communityPulse",
+];
 
 export function isDashboardCardId(value: string): value is DashboardCardId {
   return (DEFAULT_DASHBOARD_CARD_ORDER as string[]).includes(value);

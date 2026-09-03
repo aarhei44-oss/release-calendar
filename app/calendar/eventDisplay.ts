@@ -123,9 +123,9 @@ export function statusBadgeClass(status: CalendarEvent["status"]): string {
  * app/calendar/actions.ts's validation so both sides can't drift.
  */
 export const REACTION_EMOJIS = [
-  { emoji: "\u{1F525}", label: "Hype" },
-  { emoji: "\u{1F60D}", label: "Want it" },
-  { emoji: "\u{1F440}", label: "Watching" },
-  { emoji: "\u{1F614}", label: "Meh" },
-  { emoji: "\u{1F644}", label: "Skip" },
+  { emoji: "\u{1F525}", label: "Hype", sentiment: "positive" },
+  { emoji: "\u{1F60D}", label: "Want it", sentiment: "positive" },
+  { emoji: "\u{1F440}", label: "Watching", sentiment: "neutral" },
+  { emoji: "\u{1F614}", label: "Meh", sentiment: "negative" },
+  { emoji: "\u{1F644}", label: "Skip", sentiment: "negative" },
 ] as const;

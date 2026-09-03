@@ -11,6 +11,7 @@ import {
   setEventReaction,
   clearEventReaction,
   getEventReactionSummary,
+  getReactionScoresForEvents,
 } from "@/data/events/eventPersonalizationRepo";
 
 let userId: string;
@@ -173,5 +174,33 @@ describe("setEventReaction / clearEventReaction / getEventReactionSummary", () =
       myReaction: "\u{1F525}",
     });
     expect(await getEventReactionSummary(eventId)).toEqual({ counts: { "\u{1F525}": 2 }, myReaction: null });
+  });
+});
+
+describe("getReactionScoresForEvents", () => {
+  it("returns an empty map for an empty id list", async () => {
+    expect(await getReactionScoresForEvents([])).toEqual(new Map());
+  });
+
+  it("omits events with no reactions", async () => {
+    const scores = await getReactionScoresForEvents([eventId, otherEventId]);
+    expect(scores.size).toBe(0);
+  });
+
+  it("buckets positive and negative emoji separately and ignores the neutral one", async () => {
+    const otherUser = await prisma.user.create({ data: { email: `event-personalization-scores-${crypto.randomUUID()}@example.com` } });
+    await setEventReaction(userId, eventId, "\u{1F525}"); // Hype (positive)
+    await setEventReaction(otherUser.id, eventId, "\u{1F60D}"); // Want it (positive)
+    await setEventReaction(userId, otherEventId, "\u{1F614}"); // Meh (negative)
+
+    const scores = await getReactionScoresForEvents([eventId, otherEventId]);
+    expect(scores.get(eventId)).toEqual({ positive: 2, negative: 0 });
+    expect(scores.get(otherEventId)).toEqual({ positive: 0, negative: 1 });
+  });
+
+  it("only reports scores for the requested event ids", async () => {
+    await setEventReaction(userId, otherEventId, "\u{1F525}");
+    const scores = await getReactionScoresForEvents([eventId]);
+    expect(scores.has(otherEventId)).toBe(false);
   });
 });
