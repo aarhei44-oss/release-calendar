@@ -165,15 +165,29 @@ describe("getFilteredEvents", () => {
     expect(events.map((e) => e.id)).not.toContain(archivedEvent.id);
   });
 
-  it("includes EXACT/RANGE/WINDOW events overlapping a date range, plus TBD", async () => {
+  it("includes EXACT/RANGE/WINDOW events overlapping a date range, and excludes TBD from a range that doesn't span today", async () => {
+    // 2026-03 is fixed in the past relative to whenever this suite actually
+    // runs -- a TBD event (no date of its own) must not appear on a range
+    // that doesn't include "now", or a years-old undated crawl artifact
+    // would resurface on every past/future month a visitor navigates to.
     const events = await getFilteredEvents({
       installIds: [pokemonInstallId, mtgInstallId],
       from: new Date("2026-03-01"),
       to: new Date("2026-03-31"),
     });
     const ids = events.map((e) => e.id).sort();
-    expect(ids).toEqual([exactEventId, rangeEventId, tbdEventId].sort());
+    expect(ids).toEqual([exactEventId, rangeEventId].sort());
     expect(ids).not.toContain(windowEventId);
+    expect(ids).not.toContain(tbdEventId);
+  });
+
+  it("includes a TBD event only when the queried range spans today", async () => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const events = await getFilteredEvents({ installIds: [mtgInstallId], from, to });
+    expect(events.map((e) => e.id)).toContain(tbdEventId);
   });
 });
 

@@ -69,7 +69,19 @@ function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
     if (filters.from) windowOverlap.windowEnd = { gte: filters.from };
     dateConditions.push(windowOverlap);
 
-    dateConditions.push({ dateType: "TBD" });
+    // A TBD event has no date to range-check, so without this guard it
+    // matched every from/to window unconditionally -- a years-old,
+    // never-dated crawl artifact (e.g. a discontinued 1997 MTG product) would
+    // then appear on every single month a visitor navigated to, forever.
+    // Only surface it on windows that actually span "now" (the current
+    // month, and the Upcoming tab's today..+90d range) -- an item that's
+    // still undated belongs with "what's currently unconfirmed," not pinned
+    // to every arbitrary past or future month.
+    const now = new Date();
+    const rangeIncludesNow = (!filters.from || filters.from <= now) && (!filters.to || filters.to >= now);
+    if (rangeIncludesNow) {
+      dateConditions.push({ dateType: "TBD" });
+    }
 
     where.AND = [...(Array.isArray(where.AND) ? where.AND : []), { OR: dateConditions }];
   }
