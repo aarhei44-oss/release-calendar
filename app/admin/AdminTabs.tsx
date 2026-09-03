@@ -4,27 +4,31 @@ import { useState, type KeyboardEvent } from "react";
 import { ProfilesTab } from "./ProfilesTab";
 import { UsersTab } from "./UsersTab";
 import { SystemTab } from "./SystemTab";
+import { ReviewTab } from "./ReviewTab";
 import type {
   listPackagesWithInstalls,
   listUsers,
   listScanRuns,
+  listContradictedEvents,
 } from "./actions";
 
-type AdminTab = "profiles" | "users" | "system";
+type AdminTab = "profiles" | "users" | "system" | "review";
 
 const TABS: { value: AdminTab; label: string }[] = [
   { value: "profiles", label: "Profiles" },
   { value: "users", label: "Users" },
   { value: "system", label: "System" },
+  { value: "review", label: "Review" },
 ];
 
 type Props = {
   packages: Awaited<ReturnType<typeof listPackagesWithInstalls>>;
   users: Awaited<ReturnType<typeof listUsers>>;
   scanRuns: Awaited<ReturnType<typeof listScanRuns>>;
+  contradictedEvents: Awaited<ReturnType<typeof listContradictedEvents>>;
 };
 
-export function AdminTabs({ packages, users, scanRuns }: Props) {
+export function AdminTabs({ packages, users, scanRuns, contradictedEvents }: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
 
   const installOptions = packages.flatMap((pkg) =>
@@ -76,6 +80,11 @@ export function AdminTabs({ packages, users, scanRuns }: Props) {
               }`}
             >
               {tab.label}
+              {tab.value === "review" && contradictedEvents.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800">
+                  {contradictedEvents.length}
+                </span>
+              )}
             </button>
           );
         })}
@@ -109,6 +118,16 @@ export function AdminTabs({ packages, users, scanRuns }: Props) {
           tabIndex={0}
         >
           <SystemTab installs={installOptions} scanRuns={scanRuns} />
+        </div>
+      )}
+      {active === "review" && (
+        <div
+          id="admin-tabpanel-review"
+          role="tabpanel"
+          aria-labelledby="admin-tab-review"
+          tabIndex={0}
+        >
+          <ReviewTab events={contradictedEvents} />
         </div>
       )}
     </div>

@@ -77,3 +77,26 @@ export async function triggerDedup() {
 export async function triggerReleaseLifecycle() {
   return runReleaseLifecyclePass();
 }
+
+/**
+ * Events with at least one high-tier (OFFICIAL/RETAILER) claim that
+ * CONTRADICTS the event's current best-known date -- business rule 6.5
+ * already discounts confidence for a contradiction, but that's a silent
+ * number going down, not something an admin would ever notice on its own.
+ * This surfaces it explicitly instead. Excludes events already resolved by
+ * a human (isManualOverride) or no longer actionable (RELEASED/CANCELLED).
+ */
+export async function getEventsWithHighTierContradiction() {
+  return prisma.releaseEvent.findMany({
+    where: {
+      isManualOverride: false,
+      status: { notIn: ["RELEASED", "CANCELLED"] },
+      sourceClaims: { some: { disposition: "CONTRADICTS", tier: { in: ["OFFICIAL", "RETAILER"] } } },
+    },
+    include: {
+      productSet: { include: { install: { include: { package: true } } } },
+      sourceClaims: { orderBy: { lastVerifiedAt: "desc" } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}

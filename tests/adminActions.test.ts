@@ -18,6 +18,7 @@ import {
   triggerRescan,
   triggerDedup,
   triggerReleaseLifecycle,
+  listContradictedEvents,
 } from "@/app/admin/actions";
 
 const mockGetServerSession = vi.mocked(getServerSession);
@@ -62,6 +63,7 @@ describe("admin Server Actions -- authorization", () => {
     ["triggerRescan", () => triggerRescan(installId)],
     ["triggerDedup", () => triggerDedup()],
     ["triggerReleaseLifecycle", () => triggerReleaseLifecycle()],
+    ["listContradictedEvents", () => listContradictedEvents()],
   ];
 
   for (const [name, call] of unauthenticatedCases) {
@@ -122,6 +124,107 @@ describe("triggerRescan / triggerDedup (System tab)", () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
     const result = await triggerReleaseLifecycle();
     expect(result.eventsReleased).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("listContradictedEvents (Review tab)", () => {
+  let productSetId: string;
+
+  beforeAll(async () => {
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "REVIEW-1", name: "Review Test Set" },
+    });
+    productSetId = productSet.id;
+  });
+
+  async function createEvent(overrides: { status?: "ANNOUNCED" | "RELEASED" | "CANCELLED"; isManualOverride?: boolean } = {}) {
+    return prisma.releaseEvent.create({
+      data: {
+        productSetId,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-01"),
+        status: "ANNOUNCED",
+        confidence: 0.4,
+        ...overrides,
+      },
+    });
+  }
+
+  it("surfaces an event with a high-tier CONTRADICTS claim", async () => {
+    const event = await createEvent();
+    await prisma.sourceClaim.create({
+      data: {
+        releaseEventId: event.id,
+        tier: "OFFICIAL",
+        disposition: "CONTRADICTS",
+        confidenceWeight: 0.6,
+        url: "https://official.example.com",
+      },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const results = await listContradictedEvents();
+
+    expect(results.map((e) => e.id)).toContain(event.id);
+  });
+
+  it("does not surface an event whose only contradiction is low-tier", async () => {
+    const event = await createEvent();
+    await prisma.sourceClaim.create({
+      data: {
+        releaseEventId: event.id,
+        tier: "SPECULATIVE",
+        disposition: "CONTRADICTS",
+        confidenceWeight: 0.3,
+        url: "https://speculative.example.com",
+      },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const results = await listContradictedEvents();
+
+    expect(results.map((e) => e.id)).not.toContain(event.id);
+  });
+
+  it("does not surface an already manually-overridden event", async () => {
+    const event = await createEvent({ isManualOverride: true });
+    await prisma.sourceClaim.create({
+      data: {
+        releaseEventId: event.id,
+        tier: "RETAILER",
+        disposition: "CONTRADICTS",
+        confidenceWeight: 0.6,
+        url: "https://retailer.example.com",
+      },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const results = await listContradictedEvents();
+
+    expect(results.map((e) => e.id)).not.toContain(event.id);
+  });
+
+  it("does not surface a RELEASED or CANCELLED event", async () => {
+    const released = await createEvent({ status: "RELEASED" });
+    const cancelled = await createEvent({ status: "CANCELLED" });
+    for (const event of [released, cancelled]) {
+      await prisma.sourceClaim.create({
+        data: {
+          releaseEventId: event.id,
+          tier: "OFFICIAL",
+          disposition: "CONTRADICTS",
+          confidenceWeight: 0.6,
+          url: "https://official.example.com",
+        },
+      });
+    }
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const results = await listContradictedEvents();
+
+    expect(results.map((e) => e.id)).not.toContain(released.id);
+    expect(results.map((e) => e.id)).not.toContain(cancelled.id);
   });
 });
 

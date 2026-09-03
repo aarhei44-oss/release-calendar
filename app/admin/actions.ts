@@ -91,3 +91,10 @@ export async function triggerReleaseLifecycle() {
     return adminRepo.triggerReleaseLifecycle();
   });
 }
+
+export async function listContradictedEvents() {
+  return withActionLogging("admin.listContradictedEvents", async () => {
+    await requireAdmin();
+    return adminRepo.getEventsWithHighTierContradiction();
+  });
+}
