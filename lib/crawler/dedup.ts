@@ -64,6 +64,25 @@ const GENERIC_NAME_STOPWORDS = new Set([
 // mismatch rules -- see productSetNameSimilarity.
 const SEQUENCE_LABEL_PREFIX = /^(set|series|volume|vol|chapter|part)\s*#?(\d+)\s*[:\-–—]\s*/i;
 
+// A trailing short alphanumeric token containing at least one letter (e.g.
+// "Reality Fracture FRA", "The Hobbit HOB", "Fourth Edition 4ED") is a
+// source formatting artifact, not a real word -- some sources (e.g.
+// Scryfall, per seed.ts's comments) append the set's own code to the
+// display name. Deliberately excludes an ALL-DIGIT trailing token (e.g.
+// "Magic 2010" ending in "2010"): that's a real year/sequence number the
+// `numbers` veto below must still be able to catch, not a code to discard.
+const TRAILING_SOURCE_CODE = /\s+(?=[A-Z0-9]*[A-Z])[A-Z0-9]{2,5}$/;
+
+function stripTrailingSourceCode(name: string): string {
+  return name.replace(TRAILING_SOURCE_CODE, "");
+}
+
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const item of a) if (!b.has(item)) return false;
+  return true;
+}
+
 function significantTokens(name: string): { tokens: Set<string>; numbers: Set<string>; sequenceNumber: string | null } {
   const withoutParens = name.replace(/\([^)]*\)/g, " ");
   const prefixMatch = withoutParens.match(SEQUENCE_LABEL_PREFIX);
@@ -94,6 +113,20 @@ function significantTokens(name: string): { tokens: Set<string>; numbers: Set<st
  * folded into the name, like "The Zeta Set SLZ" vs "Secret Lair: The Zeta
  * Set", has almost no token overlap) -- that class needs identity resolution
  * against a canonical per-TCG source, not string similarity.
+ *
+ * Before scoring, checked separately: with a trailing source code (see
+ * TRAILING_SOURCE_CODE) stripped from each side, do the two names reduce to
+ * the exact same significant tokens? A short/stopword-heavy title like "The
+ * Hobbit" ("The" is a stopword, leaving one significant token) loses too
+ * much of its Dice score to a single appended code ("The Hobbit HOB") to
+ * ever cross FUZZY_SIMILARITY_THRESHOLD via the general scoring below, even
+ * though it's the same set. This exact-match-after-code-strip is a
+ * high-confidence special case that a longer title's Dice score already
+ * covers on its own (e.g. "Reality Fracture" vs "Reality Fracture FRA"
+ * scores 0.8 unaided) -- it only changes the outcome for the short-title
+ * case, and an unrelated extra word (e.g. "Commander" in "Reality Fracture
+ * Commander FRC") still makes the stripped token sets unequal, so that
+ * falls through to the general score below unaffected.
  */
 export function productSetNameSimilarity(a: string, b: string): number {
   const ta = significantTokens(a);
@@ -104,6 +137,16 @@ export function productSetNameSimilarity(a: string, b: string): number {
   if (numbersDiffer) return 0;
 
   if (ta.sequenceNumber && tb.sequenceNumber && ta.sequenceNumber !== tb.sequenceNumber) return 0;
+
+  // Checked after the vetoes above (an unexplained number/sequence-number
+  // mismatch must still win over this), before the general Dice score: with
+  // a trailing source code stripped from each side, do the two names reduce
+  // to the exact same significant tokens?
+  const strippedA = significantTokens(stripTrailingSourceCode(a));
+  const strippedB = significantTokens(stripTrailingSourceCode(b));
+  if (strippedA.tokens.size > 0 && setsEqual(strippedA.tokens, strippedB.tokens)) {
+    return 1;
+  }
 
   if (ta.tokens.size === 0 || tb.tokens.size === 0) return 0;
 
