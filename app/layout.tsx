@@ -31,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <span className="font-semibold">Release Watcher</span>
             <AuthButton />
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </Providers>
       </body>
     </html>

@@ -111,13 +111,15 @@ test("sign-in affordance is present and starts the Google OAuth flow", async ({ 
 test("subscriptions page prompts an anonymous visitor to sign in", async ({ page }) => {
   await page.goto("/subscriptions");
   await expect(page.getByText(/Sign in to subscribe/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
+  // The header also has its own "Sign in with Google" button, so scope to
+  // the page's own prompt (in <main>) rather than matching either one.
+  await expect(page.getByRole("main").getByRole("button", { name: "Sign in with Google" })).toBeVisible();
 });
 
 test("dashboard page prompts an anonymous visitor to sign in", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page.getByText(/Sign in to see a dashboard/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: "Sign in with Google" })).toBeVisible();
 });
 
 test("admin page redirects an anonymous visitor away", async ({ page }) => {
