@@ -130,6 +130,7 @@ model ProductSet {
   name                String?
   releaseQuarter      String?
   meta                Json?
+  imageUrl            String?
   archivedAt          DateTime?
   mergedIntoId        String?
   createdAt           DateTime  @default(now())

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
-import { X } from "lucide-react";
+import { X, Lock } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
@@ -23,6 +25,8 @@ export function EventDrawer({ eventId, onClose }: Props) {
     detail: EventDetail;
   } | null>(null);
   const timeZone = useUserTimeZone();
+  const { data: session } = useSession();
+  const isPremium = session?.user?.isPremium ?? false;
   const open = eventId !== null;
   const loading = eventId !== null && fetched?.eventId !== eventId;
   const detail = fetched?.eventId === eventId ? fetched.detail : null;
@@ -92,6 +96,37 @@ export function EventDrawer({ eventId, onClose }: Props) {
                         {detail.productSet.install.package.name} · {detail.type}
                       </p>
                     </div>
+
+                    {detail.productSet.imageUrl &&
+                      (isPremium ? (
+                        // Arbitrary external per-TCG source host, unknown ahead of time, so
+                        // next/image's remotePatterns allowlist isn't workable here.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={detail.productSet.imageUrl}
+                          alt={`${eventTitle(detail)} official marketing image`}
+                          className="w-full rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="relative overflow-hidden rounded-lg">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
+                          <img
+                            src={detail.productSet.imageUrl}
+                            alt=""
+                            aria-hidden
+                            className="h-32 w-full scale-110 object-cover blur-md"
+                          />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 p-3 text-center text-white">
+                            <Lock className="h-5 w-5" />
+                            <span className="text-xs font-medium">
+                              <Link href="/premium" className="underline">
+                                Upgrade to Premium
+                              </Link>{" "}
+                              to view official marketing images
+                            </span>
+                          </div>
+                        </div>
+                      ))}
 
                     <div className="flex flex-wrap items-center gap-2">
                       <span
