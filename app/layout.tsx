@@ -69,7 +69,17 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </div>
             <AuthButton />
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            {children}
+            <footer className="flex flex-wrap items-center justify-center gap-4 border-t border-gray-200 px-4 py-6 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-500">
+              <Link href="/privacy" className="hover:underline">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:underline">
+                Terms of Service
+              </Link>
+            </footer>
+          </main>
         </Providers>
       </body>
     </html>
