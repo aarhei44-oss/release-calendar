@@ -100,6 +100,15 @@ export async function deleteCommentById(commentId: string) {
   await prisma.userNote.delete({ where: { id: commentId } });
 }
 
+/** Live counts for the landing page's trust-building stat line ("X upcoming releases across Y games"). */
+export async function getLandingStats() {
+  const [releasesTracked, gamesTracked] = await Promise.all([
+    prisma.releaseEvent.count({ where: { archivedAt: null, status: { notIn: ["RELEASED", "CANCELLED"] } } }),
+    prisma.tcgProfileInstall.count({ where: { enabled: true } }),
+  ]);
+  return { releasesTracked, gamesTracked };
+}
+
 /** Enabled installs, for populating the public filter bar's install dropdown. */
 export async function listEnabledInstallsForFilters() {
   return prisma.tcgProfileInstall.findMany({

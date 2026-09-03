@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getFilteredEvents, getEventDetail, listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
+import { getFilteredEvents, getEventDetail, listEnabledInstallsForFilters, getLandingStats } from "@/data/calendar/calendarRepo";
 
 let pokemonInstallId: string;
 let mtgInstallId: string;
@@ -189,6 +189,38 @@ describe("getEventDetail", () => {
   it("returns null for an unknown event id", async () => {
     const detail = await getEventDetail("does-not-exist");
     expect(detail).toBeNull();
+  });
+});
+
+describe("getLandingStats", () => {
+  it("counts non-terminal, non-archived events and enabled installs", async () => {
+    const stats = await getLandingStats();
+    expect(stats.releasesTracked).toBeGreaterThanOrEqual(2); // at least exactEvent + rangeEvent (CONFIRMED/ANNOUNCED)
+    expect(stats.gamesTracked).toBeGreaterThanOrEqual(2); // at least the two seeded enabled installs
+  });
+
+  it("excludes RELEASED/CANCELLED and archived events from the count", async () => {
+    const pokemonSet = await prisma.productSet.findFirstOrThrow({ where: { tcgProfileInstallId: pokemonInstallId } });
+    const before = await getLandingStats();
+
+    await prisma.releaseEvent.create({
+      data: { productSetId: pokemonSet.id, type: "SHELF", dateType: "EXACT", dateExact: new Date("2020-01-01"), status: "RELEASED", confidence: 0.9 },
+    });
+    await prisma.releaseEvent.create({
+      data: {
+        productSetId: pokemonSet.id,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-05-01"),
+        status: "ANNOUNCED",
+        confidence: 0.4,
+        archivedAt: new Date(),
+        mergedIntoId: exactEventId,
+      },
+    });
+
+    const after = await getLandingStats();
+    expect(after.releasesTracked).toBe(before.releasesTracked);
   });
 });
 

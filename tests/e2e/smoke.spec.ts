@@ -8,9 +8,13 @@ import { test, expect } from "@playwright/test";
 // the database with a mocked session. What follows is everything reachable
 // without a live OAuth round-trip.
 
-test("home page redirects to /calendar", async ({ page }) => {
+test("home page: landing page renders its pitch and links into the app", async ({ page }) => {
   const response = await page.goto("/");
   expect(response?.ok()).toBeTruthy();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("heading", { name: /never miss a tcg release/i })).toBeVisible();
+
+  await page.getByRole("link", { name: "View the calendar" }).click();
   await expect(page).toHaveURL(/\/calendar/);
 });
 
