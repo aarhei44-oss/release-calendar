@@ -4,6 +4,7 @@ import type { DigestFrequency } from "@/app/generated/prisma/client";
 import { logEvent } from "@/lib/logger";
 import { describeChange, type ScanChange } from "./types";
 import { digestSubject, digestBody } from "./digest";
+import { leadTimeReminderSubject, leadTimeReminderBody } from "./leadTimeReminder";
 
 type Transporter = ReturnType<typeof nodemailer.createTransport>;
 
@@ -79,5 +80,33 @@ export async function sendDigestEmail(
     to: toEmail,
     subject: digestSubject(frequency, events.length),
     text: digestBody(events, timeZone),
+  });
+}
+
+/**
+ * Premium lead-time reminder. Unlike sendDigestEmail, only ever called with
+ * a non-empty `events` (see leadTimeScheduler.ts) -- "nothing releasing in
+ * exactly N days" isn't worth an email the way "nothing new since last
+ * digest" is, since there's no fixed cadence promise being confirmed here.
+ */
+export async function sendLeadTimeReminderEmail(
+  toEmail: string,
+  days: number,
+  events: CalendarEvent[],
+  timeZone?: string,
+): Promise<void> {
+  if (events.length === 0) return;
+
+  const client = getTransporter();
+  if (!client) {
+    logEvent({ action: "notifications.sendLeadTimeReminderEmail", outcome: "skipped", reason: "SMTP_HOST not configured" });
+    return;
+  }
+
+  await client.sendMail({
+    from: process.env.SMTP_FROM ?? "Release Watcher <no-reply@releasewatcher.com>",
+    to: toEmail,
+    subject: leadTimeReminderSubject(days, events.length),
+    text: leadTimeReminderBody(events, timeZone),
   });
 }

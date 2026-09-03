@@ -107,6 +107,33 @@ export async function getRecentlyUpdatedEvents(filters: { installIds?: string[];
   });
 }
 
+/**
+ * Events whose *start* date (dateExact for EXACT, dateStart for RANGE,
+ * windowStart for WINDOW) falls on the given calendar day -- for lead-time
+ * reminders ("notify me N days before release"), which should fire once,
+ * the day an event is exactly N days out, not on every day of a multi-day
+ * RANGE/WINDOW's span the way a plain overlap query (like getFilteredEvents'
+ * from/to) would.
+ */
+export async function getEventsStartingOn(filters: { installIds?: string[]; day: Date }): Promise<CalendarEvent[]> {
+  const dayStart = new Date(filters.day.getFullYear(), filters.day.getMonth(), filters.day.getDate());
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  return prisma.releaseEvent.findMany({
+    where: {
+      archivedAt: null,
+      ...(filters.installIds?.length ? { productSet: { tcgProfileInstallId: { in: filters.installIds } } } : {}),
+      OR: [
+        { dateType: "EXACT", dateExact: { gte: dayStart, lte: dayEnd } },
+        { dateType: "RANGE", dateStart: { gte: dayStart, lte: dayEnd } },
+        { dateType: "WINDOW", windowStart: { gte: dayStart, lte: dayEnd } },
+      ],
+    },
+    orderBy: [{ dateExact: "asc" }, { dateStart: "asc" }, { windowStart: "asc" }],
+    ...eventWithRelations,
+  });
+}
+
 export async function createComment(params: { userId: string; releaseEventId: string; content: string }) {
   return prisma.userNote.create({
     data: params,

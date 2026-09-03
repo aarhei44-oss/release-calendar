@@ -10,6 +10,7 @@ import {
   updateDiscordAlertsEnabled,
   updateDigestEmailEnabled,
   updateDigestFrequency,
+  updateLeadTimeReminderDays,
 } from "./actions";
 
 type Props = {
@@ -240,6 +241,84 @@ export function DigestForm({ isPremium, initialDigestEmailEnabled, initialDigest
           Weekly
         </label>
       </fieldset>
+      {saved && !isPending && <p className="mt-2 text-sm text-green-600 dark:text-green-400">Saved.</p>}
+    </section>
+  );
+}
+
+export function LeadTimeReminderForm({
+  isPremium,
+  initialDays,
+}: {
+  isPremium: boolean;
+  initialDays: number | null;
+}) {
+  const [enabled, setEnabled] = useState(initialDays !== null);
+  const [days, setDays] = useState(initialDays ?? 7);
+  const [isPending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  function persist(nextEnabled: boolean, nextDays: number) {
+    setSaved(false);
+    startTransition(async () => {
+      await updateLeadTimeReminderDays(nextEnabled ? nextDays : null);
+      setSaved(true);
+    });
+  }
+
+  function handleEnabledChange(next: boolean) {
+    setEnabled(next);
+    persist(next, days);
+  }
+
+  function handleDaysChange(next: number) {
+    setDays(next);
+    if (enabled) persist(true, next);
+  }
+
+  return (
+    <section>
+      <div className="mb-1 flex items-center gap-2">
+        <h2 className="text-lg font-semibold">Lead-time reminders</h2>
+        {!isPremium && (
+          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+            Premium
+          </span>
+        )}
+      </div>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+        Get a reminder a set number of days before a subscribed release, instead of only when something changes.
+        {!isPremium && (
+          <>
+            {" "}
+            <Link href="/premium" className="text-blue-600 hover:underline dark:text-blue-400">
+              Upgrade to Premium
+            </Link>{" "}
+            to enable this.
+          </>
+        )}
+      </p>
+      <div className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={!isPremium || isPending}
+            onChange={(e) => handleEnabledChange(e.target.checked)}
+          />
+          Remind me
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={365}
+          value={days}
+          disabled={!isPremium || !enabled || isPending}
+          onChange={(e) => handleDaysChange(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+          className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900"
+        />
+        <span>day{days === 1 ? "" : "s"} before release</span>
+      </div>
       {saved && !isPending && <p className="mt-2 text-sm text-green-600 dark:text-green-400">Saved.</p>}
     </section>
   );

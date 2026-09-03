@@ -22,7 +22,7 @@ export async function listSubscriptions(userId: string) {
   });
 }
 
-async function getSubscribedInstallIds(userId: string): Promise<string[]> {
+export async function getSubscribedInstallIds(userId: string): Promise<string[]> {
   return (
     await prisma.subscription.findMany({ where: { userId }, select: { tcgProfileInstallId: true } })
   ).map((s) => s.tcgProfileInstallId);

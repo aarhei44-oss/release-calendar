@@ -10,6 +10,7 @@ import {
   updateDashboardCardIds as repoUpdateDashboardCardIds,
   updateDigestEmailEnabled as repoUpdateDigestEmailEnabled,
   updateDigestFrequency as repoUpdateDigestFrequency,
+  updateLeadTimeReminderDays as repoUpdateLeadTimeReminderDays,
 } from "@/data/profile/profileRepo";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
 import { isDashboardCardId } from "@/app/dashboard/cards";
@@ -99,5 +100,19 @@ export async function updateDigestFrequency(frequency: "DAILY" | "WEEKLY") {
   return withActionLogging("profile.updateDigestFrequency", async () => {
     const user = await requirePremium();
     return repoUpdateDigestFrequency(user.id, digestFrequencySchema.parse(frequency));
+  });
+}
+
+// null disables reminders; otherwise a whole number of days, capped at a
+// year out (anything longer isn't a "lead time" reminder in any meaningful
+// sense, and this schema stores it as a plain Int with no upper bound
+// otherwise).
+const leadTimeReminderDaysSchema = z.number().int().min(1).max(365).nullable();
+
+export async function updateLeadTimeReminderDays(days: number | null) {
+  return withActionLogging("profile.updateLeadTimeReminderDays", async () => {
+    const user = await requirePremium();
+    const parsed = leadTimeReminderDaysSchema.parse(days);
+    return repoUpdateLeadTimeReminderDays(user.id, parsed);
   });
 }

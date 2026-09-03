@@ -13,6 +13,7 @@ export async function getProfile(userId: string) {
       dashboardCardIds: true,
       digestEmailEnabled: true,
       digestFrequency: true,
+      leadTimeReminderDays: true,
     },
   });
 }
@@ -70,5 +71,13 @@ export async function updateDigestFrequency(userId: string, frequency: DigestFre
     where: { id: userId },
     data: { digestFrequency: frequency },
     select: { digestFrequency: true },
+  });
+}
+
+export async function updateLeadTimeReminderDays(userId: string, days: number | null) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { leadTimeReminderDays: days },
+    select: { leadTimeReminderDays: true },
   });
 }

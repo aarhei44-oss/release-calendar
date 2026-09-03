@@ -61,3 +61,25 @@ export async function getDigestSubscribers(): Promise<DigestSubscriber[]> {
     timezone: u.timezone,
   }));
 }
+
+export type LeadTimeReminderSubscriber = {
+  userId: string;
+  email: string;
+  days: number;
+  timezone: string | null;
+};
+
+/** Premium users with a lead-time reminder configured (leadTimeReminderDays not null). Same non-premium exclusion rule as getDigestSubscribers. */
+export async function getLeadTimeReminderSubscribers(): Promise<LeadTimeReminderSubscriber[]> {
+  const users = await prisma.user.findMany({
+    where: { isPremium: true, leadTimeReminderDays: { not: null } },
+    select: { id: true, email: true, leadTimeReminderDays: true, timezone: true },
+  });
+
+  return users.map((u) => ({
+    userId: u.id,
+    email: u.email,
+    days: u.leadTimeReminderDays!,
+    timezone: u.timezone,
+  }));
+}

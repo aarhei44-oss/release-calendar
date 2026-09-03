@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
-import { ProfileForm, AlertsForm, DigestForm } from "./ProfileForm";
+import { ProfileForm, AlertsForm, DigestForm, LeadTimeReminderForm } from "./ProfileForm";
 import { DashboardCardsForm } from "./DashboardCardsForm";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "@/app/dashboard/cards";
 
@@ -36,6 +36,7 @@ export default async function ProfilePage() {
         initialDigestEmailEnabled={profile.digestEmailEnabled}
         initialDigestFrequency={profile.digestFrequency}
       />
+      <LeadTimeReminderForm isPremium={profile.isPremium} initialDays={profile.leadTimeReminderDays} />
     </div>
   );
 }

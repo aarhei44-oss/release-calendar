@@ -265,6 +265,7 @@ model User {
   dashboardCardIds Json?
   digestEmailEnabled Boolean @default(false)
   digestFrequency    DigestFrequency @default(DAILY)
+  leadTimeReminderDays Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
