@@ -266,6 +266,7 @@ model User {
   digestEmailEnabled Boolean @default(false)
   digestFrequency    DigestFrequency @default(DAILY)
   leadTimeReminderDays Int?
+  icalToken     String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

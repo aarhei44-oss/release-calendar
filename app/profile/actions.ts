@@ -11,6 +11,7 @@ import {
   updateDigestEmailEnabled as repoUpdateDigestEmailEnabled,
   updateDigestFrequency as repoUpdateDigestFrequency,
   updateLeadTimeReminderDays as repoUpdateLeadTimeReminderDays,
+  regenerateIcalToken as repoRegenerateIcalToken,
 } from "@/data/profile/profileRepo";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
 import { isDashboardCardId } from "@/app/dashboard/cards";
@@ -114,5 +115,13 @@ export async function updateLeadTimeReminderDays(days: number | null) {
     const user = await requirePremium();
     const parsed = leadTimeReminderDaysSchema.parse(days);
     return repoUpdateLeadTimeReminderDays(user.id, parsed);
+  });
+}
+
+/** Also used for the first-ever "generate" -- see profileRepo.regenerateIcalToken. */
+export async function regenerateIcalToken(): Promise<string> {
+  return withActionLogging("profile.regenerateIcalToken", async () => {
+    const user = await requirePremium();
+    return repoRegenerateIcalToken(user.id);
   });
 }

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type DigestFrequency } from "@/app/generated/prisma/client";
 
@@ -14,6 +15,7 @@ export async function getProfile(userId: string) {
       digestEmailEnabled: true,
       digestFrequency: true,
       leadTimeReminderDays: true,
+      icalToken: true,
     },
   });
 }
@@ -79,5 +81,31 @@ export async function updateLeadTimeReminderDays(userId: string, days: number | 
     where: { id: userId },
     data: { leadTimeReminderDays: days },
     select: { leadTimeReminderDays: true },
+  });
+}
+
+/**
+ * (Re)generates the opaque token that authenticates the personal iCal feed
+ * (app/api/ical/[token]/feed.ics/route.ts) -- that route has no session to
+ * check, since external calendar clients don't send cookies, so this
+ * random value *is* the entire access control. 24 random bytes (192 bits)
+ * as hex, not a UUID: astronomically infeasible to guess/brute-force, and
+ * deliberately shaped differently from the cuid()-based entity ids used
+ * everywhere else so it doesn't read as "just another id."
+ * Regenerating overwrites the old value, which -- since it's a unique
+ * lookup key, not a list -- implicitly and immediately invalidates any
+ * previously issued feed URL.
+ */
+export async function regenerateIcalToken(userId: string): Promise<string> {
+  const token = randomBytes(24).toString("hex");
+  await prisma.user.update({ where: { id: userId }, data: { icalToken: token } });
+  return token;
+}
+
+/** Used only by the unauthenticated iCal feed route -- looks a user up by their feed token instead of a session. */
+export async function getUserByIcalToken(token: string) {
+  return prisma.user.findUnique({
+    where: { icalToken: token },
+    select: { id: true, isPremium: true, timezone: true },
   });
 }

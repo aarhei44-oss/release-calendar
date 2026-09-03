@@ -4,6 +4,7 @@ import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { ProfileForm, AlertsForm, DigestForm, LeadTimeReminderForm } from "./ProfileForm";
 import { DashboardCardsForm } from "./DashboardCardsForm";
+import { IcalFeedForm } from "./IcalFeedForm";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "@/app/dashboard/cards";
 
 export default async function ProfilePage() {
@@ -37,6 +38,11 @@ export default async function ProfilePage() {
         initialDigestFrequency={profile.digestFrequency}
       />
       <LeadTimeReminderForm isPremium={profile.isPremium} initialDays={profile.leadTimeReminderDays} />
+      <IcalFeedForm
+        isPremium={profile.isPremium}
+        initialToken={profile.icalToken}
+        baseUrl={process.env.NEXTAUTH_URL ?? ""}
+      />
     </div>
   );
 }
