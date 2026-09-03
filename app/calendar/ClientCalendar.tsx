@@ -1,6 +1,7 @@
 "use client";
 
-import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
+import type { ReactNode } from "react";
+import { Calendar, dateFnsLocalizer, Views, type EventWrapperProps } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -46,13 +47,24 @@ export function ClientCalendar({ events, month, onNavigateMonth, onSelectEvent, 
             className: `rbc-event-status-${event.resource.status.toLowerCase()}`,
           })}
           components={{
-            event: ({ event }: { event: MappedCalendarEvent }) => {
-              const top = topReactions(reactionSummaries?.[event.id], 1)[0];
+            // eventWrapper (not event) so the badge sits outside .rbc-event-content,
+            // which clips (overflow: hidden) anything meant to poke past its edges.
+            eventWrapper: ({ event, children }: EventWrapperProps<MappedCalendarEvent> & { children?: ReactNode }) => {
+              const reactions = topReactions(reactionSummaries?.[event.id], 3);
+              const top = reactions[0];
               return (
-                <span>
-                  {top && <span aria-hidden>{top.emoji} </span>}
-                  {event.title}
-                </span>
+                <div className="relative">
+                  {children}
+                  {top && (
+                    <span
+                      aria-hidden
+                      title={reactions.map((r) => `${r.emoji} ${r.count}`).join(", ")}
+                      className="absolute -top-1.5 -right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] leading-none shadow ring-1 ring-black/10 dark:bg-gray-900 dark:ring-white/20"
+                    >
+                      {top.emoji}
+                    </span>
+                  )}
+                </div>
               );
             },
           }}
