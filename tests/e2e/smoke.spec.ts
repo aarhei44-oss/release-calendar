@@ -114,6 +114,12 @@ test("subscriptions page prompts an anonymous visitor to sign in", async ({ page
   await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
 });
 
+test("dashboard page prompts an anonymous visitor to sign in", async ({ page }) => {
+  await page.goto("/dashboard");
+  await expect(page.getByText(/Sign in to see a dashboard/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
+});
+
 test("admin page redirects an anonymous visitor away", async ({ page }) => {
   const response = await page.goto("/admin");
   await expect(page).toHaveURL(/\/calendar|\/$/);

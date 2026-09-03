@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
 import { listSubscriptions, getUpcomingForSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
-import { SignInPrompt } from "./SignInPrompt";
+import { SignInPrompt } from "@/components/SignInPrompt";
 import { SubscriptionsShell } from "./SubscriptionsShell";
 
 export default async function SubscriptionsPage() {

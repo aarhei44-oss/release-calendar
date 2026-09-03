@@ -23,6 +23,24 @@ export function sortKeyFor(event: CalendarEvent): number {
   return date ? date.getTime() : Number.POSITIVE_INFINITY;
 }
 
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["day", 24 * 60 * 60 * 1000],
+  ["hour", 60 * 60 * 1000],
+  ["minute", 60 * 1000],
+];
+const RELATIVE_FORMATTER = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
+
+/** "3 days ago", "2 hours ago", etc. -- for a "what's new" feed sorted by updatedAt, where the exact date is secondary to how recently it changed. */
+export function formatRelativeTime(date: Date): string {
+  const diffMs = date.getTime() - Date.now();
+  for (const [unit, unitMs] of RELATIVE_UNITS) {
+    if (Math.abs(diffMs) >= unitMs) {
+      return RELATIVE_FORMATTER.format(Math.round(diffMs / unitMs), unit);
+    }
+  }
+  return RELATIVE_FORMATTER.format(0, "minute");
+}
+
 const STATUS_STYLES: Record<CalendarEvent["status"], string> = {
   RUMORED: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   ANNOUNCED: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",

@@ -85,6 +85,28 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
   });
 }
 
+/**
+ * Events updated since a cutoff, most-recently-updated first -- the closest
+ * approximation of "recent status changes" this schema supports. There's no
+ * status-history table, so this can only say an event was touched and what
+ * it is *now*, not what it changed from (a brand-new discovery and a
+ * RUMORED->CONFIRMED jump look the same here: both just bump updatedAt).
+ * Capped at 20 so a very active subscription set doesn't return unbounded
+ * rows for a dashboard "what's new" feed.
+ */
+export async function getRecentlyUpdatedEvents(filters: { installIds?: string[]; updatedSince: Date }): Promise<CalendarEvent[]> {
+  return prisma.releaseEvent.findMany({
+    where: {
+      archivedAt: null,
+      updatedAt: { gte: filters.updatedSince },
+      ...(filters.installIds?.length ? { productSet: { tcgProfileInstallId: { in: filters.installIds } } } : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 20,
+    ...eventWithRelations,
+  });
+}
+
 export async function createComment(params: { userId: string; releaseEventId: string; content: string }) {
   return prisma.userNote.create({
     data: params,

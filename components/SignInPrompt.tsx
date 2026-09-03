@@ -2,10 +2,14 @@
 
 import { signIn } from "next-auth/react";
 
-export function SignInPrompt() {
+export function SignInPrompt({
+  message = "Sign in to subscribe to your favorite TCGs and track upcoming releases.",
+}: {
+  message?: string;
+}) {
   return (
     <div className="flex flex-col items-center gap-3 p-12 text-center">
-      <p className="text-gray-600">Sign in to subscribe to your favorite TCGs and track upcoming releases.</p>
+      <p className="text-gray-600">{message}</p>
       <button
         type="button"
         onClick={() => signIn("google")}

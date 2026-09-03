@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { getLandingStats } from "@/data/calendar/calendarRepo";
 
+// The production SQLite file lives on a Docker volume only present at
+// runtime, not during the CI build -- without this, Next's static optimizer
+// would prerender this page once at build time (against whatever database
+// happens to be reachable in that environment, if any) and freeze the stat
+// line forever instead of evaluating it per request like every other
+// data-driven page here already does (those are dynamic implicitly, via a
+// getServerSession() call this public page has no reason to make).
+export const dynamic = "force-dynamic";
+
 const STATUS_PIPELINE = [
   { label: "Rumored", className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
   { label: "Announced", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },

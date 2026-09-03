@@ -25,6 +25,12 @@ export function AuthButton() {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Link
+        href="/dashboard"
+        className="text-sm text-gray-700 hover:underline"
+      >
+        Dashboard
+      </Link>
+      <Link
         href="/subscriptions"
         className="text-sm text-gray-700 hover:underline"
       >
