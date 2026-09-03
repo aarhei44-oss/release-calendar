@@ -8,6 +8,8 @@ import {
   updateDiscordWebhookUrl as repoUpdateDiscordWebhookUrl,
   updateDiscordAlertsEnabled as repoUpdateDiscordAlertsEnabled,
   updateDashboardCardIds as repoUpdateDashboardCardIds,
+  updateDigestEmailEnabled as repoUpdateDigestEmailEnabled,
+  updateDigestFrequency as repoUpdateDigestFrequency,
 } from "@/data/profile/profileRepo";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
 import { isDashboardCardId } from "@/app/dashboard/cards";
@@ -81,5 +83,21 @@ export async function updateDashboardCardIds(cardIds: string[] | null) {
     const user = await requirePremium();
     const parsed = dashboardCardIdsSchema.parse(cardIds);
     return repoUpdateDashboardCardIds(user.id, parsed);
+  });
+}
+
+export async function updateDigestEmailEnabled(enabled: boolean) {
+  return withActionLogging("profile.updateDigestEmailEnabled", async () => {
+    const user = await requirePremium();
+    return repoUpdateDigestEmailEnabled(user.id, z.boolean().parse(enabled));
+  });
+}
+
+const digestFrequencySchema = z.enum(["DAILY", "WEEKLY"]);
+
+export async function updateDigestFrequency(frequency: "DAILY" | "WEEKLY") {
+  return withActionLogging("profile.updateDigestFrequency", async () => {
+    const user = await requirePremium();
+    return repoUpdateDigestFrequency(user.id, digestFrequencySchema.parse(frequency));
   });
 }

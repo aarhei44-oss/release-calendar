@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { updateTimezone, updateEmailAlertsEnabled, updateDiscordWebhookUrl, updateDiscordAlertsEnabled } from "./actions";
+import {
+  updateTimezone,
+  updateEmailAlertsEnabled,
+  updateDiscordWebhookUrl,
+  updateDiscordAlertsEnabled,
+  updateDigestEmailEnabled,
+  updateDigestFrequency,
+} from "./actions";
 
 type Props = {
   timezones: string[];
@@ -147,6 +155,92 @@ export function AlertsForm({
           Post alerts to this Discord webhook
         </label>
       </div>
+    </section>
+  );
+}
+
+type DigestFormProps = {
+  isPremium: boolean;
+  initialDigestEmailEnabled: boolean;
+  initialDigestFrequency: "DAILY" | "WEEKLY";
+};
+
+export function DigestForm({ isPremium, initialDigestEmailEnabled, initialDigestFrequency }: DigestFormProps) {
+  const [enabled, setEnabled] = useState(initialDigestEmailEnabled);
+  const [frequency, setFrequency] = useState(initialDigestFrequency);
+  const [isPending, startTransition] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  function handleEnabledChange(next: boolean) {
+    setEnabled(next);
+    setSaved(false);
+    startTransition(async () => {
+      await updateDigestEmailEnabled(next);
+      setSaved(true);
+    });
+  }
+
+  function handleFrequencyChange(next: "DAILY" | "WEEKLY") {
+    setFrequency(next);
+    setSaved(false);
+    startTransition(async () => {
+      await updateDigestFrequency(next);
+      setSaved(true);
+    });
+  }
+
+  return (
+    <section>
+      <div className="mb-1 flex items-center gap-2">
+        <h2 className="text-lg font-semibold">Digest email</h2>
+        {!isPremium && (
+          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+            Premium
+          </span>
+        )}
+      </div>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+        A roundup of upcoming releases across your subscriptions, sent on a schedule instead of one email per change.
+        {!isPremium && (
+          <>
+            {" "}
+            <Link href="/premium" className="text-blue-600 hover:underline dark:text-blue-400">
+              Upgrade to Premium
+            </Link>{" "}
+            to enable this.
+          </>
+        )}
+      </p>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={enabled}
+          disabled={!isPremium || isPending}
+          onChange={(e) => handleEnabledChange(e.target.checked)}
+        />
+        Send me a digest email
+      </label>
+      <fieldset className="mt-2 flex items-center gap-4 text-sm" disabled={!isPremium || !enabled || isPending}>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            name="digestFrequency"
+            checked={frequency === "DAILY"}
+            onChange={() => handleFrequencyChange("DAILY")}
+          />
+          Daily
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            name="digestFrequency"
+            checked={frequency === "WEEKLY"}
+            onChange={() => handleFrequencyChange("WEEKLY")}
+          />
+          Weekly
+        </label>
+      </fieldset>
+      {saved && !isPending && <p className="mt-2 text-sm text-green-600 dark:text-green-400">Saved.</p>}
     </section>
   );
 }

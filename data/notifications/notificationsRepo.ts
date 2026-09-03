@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { DigestFrequency } from "@/app/generated/prisma/client";
 
 export type InstallSubscriber = {
   userId: string;
@@ -36,5 +37,27 @@ export async function getSubscribersForInstalls(installIds: string[]): Promise<I
     emailAlertsEnabled: s.user.emailAlertsEnabled,
     discordWebhookUrl: s.user.discordWebhookUrl,
     discordAlertsEnabled: s.user.discordAlertsEnabled,
+  }));
+}
+
+export type DigestSubscriber = {
+  userId: string;
+  email: string;
+  frequency: DigestFrequency;
+  timezone: string | null;
+};
+
+/** Premium users with the digest opted in -- non-premium users are excluded even if the flag is set (e.g. a lapsed premium period), same rule as the dashboard-cards gate. */
+export async function getDigestSubscribers(): Promise<DigestSubscriber[]> {
+  const users = await prisma.user.findMany({
+    where: { isPremium: true, digestEmailEnabled: true },
+    select: { id: true, email: true, digestFrequency: true, timezone: true },
+  });
+
+  return users.map((u) => ({
+    userId: u.id,
+    email: u.email,
+    frequency: u.digestFrequency,
+    timezone: u.timezone,
   }));
 }

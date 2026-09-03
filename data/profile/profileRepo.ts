@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma, type DigestFrequency } from "@/app/generated/prisma/client";
 
 export async function getProfile(userId: string) {
   return prisma.user.findUniqueOrThrow({
@@ -11,6 +11,8 @@ export async function getProfile(userId: string) {
       discordAlertsEnabled: true,
       isPremium: true,
       dashboardCardIds: true,
+      digestEmailEnabled: true,
+      digestFrequency: true,
     },
   });
 }
@@ -52,5 +54,21 @@ export async function updateDashboardCardIds(userId: string, cardIds: string[] |
     where: { id: userId },
     data: { dashboardCardIds: cardIds ?? Prisma.JsonNull },
     select: { dashboardCardIds: true },
+  });
+}
+
+export async function updateDigestEmailEnabled(userId: string, enabled: boolean) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { digestEmailEnabled: enabled },
+    select: { digestEmailEnabled: true },
+  });
+}
+
+export async function updateDigestFrequency(userId: string, frequency: DigestFrequency) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { digestFrequency: frequency },
+    select: { digestFrequency: true },
   });
 }

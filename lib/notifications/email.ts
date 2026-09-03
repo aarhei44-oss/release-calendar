@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
+import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import type { DigestFrequency } from "@/app/generated/prisma/client";
 import { logEvent } from "@/lib/logger";
 import { describeChange, type ScanChange } from "./types";
+import { digestSubject, digestBody } from "./digest";
 
 type Transporter = ReturnType<typeof nodemailer.createTransport>;
 
@@ -55,5 +58,26 @@ export async function sendEmailAlert(toEmail: string, changes: ScanChange[]): Pr
     to: toEmail,
     subject: subjectFor(changes),
     text: bodyFor(changes),
+  });
+}
+
+/** Premium digest roundup. No-ops (with a log line) when SMTP_HOST isn't configured, same as sendEmailAlert. */
+export async function sendDigestEmail(
+  toEmail: string,
+  frequency: DigestFrequency,
+  events: CalendarEvent[],
+  timeZone?: string,
+): Promise<void> {
+  const client = getTransporter();
+  if (!client) {
+    logEvent({ action: "notifications.sendDigestEmail", outcome: "skipped", reason: "SMTP_HOST not configured" });
+    return;
+  }
+
+  await client.sendMail({
+    from: process.env.SMTP_FROM ?? "Release Watcher <no-reply@releasewatcher.com>",
+    to: toEmail,
+    subject: digestSubject(frequency, events.length),
+    text: digestBody(events, timeZone),
   });
 }

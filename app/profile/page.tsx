@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
-import { ProfileForm, AlertsForm } from "./ProfileForm";
+import { ProfileForm, AlertsForm, DigestForm } from "./ProfileForm";
 import { DashboardCardsForm } from "./DashboardCardsForm";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "@/app/dashboard/cards";
 
@@ -30,6 +30,11 @@ export default async function ProfilePage() {
         initialCardIds={
           profile.isPremium ? resolveDashboardCardOrder(profile.dashboardCardIds) : DEFAULT_DASHBOARD_CARD_ORDER
         }
+      />
+      <DigestForm
+        isPremium={profile.isPremium}
+        initialDigestEmailEnabled={profile.digestEmailEnabled}
+        initialDigestFrequency={profile.digestFrequency}
       />
     </div>
   );

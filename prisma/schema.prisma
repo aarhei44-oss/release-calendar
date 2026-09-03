@@ -82,6 +82,11 @@ enum ScanTrigger {
   MANUAL
 }
 
+enum DigestFrequency {
+  DAILY
+  WEEKLY
+}
+
 // ---------------------------------------------------------------------------
 // TCG profile / product / release domain
 // ---------------------------------------------------------------------------
@@ -257,6 +262,8 @@ model User {
   discordAlertsEnabled Boolean @default(false)
   isPremium     Boolean   @default(false)
   dashboardCardIds Json?
+  digestEmailEnabled Boolean @default(false)
+  digestFrequency    DigestFrequency @default(DAILY)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
