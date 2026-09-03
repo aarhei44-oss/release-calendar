@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/auth";
 import {
   getFilteredEvents as repoGetFilteredEvents,
   getEventDetail as repoGetEventDetail,
@@ -8,6 +10,7 @@ import {
   getCommentById,
   deleteCommentById,
 } from "@/data/calendar/calendarRepo";
+import { stripPremiumImageUrls } from "./eventDisplay";
 import {
   followEvent as repoFollowEvent,
   unfollowEvent as repoUnfollowEvent,
@@ -35,16 +38,41 @@ const filtersSchema = z.object({
 export async function getFilteredEvents(input: z.infer<typeof filtersSchema>) {
   return withActionLogging("calendar.getFilteredEvents", async () => {
     const filters = filtersSchema.parse(input);
-    return repoGetFilteredEvents(filters);
+    const events = await repoGetFilteredEvents(filters);
+    const session = await getServerSession(authOptions);
+    return stripPremiumImageUrls(events, session?.user?.isPremium ?? false);
   });
 }
 
 const eventIdSchema = z.string().min(1);
 
+/**
+ * Strips productSet.imageUrl for a non-premium (or anonymous) caller
+ * rather than leaving that to the client to hide -- getEventDetail's
+ * return value is the server action's wire payload, sent to every caller
+ * regardless of what the UI later chooses to render from it. Leaving the
+ * real URL in a response the client just blurs with CSS would mean the
+ * "premium" asset is one Network-tab inspection away from anyone, premium
+ * or not. hasMarketingImage lets the UI still show a locked/upsell state
+ * without needing the URL itself.
+ */
 export async function getEventDetail(eventId: string) {
   return withActionLogging("calendar.getEventDetail", async () => {
     const parsed = eventIdSchema.parse(eventId);
-    return repoGetEventDetail(parsed);
+    const detail = await repoGetEventDetail(parsed);
+    if (!detail) return detail;
+
+    const session = await getServerSession(authOptions);
+    const isPremium = session?.user?.isPremium ?? false;
+
+    return {
+      ...detail,
+      productSet: {
+        ...detail.productSet,
+        imageUrl: isPremium ? detail.productSet.imageUrl : null,
+        hasMarketingImage: detail.productSet.imageUrl !== null,
+      },
+    };
   });
 }
 

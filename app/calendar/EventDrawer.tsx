@@ -98,8 +98,8 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       </p>
                     </div>
 
-                    {detail.productSet.imageUrl &&
-                      (isPremium ? (
+                    {detail.productSet.hasMarketingImage &&
+                      (isPremium && detail.productSet.imageUrl ? (
                         // Arbitrary external per-TCG source host, unknown ahead of time, so
                         // next/image's remotePatterns allowlist isn't workable here.
                         // eslint-disable-next-line @next/next/no-img-element
@@ -109,23 +109,18 @@ export function EventDrawer({ eventId, onClose }: Props) {
                           className="w-full rounded-lg object-cover"
                         />
                       ) : (
-                        <div className="relative overflow-hidden rounded-lg">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
-                          <img
-                            src={detail.productSet.imageUrl}
-                            alt=""
-                            aria-hidden
-                            className="h-32 w-full scale-110 object-cover blur-md"
-                          />
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 p-3 text-center text-white">
-                            <Lock className="h-5 w-5" />
-                            <span className="text-xs font-medium">
-                              <Link href="/premium" className="underline">
-                                Upgrade to Premium
-                              </Link>{" "}
-                              to view official marketing images
-                            </span>
-                          </div>
+                        // No blurred preview of the real image here: the server
+                        // (app/calendar/actions.ts) never sends imageUrl to a
+                        // non-premium caller in the first place, so there's
+                        // nothing to blur -- only a generic locked placeholder.
+                        <div className="flex h-32 w-full flex-col items-center justify-center gap-1 rounded-lg bg-gray-100 text-center dark:bg-gray-800">
+                          <Lock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            <Link href="/premium" className="text-blue-600 hover:underline dark:text-blue-400">
+                              Upgrade to Premium
+                            </Link>{" "}
+                            to view official marketing images
+                          </span>
                         </div>
                       ))}
 

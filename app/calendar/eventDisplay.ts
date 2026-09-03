@@ -1,5 +1,24 @@
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 
+/**
+ * ProductSet.imageUrl is premium-only (see EventDrawer). Any CalendarEvent[]
+ * a server component is about to hand to a client component -- or a server
+ * action is about to return -- must go through this first: even when
+ * nothing in a list view renders the image, it would otherwise still reach
+ * a non-premium browser as part of that component's serialized props/wire
+ * payload, one Network-tab inspection away from anyone. See
+ * app/calendar/actions.ts's getEventDetail for the single-event version of
+ * this same gate (that one also needs a `hasMarketingImage` flag so the
+ * detail view can still show a locked/upsell state; list views never
+ * render an image at all, so a plain null-out is enough here).
+ */
+export function stripPremiumImageUrls(events: CalendarEvent[], isPremium: boolean): CalendarEvent[] {
+  if (isPremium) return events;
+  return events.map((event) =>
+    event.productSet.imageUrl === null ? event : { ...event, productSet: { ...event.productSet, imageUrl: null } },
+  );
+}
+
 // Cached per timeZone (including the "browser/server default" case, keyed
 // under undefined) since Intl.DateTimeFormat construction isn't free and
 // these render inside list/grid loops.

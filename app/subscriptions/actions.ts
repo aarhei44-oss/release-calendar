@@ -7,6 +7,7 @@ import {
   listSubscriptions as repoListSubscriptions,
   getUpcomingForSubscriptions as repoGetUpcomingForSubscriptions,
 } from "@/data/subscriptions/subscriptionsRepo";
+import { stripPremiumImageUrls } from "@/app/calendar/eventDisplay";
 import { requireUser } from "@/lib/authGuards";
 import { withActionLogging } from "@/lib/logger";
 
@@ -38,6 +39,7 @@ export async function getMySubscriptions() {
 export async function getMySubscriptionsUpcoming() {
   return withActionLogging("subscriptions.getMySubscriptionsUpcoming", async () => {
     const user = await requireUser();
-    return repoGetUpcomingForSubscriptions(user.id, 30);
+    const events = await repoGetUpcomingForSubscriptions(user.id, 30);
+    return stripPremiumImageUrls(events, user.isPremium);
   });
 }

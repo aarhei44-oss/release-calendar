@@ -3,6 +3,7 @@ import { authOptions } from "@/app/auth";
 import { listSubscriptions, getUpcomingForSubscriptions, getRecentActivityForSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { stripPremiumImageUrls } from "@/app/calendar/eventDisplay";
 import { DashboardShell } from "./DashboardShell";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "./cards";
 
@@ -29,8 +30,8 @@ export default async function DashboardPage() {
   return (
     <DashboardShell
       subscribedGames={subscriptions.map((s) => ({ id: s.tcgProfileInstallId, name: s.install.package.name }))}
-      upcoming={upcoming}
-      recentActivity={recentActivity}
+      upcoming={stripPremiumImageUrls(upcoming, profile.isPremium)}
+      recentActivity={stripPremiumImageUrls(recentActivity, profile.isPremium)}
       cardOrder={cardOrder}
     />
   );

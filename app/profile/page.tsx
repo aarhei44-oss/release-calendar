@@ -40,7 +40,12 @@ export default async function ProfilePage() {
       <LeadTimeReminderForm isPremium={profile.isPremium} initialDays={profile.leadTimeReminderDays} />
       <IcalFeedForm
         isPremium={profile.isPremium}
-        initialToken={profile.icalToken}
+        // A lapsed-premium user's old token would otherwise still reach the
+        // client (props are serialized to the browser regardless of what
+        // the UI renders from them) even though it no longer works -- the
+        // feed route re-checks isPremium itself, but there's no reason to
+        // send a stale credential-shaped value at all.
+        initialToken={profile.isPremium ? profile.icalToken : null}
         baseUrl={process.env.NEXTAUTH_URL ?? ""}
       />
     </div>

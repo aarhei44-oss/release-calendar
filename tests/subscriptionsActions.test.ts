@@ -11,9 +11,9 @@ import { subscribe, unsubscribe, getMySubscriptions, getMySubscriptionsUpcoming 
 
 const mockGetServerSession = vi.mocked(getServerSession);
 
-function sessionFor(userId: string) {
+function sessionFor(userId: string, overrides: { isPremium?: boolean } = {}) {
   return {
-    user: { id: userId, role: "USER" as const, active: true },
+    user: { id: userId, role: "USER" as const, active: true, isPremium: overrides.isPremium ?? false },
     expires: new Date(Date.now() + 60_000).toISOString(),
   };
 }
@@ -97,5 +97,36 @@ describe("subscribe/unsubscribe", () => {
   it("unsubscribing twice is a no-op, not an error", async () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(user.id));
     await expect(unsubscribe(installId)).resolves.not.toThrow();
+  });
+});
+
+describe("getMySubscriptionsUpcoming: premium image gating", () => {
+  it("never sends the real marketing image URL to a non-premium caller, even via this action directly", async () => {
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: { slug: `subs-image-test-${crypto.randomUUID()}`, name: "Subs Image Test", version: "1.0.0", discoveryConfig: {}, sourceConfigs: {} },
+    });
+    const install = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
+    });
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: install.id, code: "SI-1", name: "Subs Image Test Set", imageUrl: "https://example.com/secret.png" },
+    });
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 10);
+    await prisma.releaseEvent.create({
+      data: { productSetId: productSet.id, type: "SHELF", dateType: "EXACT", dateExact: soon, status: "ANNOUNCED" },
+    });
+    const imageUser = await prisma.user.create({ data: { email: `subs-image-${crypto.randomUUID()}@example.com` } });
+    await prisma.subscription.create({ data: { userId: imageUser.id, tcgProfileInstallId: install.id } });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(imageUser.id, { isPremium: false }));
+    const nonPremiumResult = await getMySubscriptionsUpcoming();
+    const nonPremiumEvent = nonPremiumResult.find((e) => e.productSetId === productSet.id);
+    expect(nonPremiumEvent?.productSet.imageUrl).toBeNull();
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(imageUser.id, { isPremium: true }));
+    const premiumResult = await getMySubscriptionsUpcoming();
+    const premiumEvent = premiumResult.find((e) => e.productSetId === productSet.id);
+    expect(premiumEvent?.productSet.imageUrl).toBe("https://example.com/secret.png");
   });
 });
