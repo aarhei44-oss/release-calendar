@@ -17,6 +17,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-Release Watcher <no-reply@releasewatcher.com>}
+      ADSENSE_CLIENT_ID: ${ADSENSE_CLIENT_ID:-}
     volumes:
       - db-data:/app/data
     expose:

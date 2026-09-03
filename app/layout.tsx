@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -20,6 +21,14 @@ export const metadata: Metadata = {
   description: "A calendar of upcoming TCG product releases.",
 };
 
+// Server-read (not NEXT_PUBLIC_) so it's configurable per-deployment at
+// runtime via .env, same as GOOGLE_CLIENT_ID/ADMIN_EMAILS -- this app ships
+// one prebuilt Docker image (see docker-compose.registry.yml), and a
+// NEXT_PUBLIC_ var would get baked into that shared image at CI build time
+// instead. Unset = no ads at all, same no-op-until-configured pattern as
+// SMTP_HOST for email alerts.
+const adsenseClientId = process.env.ADSENSE_CLIENT_ID;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -27,6 +36,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
+        {adsenseClientId && (
+          // Google AdSense Auto Ads: one loader script, no per-page ad-unit
+          // markup needed -- Google places ads algorithmically once the
+          // account is approved. See .env.example for setup.
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
         <Providers>
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
             <div className="flex flex-wrap items-center gap-4">
