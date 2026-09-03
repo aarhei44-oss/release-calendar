@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { findMatchingEvent, dispositionFor, type EventDateInfo } from "@/lib/crawler/dedup";
+import {
+  findMatchingEvent,
+  dispositionFor,
+  isFuzzyProductSetNameMatch,
+  productSetNameSimilarity,
+  type EventDateInfo,
+} from "@/lib/crawler/dedup";
 
 function exact(dateStr: string): EventDateInfo {
   return { dateType: "EXACT", dateExact: new Date(dateStr) };
@@ -54,5 +60,37 @@ describe("dispositionFor", () => {
 
   it("contradicts when dates disagree beyond the proximity window", () => {
     expect(dispositionFor(exact("2026-03-15"), exact("2026-06-01"))).toBe("CONTRADICTS");
+  });
+});
+
+describe("isFuzzyProductSetNameMatch", () => {
+  it("matches a redundant sequence-label prefix against the bare title (lorcana.gg vs. Wikipedia naming)", () => {
+    expect(isFuzzyProductSetNameMatch("Set 1: The First Chapter", "The First Chapter")).toBe(true);
+  });
+
+  it("matches ignoring generic product-type words and capitalization", () => {
+    expect(isFuzzyProductSetNameMatch("Scarlet Skies Booster Box", "SCARLET SKIES")).toBe(true);
+  });
+
+  it("does not match a sequel/volume number against the same title without one", () => {
+    expect(isFuzzyProductSetNameMatch("Dedup Pass Set", "Dedup Pass Set 2")).toBe(false);
+  });
+
+  it("does not match two different sequence numbers", () => {
+    expect(isFuzzyProductSetNameMatch("Series 1: Foo", "Series 2: Foo")).toBe(false);
+  });
+
+  it("does not match genuinely different products that merely share one word", () => {
+    expect(isFuzzyProductSetNameMatch("Scarlet Skies", "Scarlet Violet")).toBe(false);
+  });
+
+  it("does not match a set-code folded into the name with no shared words (known limitation)", () => {
+    // Documents the boundary of what token-similarity can catch -- this
+    // case needs identity resolution against a canonical per-TCG source.
+    expect(isFuzzyProductSetNameMatch("Secret Lair: The Zeta Set", "The Zeta Set SLZ")).toBe(false);
+  });
+
+  it("never matches when either name has no significant tokens", () => {
+    expect(productSetNameSimilarity("(2026)", "Set")).toBe(0);
   });
 });

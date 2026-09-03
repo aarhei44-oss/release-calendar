@@ -39,6 +39,85 @@ export function isMatchableNormalizedName(normalized: string): boolean {
   return normalized.length >= MIN_NORMALIZED_NAME_LENGTH;
 }
 
+const FUZZY_SIMILARITY_THRESHOLD = 0.75;
+
+// Words that recur across many genuinely different real products in every
+// TCG's naming conventions (edition/format descriptors, articles) -- kept
+// out of the significant-token set so two unrelated products don't score as
+// similar purely because both happen to say "Booster Set" or "The X".
+// Deliberately NOT included: anything that could itself be a product's
+// distinguishing name (e.g. "chapter", "special") -- those must count.
+const GENERIC_NAME_STOPWORDS = new Set([
+  "the", "a", "an", "of", "and", "&",
+  "set", "booster", "box", "pack", "packs", "collection", "expansion",
+  "edition", "series", "deck", "starter", "bundle", "case", "tin", "blister",
+  "trading", "card", "cards", "game",
+]);
+
+// A leading "Set 1:", "Series 2 -", "Chapter 3:" style label is a common
+// cross-source formatting difference where one source states the sequence
+// number redundantly and another only uses the title (e.g. lorcana.gg's
+// "Set 1: The First Chapter" vs. Wikipedia's "The First Chapter"). Stripped
+// from the tokenized title so the redundant label text doesn't count toward
+// the word-overlap score. Its number is tracked separately (`sequenceNumber`
+// below) from other bare numbers in the name, since the two need different
+// mismatch rules -- see productSetNameSimilarity.
+const SEQUENCE_LABEL_PREFIX = /^(set|series|volume|vol|chapter|part)\s*#?(\d+)\s*[:\-–—]\s*/i;
+
+function significantTokens(name: string): { tokens: Set<string>; numbers: Set<string>; sequenceNumber: string | null } {
+  const withoutParens = name.replace(/\([^)]*\)/g, " ");
+  const prefixMatch = withoutParens.match(SEQUENCE_LABEL_PREFIX);
+  const withoutSequenceLabel = withoutParens.replace(SEQUENCE_LABEL_PREFIX, " ");
+  const rawTokens = withoutSequenceLabel.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const numbers = new Set(rawTokens.filter((t) => /^\d+$/.test(t)));
+  const tokens = new Set(rawTokens.filter((t) => !GENERIC_NAME_STOPWORDS.has(t)));
+  return { tokens, numbers, sequenceNumber: prefixMatch?.[2] ?? null };
+}
+
+/**
+ * Dice coefficient over significant (stopword-filtered) name tokens, for
+ * catching cross-source ProductSet name variants that share no substring
+ * after `normalizeProductSetName` -- e.g. a redundant sequence-label prefix
+ * on one side. Returns 0 (never matches) whenever the two names disagree on
+ * a number:
+ *  - a bare number outside a sequence-label prefix (e.g. "Foo Set" vs. "Foo
+ *    Set 2") is the single most common way these products name genuinely
+ *    different sequential releases, so ANY such mismatch vetoes -- including
+ *    one side having it and the other not.
+ *  - two DIFFERENT sequence-label numbers (e.g. "Series 1: Foo" vs. "Series
+ *    2: Foo") always veto too, but a label appearing on only one side does
+ *    not (that's the redundant-label case this is meant to catch).
+ * No generic token heuristic can safely tell a sequel apart from a real
+ * duplicate, so an unexplained number always wins over textual similarity.
+ *
+ * Deliberately does not catch every real-world duplicate (e.g. a set code
+ * folded into the name, like "The Zeta Set SLZ" vs "Secret Lair: The Zeta
+ * Set", has almost no token overlap) -- that class needs identity resolution
+ * against a canonical per-TCG source, not string similarity.
+ */
+export function productSetNameSimilarity(a: string, b: string): number {
+  const ta = significantTokens(a);
+  const tb = significantTokens(b);
+
+  const numbersDiffer =
+    [...ta.numbers].some((n) => !tb.numbers.has(n)) || [...tb.numbers].some((n) => !ta.numbers.has(n));
+  if (numbersDiffer) return 0;
+
+  if (ta.sequenceNumber && tb.sequenceNumber && ta.sequenceNumber !== tb.sequenceNumber) return 0;
+
+  if (ta.tokens.size === 0 || tb.tokens.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of ta.tokens) {
+    if (tb.tokens.has(token)) intersection += 1;
+  }
+  return (2 * intersection) / (ta.tokens.size + tb.tokens.size);
+}
+
+export function isFuzzyProductSetNameMatch(a: string, b: string): boolean {
+  return productSetNameSimilarity(a, b) >= FUZZY_SIMILARITY_THRESHOLD;
+}
+
 function primaryDate(info: EventDateInfo): Date | null {
   return info.dateExact ?? info.dateStart ?? info.windowStart ?? null;
 }

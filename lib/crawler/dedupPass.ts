@@ -1,7 +1,12 @@
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import { withActionLogging } from "@/lib/logger";
 import { computeConfidenceAndStatus } from "./confidence";
-import { findMatchingEvent, isMatchableNormalizedName, normalizeProductSetName } from "./dedup";
+import {
+  findMatchingEvent,
+  isFuzzyProductSetNameMatch,
+  isMatchableNormalizedName,
+  normalizeProductSetName,
+} from "./dedup";
 
 export type DedupPassResult = { groupsChecked: number; eventsMerged: number; productSetsMerged: number };
 
@@ -23,10 +28,9 @@ export async function runDedupPass(params: { installIds?: string[] } = {}): Prom
     // Phase 0: merge ProductSets within the same install whose names are
     // identical after normalization -- different sources format the same
     // real product's name differently (e.g. a trailing set-code suffix or
-    // capitalization), so exact-code identity alone misses these. Kept to
-    // exact-normalized-match only (no fuzzy similarity/prefix-stripping):
-    // this runs automatically after every scan, so it must never risk
-    // silently combining two genuinely different products.
+    // capitalization), so exact-code identity alone misses these. Exact
+    // match only, checked before the fuzzy pass below, so a same-normalized
+    // group's earliest member is always the fuzzy pass's candidate too.
     const productSets = await crawlerRepo.getProductSetsForFuzzyMerge(params.installIds);
     const bySetKey = new Map<string, typeof productSets>();
     for (const ps of productSets) {
@@ -49,8 +53,43 @@ export async function runDedupPass(params: { installIds?: string[] } = {}): Prom
       }
     }
 
+    // Phase 0b: fuzzy-match the ProductSets that survived Phase 0 (i.e.
+    // weren't identical after normalization) but are still very likely the
+    // same real product under looser cross-source naming -- see dedup.ts's
+    // productSetNameSimilarity for exactly what this does and doesn't catch
+    // (e.g. it reconciles lorcana.gg's "Set 1: The First Chapter" against
+    // Wikipedia's "The First Chapter", but not a set code folded into a
+    // name with no shared words). Scoped to the same install and same
+    // "earliest survives" rule as Phase 0.
+    const survivorsByInstall = new Map<string, { id: string; name: string; createdAt: Date }[]>();
+    for (const group of bySetKey.values()) {
+      const survivor = group[0];
+      if (!survivor.name) continue;
+      const entry = { id: survivor.id, name: survivor.name, createdAt: survivor.createdAt };
+      const list = survivorsByInstall.get(survivor.tcgProfileInstallId);
+      if (list) list.push(entry);
+      else survivorsByInstall.set(survivor.tcgProfileInstallId, [entry]);
+    }
+
+    for (const survivors of survivorsByInstall.values()) {
+      const sorted = [...survivors].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      const mergedAway = new Set<string>();
+      for (let i = 0; i < sorted.length; i++) {
+        const primary = sorted[i];
+        if (mergedAway.has(primary.id)) continue;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const candidate = sorted[j];
+          if (mergedAway.has(candidate.id)) continue;
+          if (!isFuzzyProductSetNameMatch(primary.name, candidate.name)) continue;
+          await crawlerRepo.mergeProductSets(primary.id, candidate.id);
+          mergedAway.add(candidate.id);
+          productSetsMerged += 1;
+        }
+      }
+    }
+
     // Phase 1: existing event-level dedup, now also covering any events a
-    // Phase 0 merge just brought onto the same ProductSet.
+    // Phase 0/0b merge just brought onto the same ProductSet.
     const events = await crawlerRepo.getAllReleaseEventsForDedup(params.installIds);
 
     const groups = new Map<string, typeof events>();
