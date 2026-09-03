@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CalendarDays, Sparkles, PartyPopper, ChevronRight } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
-import { EventsList } from "@/app/calendar/EventsList";
+import { eventTitle } from "@/app/calendar/mapEvents";
+import { formatEventDate, formatRelativeTime, statusBadgeClass } from "@/app/calendar/eventDisplay";
 
 type SubscribedGame = { id: string; name: string };
 
@@ -12,6 +14,94 @@ type Props = {
   upcoming: CalendarEvent[];
   recentActivity: CalendarEvent[];
 };
+
+// Solid dots (not tinted backgrounds) so they stay legible against the dark
+// hero banner these render on, in both light and dark mode.
+const CHIP_DOT_COLORS = ["bg-blue-400", "bg-purple-400", "bg-emerald-400", "bg-amber-400", "bg-rose-400", "bg-teal-400"];
+
+function chipDotColorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return CHIP_DOT_COLORS[hash % CHIP_DOT_COLORS.length];
+}
+
+const STATUS_ACCENT: Record<CalendarEvent["status"], string> = {
+  RUMORED: "border-l-gray-300 dark:border-l-gray-700",
+  ANNOUNCED: "border-l-blue-400 dark:border-l-blue-500",
+  CONFIRMED: "border-l-green-400 dark:border-l-green-500",
+  RELEASED: "border-l-purple-400 dark:border-l-purple-500",
+  CANCELLED: "border-l-red-400 dark:border-l-red-500",
+};
+
+function EventCard({
+  event,
+  onSelect,
+  showRelativeTime = false,
+}: {
+  event: CalendarEvent;
+  onSelect: (id: string) => void;
+  showRelativeTime?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid="event-row"
+      onClick={() => onSelect(event.id)}
+      className={`group flex w-full items-center justify-between gap-3 rounded-lg border border-l-4 border-gray-200 bg-white p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 ${STATUS_ACCENT[event.status]}`}
+    >
+      <div className="min-w-0">
+        <p className="truncate font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
+        <p className="truncate text-sm text-gray-500 dark:text-gray-400">
+          {event.productSet.install.package.name} ·{" "}
+          {showRelativeTime ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event)}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(event.status)}`}>
+          {event.status}
+        </span>
+        <ChevronRight className="h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
+      </div>
+    </button>
+  );
+}
+
+function EventCardGrid({
+  events,
+  onSelect,
+  showRelativeTime,
+  emptyMessage,
+}: {
+  events: CalendarEvent[];
+  onSelect: (id: string) => void;
+  showRelativeTime?: boolean;
+  emptyMessage: string;
+}) {
+  if (events.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-gray-200 py-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+        {emptyMessage}
+      </p>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      {events.map((event) => (
+        <EventCard key={event.id} event={event} onSelect={onSelect} showRelativeTime={showRelativeTime} />
+      ))}
+    </div>
+  );
+}
+
+function SectionHeading({ icon: Icon, title, subtitle }: { icon: typeof CalendarDays; title: string; subtitle?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <Icon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {subtitle && <span className="text-sm text-gray-400 dark:text-gray-500">{subtitle}</span>}
+    </div>
+  );
+}
 
 export function DashboardShell({ subscribedGames, upcoming, recentActivity }: Props) {
   const router = useRouter();
@@ -45,55 +135,70 @@ export function DashboardShell({ subscribedGames, upcoming, recentActivity }: Pr
   }
 
   return (
-    <div className="flex flex-col gap-8 p-4">
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Your games</h2>
-          <Link href="/subscriptions" className="text-sm text-gray-500 hover:underline dark:text-gray-400">
-            Manage
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 p-4">
+      <div className="flex flex-col gap-5 rounded-xl bg-linear-to-br from-gray-900 to-gray-700 p-6 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Your dashboard</h1>
+          <Link
+            href="/subscriptions"
+            className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-white/20"
+          >
+            Manage games
           </Link>
         </div>
-        <ul className="flex flex-wrap gap-2">
-          {subscribedGames.map((game) => {
-            const count = upcomingWithDates.filter((e) => e.productSet.install.package.name === game.name).length;
-            return (
-              <li
-                key={game.id}
-                className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300"
-              >
-                {game.name}
-                {count > 0 && <span className="ml-1.5 text-gray-400">· {count}</span>}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+        <div className="flex flex-wrap gap-6">
+          <div>
+            <p className="text-2xl font-bold">{upcomingWithDates.length}</p>
+            <p className="text-sm text-white/70">Next 7 days</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{newlyConfirmed.length}</p>
+            <p className="text-sm text-white/70">Newly confirmed</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{recentActivity.length}</p>
+            <p className="text-sm text-white/70">Recent activity</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+          {subscribedGames.map((game) => (
+            <span
+              key={game.id}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-medium"
+            >
+              <span className={`h-2 w-2 rounded-full ${chipDotColorFor(game.name)}`} aria-hidden />
+              {game.name}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold">Next 7 days</h2>
-        <EventsList
+        <SectionHeading icon={CalendarDays} title="Next 7 days" />
+        <EventCardGrid
           events={upcomingWithDates}
-          onSelectEvent={openEvent}
+          onSelect={openEvent}
           emptyMessage="Nothing with a set date in your subscriptions over the next 7 days."
         />
       </section>
 
       {newlyConfirmed.length > 0 && (
         <section>
-          <h2 className="mb-2 text-lg font-semibold">Newly confirmed</h2>
-          <EventsList events={newlyConfirmed} onSelectEvent={openEvent} sortBy="recentlyUpdated" />
+          <SectionHeading icon={PartyPopper} title="Newly confirmed" />
+          <EventCardGrid events={newlyConfirmed} onSelect={openEvent} showRelativeTime emptyMessage="" />
         </section>
       )}
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold">What&rsquo;s new</h2>
-        <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-          Events touched by a scan in the last 7 days -- a new discovery and a status change both show up here.
-        </p>
-        <EventsList
+        <SectionHeading
+          icon={Sparkles}
+          title="What's new"
+          subtitle="scanned in the last 7 days"
+        />
+        <EventCardGrid
           events={recentActivity}
-          onSelectEvent={openEvent}
-          sortBy="recentlyUpdated"
+          onSelect={openEvent}
+          showRelativeTime
           emptyMessage="No activity on your subscriptions in the last 7 days."
         />
       </section>
