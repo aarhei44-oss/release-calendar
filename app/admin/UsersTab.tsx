@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { setUserRole, setUserActive } from "./actions";
+import { setUserRole, setUserActive, setUserPremium } from "./actions";
 
 type User = {
   id: string;
@@ -11,6 +11,7 @@ type User = {
   name: string | null;
   role: "USER" | "ADMIN";
   active: boolean;
+  isPremium: boolean;
 };
 
 export function UsersTab({ users }: { users: User[] }) {
@@ -50,6 +51,22 @@ export function UsersTab({ users }: { users: User[] }) {
     });
   }
 
+  function togglePremium(user: User) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await setUserPremium(user.id, !user.isPremium);
+        router.refresh();
+      } catch (e) {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Couldn't update that user's premium flag.",
+        );
+      }
+    });
+  }
+
   return (
     <div>
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
@@ -61,6 +78,7 @@ export function UsersTab({ users }: { users: User[] }) {
               <th>Name</th>
               <th>Role</th>
               <th>Active</th>
+              <th>Premium</th>
             </tr>
           </thead>
           <tbody>
@@ -106,6 +124,21 @@ export function UsersTab({ users }: { users: User[] }) {
                       }`}
                     >
                       {user.active ? "Active" : "Disabled"}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => togglePremium(user)}
+                      title="No billing is wired up yet -- this is a manual stand-in until real checkout exists"
+                      className={`rounded px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${
+                        user.isPremium
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {user.isPremium ? "Premium" : "Free"}
                     </button>
                   </td>
                 </tr>

@@ -7,6 +7,7 @@ declare module "next-auth" {
       role: UserRole;
       active: boolean;
       timezone: string | null;
+      isPremium: boolean;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -17,5 +18,6 @@ declare module "next-auth" {
     role: UserRole;
     active: boolean;
     timezone: string | null;
+    isPremium: boolean;
   }
 }

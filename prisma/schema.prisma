@@ -255,6 +255,7 @@ model User {
   emailAlertsEnabled Boolean @default(false)
   discordWebhookUrl    String?
   discordAlertsEnabled Boolean @default(false)
+  isPremium     Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

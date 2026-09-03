@@ -37,6 +37,7 @@ export const authOptions: NextAuthOptions = {
       session.user.role = user.role;
       session.user.active = user.active;
       session.user.timezone = user.timezone;
+      session.user.isPremium = user.isPremium;
       return session;
     },
   },

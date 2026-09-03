@@ -64,6 +64,13 @@ export async function setUserActive(userId: string, active: boolean) {
   });
 }
 
+export async function setUserPremium(userId: string, isPremium: boolean) {
+  return withActionLogging("admin.setUserPremium", async () => {
+    await requireAdmin();
+    return adminRepo.setUserPremium(idSchema.parse(userId), z.boolean().parse(isPremium));
+  });
+}
+
 export async function listScanRuns(installId?: string) {
   return withActionLogging("admin.listScanRuns", async () => {
     await requireAdmin();

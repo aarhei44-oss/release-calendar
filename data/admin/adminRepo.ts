@@ -60,6 +60,16 @@ export async function setUserActive(userId: string, active: boolean) {
   return prisma.user.update({ where: { id: userId }, data: { active } });
 }
 
+/**
+ * Manual stand-in for real billing (no checkout/subscription mechanism
+ * exists yet -- see /premium's disabled "coming soon" button). Lets an
+ * admin flip a user's premium status directly, so premium-gated features
+ * can be built and tested ahead of that infra.
+ */
+export async function setUserPremium(userId: string, isPremium: boolean) {
+  return prisma.user.update({ where: { id: userId }, data: { isPremium } });
+}
+
 export async function listScanRuns(installId?: string) {
   return prisma.scanRun.findMany({
     where: installId ? { scopeId: installId } : undefined,

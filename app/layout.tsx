@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
+import { getServerSession } from "next-auth";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { authOptions } from "./auth";
 import { Providers } from "./providers";
 import { AuthButton } from "@/components/AuthButton";
 
@@ -29,14 +31,19 @@ export const metadata: Metadata = {
 // SMTP_HOST for email alerts.
 const adsenseClientId = process.env.ADSENSE_CLIENT_ID;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Premium is ad-free (see /premium) -- checked here, not just hidden with
+  // CSS, so the ad script genuinely never loads/fires for a premium user.
+  const session = await getServerSession(authOptions);
+  const showAds = Boolean(adsenseClientId) && !session?.user?.isPremium;
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
-        {adsenseClientId && (
+        {showAds && (
           // Google AdSense Auto Ads: one loader script, no per-page ad-unit
           // markup needed -- Google places ads algorithmically once the
           // account is approved. See .env.example for setup.
