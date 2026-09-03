@@ -96,6 +96,52 @@ describe("runDedupPass", () => {
     expect(archivedDiscovered.mergedIntoId).toBe(overridden.id);
   });
 
+  it("merges two duplicate dated events even when a dateless TBD event is the group's earliest/primary", async () => {
+    // Reproduces a real production bug: a dateless TBD placeholder created
+    // first never matches anything via findMatchingEvent (it has no date to
+    // compare), so when Phase 1 only ever compared later candidates against
+    // that single primary, two later events with an identical date range
+    // were each individually rejected and never got compared against each
+    // other -- leaving three "duplicate" events stranded instead of one.
+    const tbd = await prisma.releaseEvent.create({
+      data: { productSetId, type: "SHELF", dateType: "TBD", status: "RUMORED", confidence: 0.1 },
+    });
+    const windowA = await prisma.releaseEvent.create({
+      data: {
+        productSetId,
+        type: "SHELF",
+        dateType: "WINDOW",
+        windowGranularity: "MONTH",
+        windowStart: new Date("2026-10-01"),
+        windowEnd: new Date("2026-10-31"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+      },
+    });
+    await prisma.releaseEvent.create({
+      data: {
+        productSetId,
+        type: "SHELF",
+        dateType: "WINDOW",
+        windowGranularity: "MONTH",
+        windowStart: new Date("2026-10-01"),
+        windowEnd: new Date("2026-10-31"),
+        status: "ANNOUNCED",
+        confidence: 0.3,
+      },
+    });
+
+    await runDedupPass({ installIds: [installId] });
+
+    const remaining = await prisma.releaseEvent.findMany({ where: { productSetId, archivedAt: null } });
+    // The dateless TBD placeholder never matches a dated event, so it
+    // legitimately survives alongside the merged pair -- two survivors, not
+    // one, but the two genuinely-duplicate WINDOW events must collapse.
+    expect(remaining).toHaveLength(2);
+    expect(remaining.some((e) => e.id === tbd.id)).toBe(true);
+    expect(remaining.some((e) => e.id === windowA.id)).toBe(true);
+  });
+
   it("is a no-op when there is only one event in a group", async () => {
     await createEvent();
     await runDedupPass();

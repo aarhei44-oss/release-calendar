@@ -133,23 +133,36 @@ export async function runDedupPass(params: { installIds?: string[] } = {}): Prom
     for (const group of groups.values()) {
       if (group.length < 2) continue;
 
+      // Match each candidate against every survivor kept so far, not just
+      // the group's single primary -- mirrors the live-scan matching in
+      // orchestrate.ts (findMatchingEvent against `existingEvents`, plural).
+      // A single-`[primary]` comparison misses real duplicates whenever the
+      // primary itself doesn't semantically match anything (e.g. it's a
+      // dateless TBD placeholder): two later WINDOW-dated candidates with an
+      // identical date range would each individually fail to match that
+      // primary and never get compared against each other, leaving both
+      // stranded as separate events.
       const primary = group.find((e) => e.isManualOverride) ?? group[0];
-      let primaryClaimsChanged = false;
+      const survivors = [primary];
+      const affectedIds = new Set<string>();
 
       for (const candidate of group) {
         if (candidate.id === primary.id) continue;
-        const match = findMatchingEvent(candidate, [primary]);
-        if (!match) continue;
+        const match = findMatchingEvent(candidate, survivors);
+        if (!match) {
+          survivors.push(candidate);
+          continue;
+        }
 
-        await crawlerRepo.mergeReleaseEvents(primary.id, candidate.id);
+        await crawlerRepo.mergeReleaseEvents(match.id, candidate.id);
         eventsMerged += 1;
-        primaryClaimsChanged = true;
+        affectedIds.add(match.id);
       }
 
-      if (primaryClaimsChanged) {
-        const claims = await crawlerRepo.getClaimsForEvent(primary.id);
+      for (const id of affectedIds) {
+        const claims = await crawlerRepo.getClaimsForEvent(id);
         const { confidence, status } = computeConfidenceAndStatus(claims);
-        await crawlerRepo.updateEventFromClaims(primary.id, { confidence, status });
+        await crawlerRepo.updateEventFromClaims(id, { confidence, status });
       }
     }
 
