@@ -92,15 +92,16 @@ enum DigestFrequency {
 // ---------------------------------------------------------------------------
 
 model TcgProfilePackage {
-  id              String   @id @default(cuid())
-  slug            String   @unique
-  name            String
-  version         String
-  description     String?
-  discoveryConfig Json
-  sourceConfigs   Json
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  version           String
+  description       String?
+  discoveryConfig   Json
+  sourceConfigs     Json
+  imageSourceConfig Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   installs TcgProfileInstall[]
 }

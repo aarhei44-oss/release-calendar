@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/app/generated/prisma/client";
 import type {
   ScanScopeType,
   ScanStatus,
@@ -10,7 +11,6 @@ import type {
   Region,
   DateType,
   WindowGranularity,
-  Prisma,
 } from "@/app/generated/prisma/client";
 
 export async function createScanRun(params: { scopeType: ScanScopeType; scopeId?: string; trigger: ScanTrigger }) {
@@ -519,6 +519,39 @@ export async function getAllReleaseEventsForDedup(installIds?: string[]) {
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/**
+ * ProductSets still missing a marketing image, scoped to installs whose
+ * package declares an imageSourceConfig (no config, nothing to fetch) and
+ * limited to sets that have at least one CONFIRMED, non-archived release
+ * event -- the image pass only runs for confirmed releases (business intent:
+ * don't spend fetches speculatively chasing RUMORED/ANNOUNCED sets that may
+ * never happen or may still get renamed/merged).
+ */
+export async function getProductSetsNeedingImages(installIds?: string[]) {
+  return prisma.productSet.findMany({
+    where: {
+      imageUrl: null,
+      archivedAt: null,
+      install: {
+        enabled: true,
+        package: { imageSourceConfig: { not: Prisma.JsonNull } },
+        ...(installIds ? { id: { in: installIds } } : {}),
+      },
+      releaseEvents: { some: { status: "CONFIRMED", archivedAt: null } },
+    },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      install: { select: { package: { select: { imageSourceConfig: true } } } },
+    },
+  });
+}
+
+export async function setProductSetImageUrl(id: string, imageUrl: string) {
+  return prisma.productSet.update({ where: { id }, data: { imageUrl } });
 }
 
 export async function getClaimsForEvent(eventId: string) {

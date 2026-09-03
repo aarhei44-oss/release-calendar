@@ -61,7 +61,7 @@ export function SystemTab({
         setMessage(
           result.skipped
             ? `Rescan skipped: ${result.reason}`
-            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.eventsDeleted} deleted, ${result.totals.productSetsPurged} product set(s) purged, ${result.totals.errors} error(s)).`,
+            : `Rescan complete: ${result.totals.sourcesFetched} source(s) fetched, ${result.totals.claimsCreated} claim(s) recorded (${result.totals.eventsCreated} new event(s), ${result.totals.eventsUpdated} updated, ${result.totals.eventsMerged} merged, ${result.totals.productSetsMerged} product set(s) merged, ${result.totals.eventsReleased} released, ${result.totals.imagesFetched} image(s) fetched, ${result.totals.eventsDeleted} deleted, ${result.totals.productSetsPurged} product set(s) purged, ${result.totals.errors} error(s)).`,
         );
         router.refresh();
       } catch (e) {

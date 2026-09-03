@@ -5,6 +5,7 @@ import { dispatchScanChangeNotifications } from "@/lib/notifications/dispatch";
 import type { ScanChange } from "@/lib/notifications/types";
 import { runDedupPass } from "./dedupPass";
 import { runReleaseLifecyclePass } from "./lifecycle";
+import { runImageEnrichmentPass } from "./imageEnrichment";
 import { runRetentionCleanupPass } from "./retention";
 import { getAdapter } from "./adapters/registry";
 import type { ParsedCandidate, SourceConfig } from "./adapters/types";
@@ -26,6 +27,7 @@ export type ScanTotals = {
   eventsReleased: number;
   eventsDeleted: number;
   productSetsPurged: number;
+  imagesFetched: number;
 };
 
 export type ScanResult =
@@ -70,6 +72,7 @@ export async function runScan(params: {
     eventsReleased: 0,
     eventsDeleted: 0,
     productSetsPurged: 0,
+    imagesFetched: 0,
   };
 
   const changes: ScanChange[] = [];
@@ -152,6 +155,20 @@ export async function runScan(params: {
       totals.errors += 1;
       logEvent({
         action: "crawler.postScanReleaseLifecycle",
+        scanRunId: scanRun.id,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      const imageResult = await runImageEnrichmentPass({ installIds: installs.map((install) => install.id) });
+      totals.imagesFetched = imageResult.imagesFetched;
+      totals.errors += imageResult.errors;
+    } catch (error) {
+      totals.errors += 1;
+      logEvent({
+        action: "crawler.postScanImageEnrichment",
         scanRunId: scanRun.id,
         outcome: "error",
         error: error instanceof Error ? error.message : String(error),
