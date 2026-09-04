@@ -39,7 +39,7 @@ export async function runLeadTimeReminderPass(now: Date = new Date()): Promise<L
         continue;
       }
 
-      await sendLeadTimeReminderEmail(subscriber.email, subscriber.days, events, subscriber.timezone ?? undefined);
+      await sendLeadTimeReminderEmail(subscriber.email, subscriber.days, events);
       result.sent += 1;
     } catch (error) {
       result.errors += 1;

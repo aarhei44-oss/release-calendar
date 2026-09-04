@@ -57,7 +57,7 @@ export async function runDigestPass(now: Date = new Date()): Promise<DigestPassR
 
     try {
       const events = await getUpcomingForSubscriptions(subscriber.userId, UPCOMING_WINDOW_DAYS);
-      await sendDigestEmail(subscriber.email, subscriber.frequency, events, subscriber.timezone ?? undefined);
+      await sendDigestEmail(subscriber.email, subscriber.frequency, events);
       result.sent += 1;
     } catch (error) {
       result.errors += 1;

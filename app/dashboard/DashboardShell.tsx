@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
-import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "@/app/calendar/mapEvents";
 import { formatEventDate, formatRelativeTime, statusBadgeClass } from "@/app/calendar/eventDisplay";
 import { DEFAULT_DASHBOARD_CARD_ORDER, type DashboardCardId } from "./cards";
@@ -51,7 +50,6 @@ function EventCard({
   onSelect: (id: string) => void;
   showRelativeTime?: boolean;
 }) {
-  const timeZone = useUserTimeZone();
   return (
     <button
       type="button"
@@ -63,7 +61,7 @@ function EventCard({
         <p className="truncate font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
         <p className="truncate text-sm text-gray-500 dark:text-gray-400">
           {event.productSet.install.package.name} ·{" "}
-          {showRelativeTime ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event, timeZone)}
+          {showRelativeTime ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event)}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -114,7 +112,6 @@ function TrendingEventRow({
   emoji: string;
   onSelect: (id: string) => void;
 }) {
-  const timeZone = useUserTimeZone();
   return (
     <button
       type="button"
@@ -124,7 +121,7 @@ function TrendingEventRow({
       <div className="min-w-0">
         <p className="truncate font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
         <p className="truncate text-sm text-gray-500 dark:text-gray-400">
-          {event.productSet.install.package.name} · {formatEventDate(event, timeZone)}
+          {event.productSet.install.package.name} · {formatEventDate(event)}
         </p>
       </div>
       <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300">

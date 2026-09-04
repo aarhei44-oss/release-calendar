@@ -16,11 +16,11 @@ export function digestSubject(frequency: DigestFrequency, eventCount: number): s
  * feature is working rather than the recipient wondering if it's silently
  * broken.
  */
-export function digestBody(events: CalendarEvent[], timeZone?: string): string {
+export function digestBody(events: CalendarEvent[]): string {
   if (events.length === 0) {
     return "Nothing new upcoming for your subscriptions right now.";
   }
   return events
-    .map((event) => `${event.productSet.install.package.name} - ${eventTitle(event)}: ${formatEventDate(event, timeZone)}`)
+    .map((event) => `${event.productSet.install.package.name} - ${eventTitle(event)}: ${formatEventDate(event)}`)
     .join("\n");
 }

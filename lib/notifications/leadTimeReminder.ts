@@ -6,8 +6,8 @@ export function leadTimeReminderSubject(days: number, eventCount: number): strin
   return `${eventCount} release${eventCount === 1 ? "" : "s"} in ${days} day${days === 1 ? "" : "s"}`;
 }
 
-export function leadTimeReminderBody(events: CalendarEvent[], timeZone?: string): string {
+export function leadTimeReminderBody(events: CalendarEvent[]): string {
   return events
-    .map((event) => `${event.productSet.install.package.name} - ${eventTitle(event)}: ${formatEventDate(event, timeZone)}`)
+    .map((event) => `${event.productSet.install.package.name} - ${eventTitle(event)}: ${formatEventDate(event)}`)
     .join("\n");
 }

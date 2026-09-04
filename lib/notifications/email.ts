@@ -67,7 +67,6 @@ export async function sendDigestEmail(
   toEmail: string,
   frequency: DigestFrequency,
   events: CalendarEvent[],
-  timeZone?: string,
 ): Promise<void> {
   const client = getTransporter();
   if (!client) {
@@ -79,7 +78,7 @@ export async function sendDigestEmail(
     from: process.env.SMTP_FROM ?? "Release Watcher <no-reply@releasewatcher.com>",
     to: toEmail,
     subject: digestSubject(frequency, events.length),
-    text: digestBody(events, timeZone),
+    text: digestBody(events),
   });
 }
 
@@ -93,7 +92,6 @@ export async function sendLeadTimeReminderEmail(
   toEmail: string,
   days: number,
   events: CalendarEvent[],
-  timeZone?: string,
 ): Promise<void> {
   if (events.length === 0) return;
 
@@ -107,6 +105,6 @@ export async function sendLeadTimeReminderEmail(
     from: process.env.SMTP_FROM ?? "Release Watcher <no-reply@releasewatcher.com>",
     to: toEmail,
     subject: leadTimeReminderSubject(days, events.length),
-    text: leadTimeReminderBody(events, timeZone),
+    text: leadTimeReminderBody(events),
   });
 }

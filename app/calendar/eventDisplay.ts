@@ -34,47 +34,29 @@ export function stripDescriptionForAnonymous(events: CalendarEvent[], isLoggedIn
   );
 }
 
-// Cached per timeZone (including the "browser/server default" case, keyed
-// under undefined) since Intl.DateTimeFormat construction isn't free and
-// these render inside list/grid loops.
-const dateFormatters = new Map<string | undefined, Intl.DateTimeFormat>();
-const monthFormatters = new Map<string | undefined, Intl.DateTimeFormat>();
+// dateExact/dateStart/dateEnd/windowStart/windowEnd are calendar days, not
+// real instants -- lib/crawler/dateParsing.ts always builds them as
+// Date.UTC(year, month, day) at midnight, deliberately, since "release day
+// is March 15" has no time-of-day component to begin with. Formatting them
+// through a viewer's IANA timeZone (as this used to, via a per-user profile
+// override) reinterprets that UTC midnight as a real instant and rolls it
+// back to the previous day/month for anyone behind UTC -- e.g. a WINDOW
+// stored as 2026-01-01T00:00:00Z rendered as "December 2025" for an
+// America/New_York viewer. Always formatting in UTC reads back exactly the
+// calendar day these fields were built from, for every viewer alike.
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
-function dateFormatterFor(timeZone: string | undefined): Intl.DateTimeFormat {
-  let formatter = dateFormatters.get(timeZone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone });
-    dateFormatters.set(timeZone, formatter);
-  }
-  return formatter;
-}
-
-function monthFormatterFor(timeZone: string | undefined): Intl.DateTimeFormat {
-  let formatter = monthFormatters.get(timeZone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone });
-    monthFormatters.set(timeZone, formatter);
-  }
-  return formatter;
-}
-
-/**
- * `timeZone` is the user's profile override (an IANA zone name); omit it to
- * fall back to the runtime's own local zone, same as before this was
- * configurable.
- */
-export function formatEventDate(event: CalendarEvent, timeZone?: string): string {
-  const dateFormatter = dateFormatterFor(timeZone);
-  const monthFormatter = monthFormatterFor(timeZone);
+export function formatEventDate(event: CalendarEvent): string {
   switch (event.dateType) {
     case "EXACT":
-      return event.dateExact ? dateFormatter.format(event.dateExact) : "Date unconfirmed";
+      return event.dateExact ? DATE_FORMATTER.format(event.dateExact) : "Date unconfirmed";
     case "RANGE":
       return event.dateStart && event.dateEnd
-        ? `${dateFormatter.format(event.dateStart)} – ${dateFormatter.format(event.dateEnd)}`
+        ? `${DATE_FORMATTER.format(event.dateStart)} – ${DATE_FORMATTER.format(event.dateEnd)}`
         : "Date unconfirmed";
     case "WINDOW":
-      return event.windowStart ? monthFormatter.format(event.windowStart) : "Date unconfirmed";
+      return event.windowStart ? MONTH_FORMATTER.format(event.windowStart) : "Date unconfirmed";
     case "TBD":
       return "Date unconfirmed";
   }

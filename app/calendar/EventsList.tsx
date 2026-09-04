@@ -1,7 +1,6 @@
 "use client";
 
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
-import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { eventTitle } from "./mapEvents";
 import { formatEventDate, formatRelativeTime, sortKeyFor, statusBadgeClass, type ReactionCounts } from "./eventDisplay";
 import { ReactionBadges } from "./ReactionBadges";
@@ -23,7 +22,6 @@ export function EventsList({
   sortBy = "date",
   reactionSummaries,
 }: Props) {
-  const timeZone = useUserTimeZone();
   const sorted =
     sortBy === "recentlyUpdated"
       ? [...events].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -47,7 +45,7 @@ export function EventsList({
               <p className="font-medium text-gray-900 dark:text-gray-100">{eventTitle(event)}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {event.productSet.install.package.name} ·{" "}
-                {sortBy === "recentlyUpdated" ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event, timeZone)}
+                {sortBy === "recentlyUpdated" ? `updated ${formatRelativeTime(event.updatedAt)}` : formatEventDate(event)}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">

@@ -6,7 +6,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { X, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useUserTimeZone } from "@/lib/useUserTimeZone";
 import { googleCalendarEventUrl, outlookComEventUrl, office365EventUrl } from "@/lib/calendarLinks";
 import { getEventDetail } from "./actions";
 import { formatEventDate, statusBadgeClass } from "./eventDisplay";
@@ -27,7 +26,6 @@ export function EventDrawer({ eventId, onClose }: Props) {
     eventId: string;
     detail: EventDetail;
   } | null>(null);
-  const timeZone = useUserTimeZone();
   const { data: session } = useSession();
   const open = eventId !== null;
   const loading = eventId !== null && fetched?.eventId !== eventId;
@@ -164,7 +162,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
                     <div>
                       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Date</h3>
                       <p className="text-sm text-gray-900 dark:text-gray-100">
-                        {formatEventDate(detail, timeZone)}{" "}
+                        {formatEventDate(detail)}{" "}
                         <span className="text-gray-500 dark:text-gray-400">
                           ({detail.dateType.toLowerCase()})
                         </span>
