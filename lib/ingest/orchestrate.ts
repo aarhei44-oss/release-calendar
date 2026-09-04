@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
@@ -245,23 +243,13 @@ async function fetchProvider(
 }
 
 /**
- * Helper for providers: gzip a JSON body and hash the uncompressed bytes, the
- * way RawPayload expects.
- *
- * The gzipped Buffer is copied into a freshly allocated Uint8Array rather than
- * wrapped, so the result is a `Uint8Array<ArrayBuffer>` -- wrapping a Buffer
- * infers `ArrayBufferLike`, which Prisma's Bytes column rejects.
+ * Re-exported from lib/ingest/fetch.ts, where it now lives beside the rest of
+ * the Fetch stage's framing. Kept exported here because it was part of this
+ * module's surface first, and because a provider importing it from the
+ * orchestrator would close an import cycle (orchestrate -> registry ->
+ * provider -> orchestrate).
  */
-export function packPayloadBody(value: unknown): { body: Uint8Array<ArrayBuffer>; contentHash: string } {
-  const json = JSON.stringify(value);
-  const gzipped = gzipSync(Buffer.from(json, "utf8"));
-  const body = new Uint8Array(gzipped.byteLength);
-  body.set(gzipped);
-  return {
-    body,
-    contentHash: createHash("sha256").update(json, "utf8").digest("hex"),
-  };
-}
+export { packPayloadBody } from "./fetch";
 
 // ---------------------------------------------------------------------------
 // Stages 2-6

@@ -1,0 +1,220 @@
+[
+ {
+  "set_name": "Battles of Legend: Glorious Gallery",
+  "set_code": "BLGG",
+  "num_of_cards": 146,
+  "tcg_date": "2026-06-04",
+  "set_image": "https://images.ygoprodeck.com/images/sets/BLGG.jpg"
+ },
+ {
+  "set_name": "Beyond the Brave",
+  "set_code": "BETB",
+  "num_of_cards": 8,
+  "tcg_date": "2026-10-08",
+  "set_image": "https://images.ygoprodeck.com/images/sets/BETB.jpg"
+ },
+ {
+  "set_name": "Blazing Dominion",
+  "set_code": "BLZD",
+  "num_of_cards": 101,
+  "tcg_date": "2026-05-07",
+  "set_image": "https://images.ygoprodeck.com/images/sets/BLZD.jpg"
+ },
+ {
+  "set_name": "Burst Protocol",
+  "set_code": "BPRO",
+  "num_of_cards": 101,
+  "tcg_date": "2026-02-05",
+  "set_image": "https://images.ygoprodeck.com/images/sets/BPRO.jpg"
+ },
+ {
+  "set_name": "Chaos Origins",
+  "set_code": "CORI",
+  "num_of_cards": 100,
+  "tcg_date": "2026-07-02",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CORI.jpg"
+ },
+ {
+  "set_name": "Crocs collaboration card",
+  "set_code": "CRC1",
+  "num_of_cards": 1
+ },
+ {
+  "set_name": "EFootball collaboration cards",
+  "set_code": "EFC1",
+  "num_of_cards": 1,
+  "set_image": "https://images.ygoprodeck.com/images/sets/EFC1.jpg"
+ },
+ {
+  "set_name": "Legendary Arc-V Decks",
+  "set_code": "LAVD",
+  "num_of_cards": 115,
+  "tcg_date": "2026-08-06",
+  "set_image": "https://images.ygoprodeck.com/images/sets/LAVD.jpg"
+ },
+ {
+  "set_name": "Legendary Modern Decks 2026",
+  "set_code": "L26D",
+  "num_of_cards": 111,
+  "tcg_date": "2026-04-23",
+  "set_image": "https://images.ygoprodeck.com/images/sets/L26D.jpg"
+ },
+ {
+  "set_name": "Limited Pack World Championship 2026",
+  "set_code": "26LP",
+  "num_of_cards": 21,
+  "set_image": "https://images.ygoprodeck.com/images/sets/26LP.jpg"
+ },
+ {
+  "set_name": "Magnificent Maestros",
+  "set_code": "MAMS",
+  "num_of_cards": 24,
+  "tcg_date": "2026-11-12",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MAMS.jpg"
+ },
+ {
+  "set_name": "Magnificent Monsters",
+  "set_code": "MAMO",
+  "num_of_cards": 126,
+  "tcg_date": "2026-09-04",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MAMO.jpg"
+ },
+ {
+  "set_name": "Maze of Muertos",
+  "set_code": "MZMU",
+  "num_of_cards": 127,
+  "tcg_date": "2026-02-19",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MZMU.jpg"
+ },
+ {
+  "set_name": "Nike collaboration cards",
+  "set_code": "NKC1",
+  "num_of_cards": 2,
+  "set_image": "https://images.ygoprodeck.com/images/sets/NKC1.jpg"
+ },
+ {
+  "set_name": "OTS Tournament Pack 30",
+  "set_code": "OP30",
+  "num_of_cards": 27,
+  "tcg_date": "2026-02-12",
+  "set_image": "https://images.ygoprodeck.com/images/sets/OP30.jpg"
+ },
+ {
+  "set_name": "Rarity Collection 5",
+  "set_code": "RA05",
+  "num_of_cards": 150,
+  "tcg_date": "2026-04-09",
+  "set_image": "https://images.ygoprodeck.com/images/sets/RA05.jpg"
+ },
+ {
+  "set_name": "THANK YOU PACK",
+  "set_code": "TYP1",
+  "num_of_cards": 12,
+  "tcg_date": "2026-07-22",
+  "set_image": "https://images.ygoprodeck.com/images/sets/TYP1.jpg"
+ },
+ {
+  "set_name": "THE CHRONICLES DECK: Spirit Charmers (All-Foil Edition)",
+  "set_code": "CH02",
+  "num_of_cards": 50,
+  "tcg_date": "2026-01-22",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CH02.jpg"
+ },
+ {
+  "set_name": "Ultimate Tournament Pack 1",
+  "set_code": "UP01",
+  "num_of_cards": 49,
+  "tcg_date": "2026-06-18",
+  "set_image": "https://images.ygoprodeck.com/images/sets/UP01.jpg"
+ },
+ {
+  "set_name": "Winner's Pack 2026-2027",
+  "set_code": "WI26",
+  "num_of_cards": 40,
+  "tcg_date": "2026-07-15",
+  "set_image": "https://images.ygoprodeck.com/images/sets/WI26.jpg"
+ },
+ {
+  "set_name": "2-Player Starter Deck: Yuya & Declan",
+  "set_code": "YS15",
+  "num_of_cards": 42,
+  "tcg_date": "2015-05-28",
+  "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+ },
+ {
+  "set_name": "Dark Legion Starter Deck",
+  "set_code": "YS15",
+  "num_of_cards": 29,
+  "tcg_date": "2015-05-29",
+  "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+ },
+ {
+  "set_name": "Saber Force Starter Deck",
+  "set_code": "YS15",
+  "num_of_cards": 28,
+  "tcg_date": "2015-05-29",
+  "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+ },
+ {
+  "set_name": "2013 Collectible Tins Wave 1",
+  "set_code": "CT10",
+  "num_of_cards": 9,
+  "tcg_date": "2013-08-30",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CT10.jpg"
+ },
+ {
+  "set_name": "2013 Collectible Tins Wave 2",
+  "set_code": "CT10",
+  "num_of_cards": 9,
+  "tcg_date": "2013-11-22",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CT10.jpg"
+ },
+ {
+  "set_name": "2020 Tin of Lost Memories",
+  "set_code": "MP20",
+  "num_of_cards": 6,
+  "tcg_date": "2020-08-27",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MP20.jpg"
+ },
+ {
+  "set_name": "2020 Tin of Lost Memories Mega Pack",
+  "set_code": "MP20",
+  "num_of_cards": 246,
+  "tcg_date": "2020-08-27",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MP20.jpg"
+ },
+ {
+  "set_name": "2-Player Starter Set",
+  "set_code": "STAX",
+  "num_of_cards": 88,
+  "tcg_date": "2024-01-26"
+ },
+ {
+  "set_name": "2014 Mega-Tin Mega Pack",
+  "set_code": "MP14",
+  "num_of_cards": 247,
+  "tcg_date": "2014-08-28",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MP14.jpg"
+ },
+ {
+  "set_name": "2014 Mega-Tins",
+  "set_code": "CT11",
+  "num_of_cards": 6,
+  "tcg_date": "2014-08-28",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CT11.jpg"
+ },
+ {
+  "set_name": "2015 Mega-Tin Mega Pack",
+  "set_code": "MP15",
+  "num_of_cards": 247,
+  "tcg_date": "2015-09-17",
+  "set_image": "https://images.ygoprodeck.com/images/sets/MP15.jpg"
+ },
+ {
+  "set_name": "2015 Mega-Tins",
+  "set_code": "CT12",
+  "num_of_cards": 6,
+  "tcg_date": "2015-09-17",
+  "set_image": "https://images.ygoprodeck.com/images/sets/CT12.jpg"
+ }
+]

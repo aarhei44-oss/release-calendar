@@ -62,6 +62,7 @@ const candidateSchema = z.strictObject({
   type: z.enum(["SHELF", "PRERELEASE", "PROMO", "SPECIAL"]),
   url: z.string().optional(),
   description: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 /**

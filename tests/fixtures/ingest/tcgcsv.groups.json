@@ -1,0 +1,1995 @@
+{
+ "1": {
+  "totalItems": 69,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24770,
+    "name": "Commander: Star Trek",
+    "abbreviation": "TRC",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-07-15T13:07:48.253",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24766,
+    "name": "Star Trek",
+    "abbreviation": "TRK",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-09-01T18:29:24.14",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24771,
+    "name": "Star Trek: Stardates",
+    "abbreviation": "SDS",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-07-15T13:58:26.317",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24690,
+    "name": "Art Series: The Hobbit",
+    "abbreviation": "ASHOB",
+    "isSupplemental": true,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-08-04T13:57:39.693",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24856,
+    "name": "Box Toppers - Retail",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-06T00:00:00",
+    "modifiedOn": "2026-08-31T18:00:55.12",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24689,
+    "name": "Commander: Reality Fracture",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-02T00:00:00",
+    "modifiedOn": "2026-07-17T18:43:12.55",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24684,
+    "name": "Reality Fracture",
+    "abbreviation": "FRA",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-02T00:00:00",
+    "modifiedOn": "2026-09-04T14:42:19.247",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24777,
+    "name": "Mystery Booster Commander Edition",
+    "abbreviation": "MBC",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-01T00:00:00",
+    "modifiedOn": "2026-08-20T16:39:23.893",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2546,
+    "name": "Planeswalker Event Promos",
+    "abbreviation": "PEP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-18T12:48:21.537",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2899,
+    "name": "Play Promos",
+    "abbreviation": "PLAY",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-07-10T14:55:46.583",
+    "categoryId": 1
+   },
+   {
+    "groupId": 23167,
+    "name": "Secret Lair Commander: From Cute to Brute",
+    "abbreviation": "SLDC2",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-04-10T15:12:05.357",
+    "categoryId": 1
+   },
+   {
+    "groupId": 23025,
+    "name": "Un-Known Event Playtest Cards",
+    "abbreviation": "UNK",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-27T21:00:12.903",
+    "categoryId": 1
+   },
+   {
+    "groupId": 13,
+    "name": "Arena Promos",
+    "abbreviation": "ARENA",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-25T22:00:13.607",
+    "categoryId": 1
+   },
+   {
+    "groupId": 19,
+    "name": "Box Sets",
+    "abbreviation": "",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-04-10T15:13:06.36",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2203,
+    "name": "Challenger Decks",
+    "abbreviation": "Q01",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-04-10T15:57:14.09",
+    "categoryId": 1
+   },
+   {
+    "groupId": 21,
+    "name": "Champs Promos",
+    "abbreviation": "CHAMPS",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-10T13:15:15.557",
+    "categoryId": 1
+   },
+   {
+    "groupId": 45,
+    "name": "FNM Promos",
+    "abbreviation": "FNM",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-08T00:05:21.323",
+    "categoryId": 1
+   },
+   {
+    "groupId": 52,
+    "name": "Game Day & Store Championship Promos",
+    "abbreviation": "GAME",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-26T01:56:15.557",
+    "categoryId": 1
+   },
+   {
+    "groupId": 54,
+    "name": "Grand Prix Promos",
+    "abbreviation": "GPP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-05-21T17:05:25.927",
+    "categoryId": 1
+   },
+   {
+    "groupId": 1524,
+    "name": "Hero's Path Promos",
+    "abbreviation": "HERO",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-25T17:03:22.88",
+    "categoryId": 1
+   },
+   {
+    "groupId": 62,
+    "name": "Judge Promos",
+    "abbreviation": "JDG",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-07-31T18:05:28.94",
+    "categoryId": 1
+   },
+   {
+    "groupId": 61,
+    "name": "Junior Series Promos",
+    "abbreviation": "JSS",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-05-06T22:13:46.74",
+    "categoryId": 1
+   },
+   {
+    "groupId": 1874,
+    "name": "Launch Party & Release Event Promos",
+    "abbreviation": "LARP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-25T15:35:01.24",
+    "categoryId": 1
+   },
+   {
+    "groupId": 64,
+    "name": "Launch Party Cards",
+    "abbreviation": "",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2024-07-10T18:10:45.547",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2087,
+    "name": "League Promos",
+    "abbreviation": "LEP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-26T04:45:08.85",
+    "categoryId": 1
+   },
+   {
+    "groupId": 71,
+    "name": "Magic Player Rewards",
+    "abbreviation": "MPRP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-07-30T15:55:15.78",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2376,
+    "name": "MagicFest Cards",
+    "abbreviation": "MFP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-03T17:40:45.48",
+    "categoryId": 1
+   },
+   {
+    "groupId": 72,
+    "name": "Media Promos",
+    "abbreviation": "MEDIA",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-03T17:41:24.91",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2572,
+    "name": "Mystery Booster Cards",
+    "abbreviation": "MB1",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-04-10T15:08:48.337",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2045,
+    "name": "Open House Promos",
+    "abbreviation": "OHP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-26T04:35:04.057",
+    "categoryId": 1
+   },
+   {
+    "groupId": 82,
+    "name": "Oversize Cards",
+    "abbreviation": "OVER",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-11T14:29:19.627",
+    "categoryId": 1
+   },
+   {
+    "groupId": 92,
+    "name": "Prerelease Cards",
+    "abbreviation": "PRE",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-03T17:43:03.273",
+    "categoryId": 1
+   },
+   {
+    "groupId": 93,
+    "name": "Pro Tour Promos",
+    "abbreviation": "PTP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-07-21T14:45:15.27",
+    "categoryId": 1
+   },
+   {
+    "groupId": 3100,
+    "name": "Secret Lair Commander: Heads I Win, Tails You Lose",
+    "abbreviation": "SLDC",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-04-10T15:12:27.117",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2576,
+    "name": "Secret Lair Drop Series",
+    "abbreviation": "SLD",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-04T19:44:57.047",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2632,
+    "name": "Secret Lair Series",
+    "abbreviation": "SLU",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-07-21T14:42:13.01",
+    "categoryId": 1
+   },
+   {
+    "groupId": 3054,
+    "name": "SLX Cards",
+    "abbreviation": "SLX",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-26T19:14:50.887",
+    "categoryId": 1
+   },
+   {
+    "groupId": 23318,
+    "name": "Special Guests",
+    "abbreviation": "SPG",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-02T17:56:41.117",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2067,
+    "name": "Standard Showdown Promos",
+    "abbreviation": "SSP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-25T12:00:19.877",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2715,
+    "name": "The List Reprints",
+    "abbreviation": "LIST",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-02T19:09:36.493",
+    "categoryId": 1
+   },
+   {
+    "groupId": 1163,
+    "name": "Unique and Miscellaneous Promos",
+    "abbreviation": "UMP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-09-02T18:41:38.357",
+    "categoryId": 1
+   },
+   {
+    "groupId": 1832,
+    "name": "WMCQ Promo Cards",
+    "abbreviation": "WMCQ",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-06-15T22:45:45.88",
+    "categoryId": 1
+   },
+   {
+    "groupId": 2198,
+    "name": "World Championship Decks",
+    "abbreviation": "WCD",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-21T21:56:39.837",
+    "categoryId": 1
+   },
+   {
+    "groupId": 53,
+    "name": "WPN & Gateway Promos",
+    "abbreviation": "WPN",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:50.4976799Z",
+    "modifiedOn": "2026-08-21T16:05:14.15",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24836,
+    "name": "Secret Lair x MSCHF: The Zeta Set",
+    "abbreviation": "SLZ",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-02T00:00:00",
+    "modifiedOn": "2026-09-04T16:10:30.127",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24683,
+    "name": "The Hobbit",
+    "abbreviation": "HOB",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-14T00:00:00",
+    "modifiedOn": "2026-09-03T13:01:50.693",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24691,
+    "name": "The Hobbit: Eternal-Legal",
+    "abbreviation": "HOC",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-14T00:00:00",
+    "modifiedOn": "2026-09-03T13:02:54.917",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24554,
+    "name": "Commander: Marvel Super Heroes",
+    "abbreviation": "MSC",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-09-03T18:38:39.777",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24553,
+    "name": "Marvel Super Heroes",
+    "abbreviation": "MSH",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-09-03T17:23:49.643",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24725,
+    "name": "Art Series: Marvel Super Heroes",
+    "abbreviation": "AAMSH",
+    "isSupplemental": true,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-08-11T06:55:33.247",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24602,
+    "name": "Commander: Secrets of Strixhaven",
+    "abbreviation": "SOC",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-09-02T19:36:30.05",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24661,
+    "name": "Promo Pack: Secrets of Strixhaven",
+    "abbreviation": "PPSOS",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-08-08T02:45:05.023",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24601,
+    "name": "Secrets of Strixhaven",
+    "abbreviation": "SOS",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-09-02T18:45:05.48",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24603,
+    "name": "Secrets of Strixhaven: Mystical Archive",
+    "abbreviation": "SOA",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-09-03T13:07:52.9",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24665,
+    "name": "Art Series: Secrets of Strixhaven",
+    "abbreviation": "ASSOS",
+    "isSupplemental": true,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-08-13T20:27:55.387",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24496,
+    "name": "Commander: Teenage Mutant Ninja Turtles",
+    "abbreviation": "TMC",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-06T00:00:00",
+    "modifiedOn": "2026-09-03T19:18:07.287",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24495,
+    "name": "Teenage Mutant Ninja Turtles",
+    "abbreviation": "TMT",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-06T00:00:00",
+    "modifiedOn": "2026-09-03T19:12:33.13",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24497,
+    "name": "Teenage Mutant Ninja Turtles Source Material",
+    "abbreviation": "PZA",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-06T00:00:00",
+    "modifiedOn": "2026-09-02T17:26:42.96",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24626,
+    "name": "Art Series: Teenage Mutant Ninja Turtles",
+    "abbreviation": "ASTMT",
+    "isSupplemental": true,
+    "publishedOn": "2026-03-06T00:00:00",
+    "modifiedOn": "2026-07-30T15:25:42.737",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24464,
+    "name": "Commander: Lorwyn Eclipsed",
+    "abbreviation": "ECC",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-09-03T18:42:02.57",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24463,
+    "name": "Lorwyn Eclipsed",
+    "abbreviation": "ECL",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-09-03T19:20:31.197",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24465,
+    "name": "Promo Pack: Lorwyn Eclipsed",
+    "abbreviation": "PPECL",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-08-26T04:51:22.9",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24462,
+    "name": "Art Series: Lorwyn Eclipsed",
+    "abbreviation": "ASECL",
+    "isSupplemental": true,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-07-30T15:04:26.403",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24421,
+    "name": "Avatar: The Last Airbender",
+    "abbreviation": "TLA",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-21T00:00:00",
+    "modifiedOn": "2026-09-03T20:32:52.47",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24422,
+    "name": "Avatar: The Last Airbender: Eternal-Legal",
+    "abbreviation": "TLE",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-21T00:00:00",
+    "modifiedOn": "2026-09-03T19:26:55.667",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24527,
+    "name": "Art Series: Avatar: The Last Airbender",
+    "abbreviation": "ASTLA",
+    "isSupplemental": true,
+    "publishedOn": "2025-11-21T00:00:00",
+    "modifiedOn": "2026-07-30T15:00:52.183",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24432,
+    "name": "Marvel Universe Eternal-Legal",
+    "abbreviation": "MAR",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-09-02T19:22:46.643",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24245,
+    "name": "Marvel's Spider-Man",
+    "abbreviation": "SPM",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-09-03T19:29:27.373",
+    "categoryId": 1
+   },
+   {
+    "groupId": 24246,
+    "name": "Marvel's Spider-Man: Eternal-Legal",
+    "abbreviation": "SPE",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-08-20T18:35:43.077",
+    "categoryId": 1
+   }
+  ]
+ },
+ "2": {
+  "totalItems": 42,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24822,
+    "name": "Glorious Victors",
+    "abbreviation": "GLVI",
+    "isSupplemental": false,
+    "publishedOn": "2026-12-04T00:00:00",
+    "modifiedOn": "2026-08-25T20:31:08.153",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24808,
+    "name": "Magnificent Maestros",
+    "abbreviation": "MAMS",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-09-03T19:59:35.37",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24806,
+    "name": "Ultimate Tournament Pack 2",
+    "abbreviation": "UP02",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-04T00:00:00",
+    "modifiedOn": "2026-08-07T18:43:27.423",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24815,
+    "name": "Beyond the Brave",
+    "abbreviation": "BETB",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-09T00:00:00",
+    "modifiedOn": "2026-08-25T20:23:50.81",
+    "categoryId": 2
+   },
+   {
+    "groupId": 180,
+    "name": "Duel Transer Promo Cards",
+    "abbreviation": "YDT1",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2024-07-29T17:43:14.4",
+    "categoryId": 2
+   },
+   {
+    "groupId": 181,
+    "name": "Duelist Genesis",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T17:26:03.537",
+    "categoryId": 2
+   },
+   {
+    "groupId": 187,
+    "name": "Duelist Pack 7",
+    "abbreviation": "DP07",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2024-07-29T17:51:18.32",
+    "categoryId": 2
+   },
+   {
+    "groupId": 1301,
+    "name": "Exclusive Tin 2009",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T17:38:35.54",
+    "categoryId": 2
+   },
+   {
+    "groupId": 206,
+    "name": "Forbidden Legacy 1",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T17:39:19.97",
+    "categoryId": 2
+   },
+   {
+    "groupId": 221,
+    "name": "GX Tag Force 2 Promo",
+    "abbreviation": "GX04",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2024-07-29T18:44:42.33",
+    "categoryId": 2
+   },
+   {
+    "groupId": 240,
+    "name": "Jump Award",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T17:48:49.653",
+    "categoryId": 2
+   },
+   {
+    "groupId": 242,
+    "name": "Labyrinth_of_Nightmare",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-22T20:43:06.487",
+    "categoryId": 2
+   },
+   {
+    "groupId": 23984,
+    "name": "Legendary Dragon Decks (2020 Date Reprint)",
+    "abbreviation": "LEDD",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-08-19T23:33:39.67",
+    "categoryId": 2
+   },
+   {
+    "groupId": 246,
+    "name": "Light and Darkness Power Pack",
+    "abbreviation": "LDPP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2024-08-18T15:34:35.68",
+    "categoryId": 2
+   },
+   {
+    "groupId": 1342,
+    "name": "Lost Millennium SE",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T17:52:00.083",
+    "categoryId": 2
+   },
+   {
+    "groupId": 331,
+    "name": "The Sacred Cards",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T18:32:42.477",
+    "categoryId": 2
+   },
+   {
+    "groupId": 1318,
+    "name": "Yu-Gi-Oh! 5D's Tag Force 4 Promo",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2021-12-17T18:46:50.883",
+    "categoryId": 2
+   },
+   {
+    "groupId": 2197,
+    "name": "Mattel Action Figure Promos: Series 3",
+    "abbreviation": "MF03",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-04-23T18:47:08.287",
+    "categoryId": 2
+   },
+   {
+    "groupId": 2215,
+    "name": "Pharaoh Tour Promos",
+    "abbreviation": "PTP-EU",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-04-14T13:30:40.377",
+    "categoryId": 2
+   },
+   {
+    "groupId": 2196,
+    "name": "The Lost Art Promotion",
+    "abbreviation": "LART",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-08-07T22:35:03.007",
+    "categoryId": 2
+   },
+   {
+    "groupId": 2353,
+    "name": "World Championship JPP Cards",
+    "abbreviation": "WCJPP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-04-17T17:49:07.03",
+    "categoryId": 2
+   },
+   {
+    "groupId": 1921,
+    "name": "Yu-Gi-Oh! Video Game Promotional Cards",
+    "abbreviation": "VDP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:52.5873026Z",
+    "modifiedOn": "2026-06-23T14:57:47.11",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24707,
+    "name": "Magnificent Monsters",
+    "abbreviation": "MAMO",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T00:00:00",
+    "modifiedOn": "2026-09-04T17:06:23.057",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24703,
+    "name": "Limited Pack World Championship 2026",
+    "abbreviation": "26LP",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-29T00:00:00",
+    "modifiedOn": "2026-09-01T13:36:32.273",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24679,
+    "name": "Legendary Arc-V Decks",
+    "abbreviation": "LAVD",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-07T00:00:00",
+    "modifiedOn": "2026-08-06T18:47:23.603",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24789,
+    "name": "Winner's Pack 2026-2027",
+    "abbreviation": "WI26",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-15T00:00:00",
+    "modifiedOn": "2026-08-07T18:07:38.3",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24704,
+    "name": "Ultimate Tournament Pack 1",
+    "abbreviation": "UP01",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-08T00:00:00",
+    "modifiedOn": "2026-07-08T12:33:39.8",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24675,
+    "name": "Chaos Origins",
+    "abbreviation": "CORI",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-03T00:00:00",
+    "modifiedOn": "2026-08-24T17:36:32.273",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24621,
+    "name": "Battles of Legend: Glorious Gallery",
+    "abbreviation": "BLGG",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-05T00:00:00",
+    "modifiedOn": "2026-08-27T21:52:30.407",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24581,
+    "name": "Blazing Dominion",
+    "abbreviation": "BLZD",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-08T00:00:00",
+    "modifiedOn": "2026-09-02T16:53:29.67",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24555,
+    "name": "Rarity Collection 5",
+    "abbreviation": "RA05",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-17T00:00:00",
+    "modifiedOn": "2026-09-04T04:08:56.027",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24549,
+    "name": "Legendary Modern Decks 2026",
+    "abbreviation": "L26D",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-13T00:00:00",
+    "modifiedOn": "2026-07-21T03:34:23.53",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24559,
+    "name": "Maze of Muertos",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-20T00:00:00",
+    "modifiedOn": "2026-09-02T22:56:16.903",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24542,
+    "name": "OTS Tournament Pack 30",
+    "abbreviation": "OP30",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-11T00:00:00",
+    "modifiedOn": "2026-02-17T14:01:00.943",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24558,
+    "name": "Burst Protocol",
+    "abbreviation": "BPRO",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-06T00:00:00",
+    "modifiedOn": "2026-08-24T20:14:22.183",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24486,
+    "name": "THE CHRONICLES DECK: Spirit Charmers (All-Foil Edition)",
+    "abbreviation": "CH02",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-07-21T03:40:58.17",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24475,
+    "name": "Phantom Revenge",
+    "abbreviation": "PHRE",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-19T00:00:00",
+    "modifiedOn": "2026-09-03T20:22:35.19",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24396,
+    "name": "Legendary 5D's Decks",
+    "abbreviation": "L5DD",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-21T00:00:00",
+    "modifiedOn": "2026-07-13T14:01:19.667",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24392,
+    "name": "THE CHRONICLES DECK: The Fallen & The Virtuous (All-Foil Edition)",
+    "abbreviation": "CH01",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-24T00:00:00",
+    "modifiedOn": "2026-08-08T02:11:38.9",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24358,
+    "name": "OTS Tournament Pack 29",
+    "abbreviation": "OP29",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-15T00:00:00",
+    "modifiedOn": "2026-08-13T20:19:02.587",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24506,
+    "name": "Legendary Collection Kaiba (2020 Date Reprint)",
+    "abbreviation": "LCKC",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-09T00:00:00",
+    "modifiedOn": "2026-07-29T18:33:48.92",
+    "categoryId": 2
+   },
+   {
+    "groupId": 24460,
+    "name": "eFootball Collaboration Promos",
+    "abbreviation": "EFC1",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-27T00:00:00",
+    "modifiedOn": "2025-10-01T16:49:52.227",
+    "categoryId": 2
+   }
+  ]
+ },
+ "3": {
+  "totalItems": 34,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24831,
+    "name": "ME06: Delta Reign",
+    "abbreviation": "DLR",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-06T00:00:00",
+    "modifiedOn": "2026-09-03T14:16:12.22",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24722,
+    "name": "ME: 30th Celebration",
+    "abbreviation": "30C",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-16T00:00:00",
+    "modifiedOn": "2026-09-02T12:27:42.587",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24837,
+    "name": "ME: 30th Celebration Classic Collection",
+    "abbreviation": "30C",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-16T00:00:00",
+    "modifiedOn": "2026-08-31T15:08:35.12",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1543,
+    "name": "EX Trainer Kit 1: Latias & Latios",
+    "abbreviation": "PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-04-09T23:37:53.05",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1542,
+    "name": "EX Trainer Kit 2: Plusle & Minun",
+    "abbreviation": "PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-05-29T11:31:40.867",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1423,
+    "name": "Nintendo Promos",
+    "abbreviation": "PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-08-21T13:51:33.157",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1422,
+    "name": "POP Series 1",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2025-03-17T17:09:52.317",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1447,
+    "name": "POP Series 2",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2025-11-12T14:26:44.223",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1442,
+    "name": "POP Series 3",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-06-05T14:52:20.137",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1452,
+    "name": "POP Series 4",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2023-02-01T15:02:28.727",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1439,
+    "name": "POP Series 5",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-05-07T13:10:16.383",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1432,
+    "name": "POP Series 6",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2025-11-20T07:00:15.483",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1414,
+    "name": "POP Series 7",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-02-27T00:51:24.283",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1450,
+    "name": "POP Series 8",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2025-11-20T01:24:25.957",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1446,
+    "name": "POP Series 9",
+    "abbreviation": "POP",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-06-18T13:23:49.917",
+    "categoryId": 3
+   },
+   {
+    "groupId": 1938,
+    "name": "Alternate Art Promos",
+    "abbreviation": "PR",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-08-20T17:41:47.18",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2289,
+    "name": "Blister Exclusives",
+    "abbreviation": "BLE",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-08-28T20:07:33.863",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2175,
+    "name": "Burger King Promos",
+    "abbreviation": "BKP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-04-14T16:51:40.05",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2776,
+    "name": "First Partner Pack",
+    "abbreviation": "FPP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-04-14T16:53:56.683",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2374,
+    "name": "Miscellaneous Cards & Products",
+    "abbreviation": "MCAP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-09-02T19:36:48.913",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2205,
+    "name": "Pikachu World Collection Promos",
+    "abbreviation": "PWCP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-05-05T13:38:49.02",
+    "categoryId": 3
+   },
+   {
+    "groupId": 2332,
+    "name": "Professor Program Promos",
+    "abbreviation": "PPP",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-04T20:00:23.3105392Z",
+    "modifiedOn": "2026-07-22T16:35:11.76",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24688,
+    "name": "ME05: Pitch Black",
+    "abbreviation": "PBL",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-17T00:00:00",
+    "modifiedOn": "2026-08-28T19:53:33.563",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24655,
+    "name": "ME04: Chaos Rising",
+    "abbreviation": "CRI",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-22T00:00:00",
+    "modifiedOn": "2026-08-27T15:18:54.727",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24584,
+    "name": "First Partner Collection 2026",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-30T00:00:00",
+    "modifiedOn": "2026-09-01T16:20:54.39",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24587,
+    "name": "ME03: Perfect Order",
+    "abbreviation": "POR",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-27T00:00:00",
+    "modifiedOn": "2026-08-26T20:27:05.363",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24541,
+    "name": "ME: Ascended Heroes",
+    "abbreviation": "ASC",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-30T00:00:00",
+    "modifiedOn": "2026-08-26T14:59:57.003",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24529,
+    "name": "Player Placement Trainer Promos",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-02T00:00:00",
+    "modifiedOn": "2025-11-07T21:48:17.57",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24448,
+    "name": "ME02: Phantasmal Flames",
+    "abbreviation": "PFL",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-14T00:00:00",
+    "modifiedOn": "2026-08-28T22:20:16.697",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24451,
+    "name": "ME: Mega Evolution Promo",
+    "abbreviation": "MEP",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-09-02T14:28:53.19",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24380,
+    "name": "ME01: Mega Evolution",
+    "abbreviation": "MEG",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-08-24T19:38:09.54",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24461,
+    "name": "MEE: Mega Evolution Energies",
+    "abbreviation": "MEE",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-08-28T18:38:50.16",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24325,
+    "name": "SV: Black Bolt",
+    "abbreviation": "BLK",
+    "isSupplemental": false,
+    "publishedOn": "2025-07-18T00:00:00",
+    "modifiedOn": "2026-08-26T14:58:33.91",
+    "categoryId": 3
+   },
+   {
+    "groupId": 24326,
+    "name": "SV: White Flare",
+    "abbreviation": "WHT",
+    "isSupplemental": false,
+    "publishedOn": "2025-07-18T00:00:00",
+    "modifiedOn": "2026-07-31T17:47:15.873",
+    "categoryId": 3
+   }
+  ]
+ },
+ "68": {
+  "totalItems": 27,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24833,
+    "name": "The Dominance of God",
+    "abbreviation": "OP18",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-20T00:00:00",
+    "modifiedOn": "2026-08-24T18:05:31.233",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24834,
+    "name": "The Dominance of God Release Event Cards",
+    "abbreviation": "OP18 RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-08-24T15:33:23.907",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24820,
+    "name": "Extra Booster: One Piece Heroine's Edition Vol. 2",
+    "abbreviation": "EB-05",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-30T00:00:00",
+    "modifiedOn": "2026-09-04T13:29:43.227",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24708,
+    "name": "Set Sail Deck Set",
+    "abbreviation": "SD01",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-05-19T14:51:00.227",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24736,
+    "name": "The World's Strongest Warriors",
+    "abbreviation": "OP17",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-28T00:00:00",
+    "modifiedOn": "2026-09-04T16:10:55.133",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24775,
+    "name": "The World's Strongest Warriors Release Event Cards",
+    "abbreviation": "OP17 RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-21T00:00:00",
+    "modifiedOn": "2026-09-01T11:12:42.277",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24749,
+    "name": "Starter Deck 31: RED Monkey.D.Luffy",
+    "abbreviation": "ST-31",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-24T12:29:38.923",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24750,
+    "name": "Starter Deck 32: GREEN Roronoa Zoro",
+    "abbreviation": "ST-32",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-20T14:32:07.22",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24751,
+    "name": "Starter Deck 33: BLUE Kuzan",
+    "abbreviation": "ST-33",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-20T14:31:36.563",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24752,
+    "name": "Starter Deck 34: PURPLE Charlotte Katakuri",
+    "abbreviation": "ST-34",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-20T14:30:36.807",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24753,
+    "name": "Starter Deck 35: RED/BLACK Sabo",
+    "abbreviation": "ST-35",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-20T14:30:10.423",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24754,
+    "name": "Starter Deck 36: YELLOW Eustass\"Captain\"Kid",
+    "abbreviation": "ST-36",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-20T14:29:43.53",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24678,
+    "name": "Starter Deck EX: Luffy & Ace",
+    "abbreviation": "ST-30",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-12T00:00:00",
+    "modifiedOn": "2026-07-28T15:38:16.103",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24664,
+    "name": "The Time of Battle",
+    "abbreviation": "OP16",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-12T00:00:00",
+    "modifiedOn": "2026-08-12T15:26:22.413",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24677,
+    "name": "The Time of Battle Release Event Cards",
+    "abbreviation": "OP16 RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-05T00:00:00",
+    "modifiedOn": "2026-06-16T15:41:06.043",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24637,
+    "name": "Adventure on Kami's Island",
+    "abbreviation": "OP15-EB04",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-03T00:00:00",
+    "modifiedOn": "2026-08-09T14:17:26.847",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24638,
+    "name": "Adventure on Kami's Island Release Event Cards",
+    "abbreviation": "OP15 RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-27T00:00:00",
+    "modifiedOn": "2026-04-21T20:49:19.597",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24545,
+    "name": "Extra Booster: One Piece Heroines Edition",
+    "abbreviation": "EB-03-04",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-20T00:00:00",
+    "modifiedOn": "2026-08-14T15:53:41.48",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24575,
+    "name": "Starter Deck 29: Egghead",
+    "abbreviation": "ST-29",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-16T00:00:00",
+    "modifiedOn": "2026-01-20T14:19:02.74",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24537,
+    "name": "The Azure Sea's Seven",
+    "abbreviation": "OP14",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-16T00:00:00",
+    "modifiedOn": "2026-07-15T22:10:09.87",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24579,
+    "name": "The Azure Sea's Seven Release Event Cards",
+    "abbreviation": "OP14 RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-09T00:00:00",
+    "modifiedOn": "2026-06-16T01:31:33.443",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24303,
+    "name": "Carrying On His Will",
+    "abbreviation": "OP13",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-07T00:00:00",
+    "modifiedOn": "2026-08-09T14:36:20.093",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24498,
+    "name": "Carrying On His Will: 3rd Anniversary Tournament Cards",
+    "abbreviation": "OP13 ANN",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-06-28T15:47:13.743",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24306,
+    "name": "Learn Together Deck Set",
+    "abbreviation": "LT-01",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-03T00:00:00",
+    "modifiedOn": "2026-03-17T13:08:11.813",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24305,
+    "name": "Premium Booster -The Best- Vol. 2",
+    "abbreviation": "PRB-02",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-03T00:00:00",
+    "modifiedOn": "2026-07-15T22:12:21.567",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24304,
+    "name": "Starter Deck 22: Ace & Newgate",
+    "abbreviation": "ST-22",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-05T00:00:00",
+    "modifiedOn": "2026-02-10T18:08:08.17",
+    "categoryId": 68
+   },
+   {
+    "groupId": 24302,
+    "name": "Legacy of the Master",
+    "abbreviation": "OP12",
+    "isSupplemental": false,
+    "publishedOn": "2025-08-22T00:00:00",
+    "modifiedOn": "2026-07-15T22:13:17.917",
+    "categoryId": 68
+   }
+  ]
+ },
+ "71": {
+  "totalItems": 11,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24740,
+    "name": "Hyperia City",
+    "abbreviation": "14",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-16T00:00:00",
+    "modifiedOn": "2026-07-24T16:13:41.043",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24734,
+    "name": "Illumineer's Quest: The Great Hunny Rescue",
+    "abbreviation": "Q3",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-02T00:00:00",
+    "modifiedOn": "2026-08-05T17:29:26.147",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24666,
+    "name": "Attack of the Vine!",
+    "abbreviation": "13",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-17T00:00:00",
+    "modifiedOn": "2026-07-28T15:02:31.933",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24617,
+    "name": "Wilds Unknown",
+    "abbreviation": "12",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-08T00:00:00",
+    "modifiedOn": "2026-07-21T18:34:50.74",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24500,
+    "name": "Winterspell",
+    "abbreviation": "11",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-07-21T18:34:22.13",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24414,
+    "name": "Whispers in the Well",
+    "abbreviation": "10",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-07T00:00:00",
+    "modifiedOn": "2026-07-21T20:07:14.387",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24348,
+    "name": "Fabled",
+    "abbreviation": "9",
+    "isSupplemental": false,
+    "publishedOn": "2025-08-29T00:00:00",
+    "modifiedOn": "2026-08-05T18:03:48.46",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24257,
+    "name": "Illumineer's Quest: Palace Heist",
+    "abbreviation": "Q2",
+    "isSupplemental": false,
+    "publishedOn": "2025-06-06T00:00:00",
+    "modifiedOn": "2026-08-05T18:28:12.287",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24258,
+    "name": "Reign of Jafar",
+    "abbreviation": "8",
+    "isSupplemental": false,
+    "publishedOn": "2025-05-30T00:00:00",
+    "modifiedOn": "2026-08-13T16:31:10.643",
+    "categoryId": 71
+   },
+   {
+    "groupId": 24011,
+    "name": "Archazia's Island",
+    "abbreviation": "7",
+    "isSupplemental": false,
+    "publishedOn": "2025-03-07T00:00:00",
+    "modifiedOn": "2026-08-12T13:29:01.083",
+    "categoryId": 71
+   },
+   {
+    "groupId": 23746,
+    "name": "Azurite Sea",
+    "abbreviation": "6",
+    "isSupplemental": false,
+    "publishedOn": "2024-11-15T00:00:00",
+    "modifiedOn": "2026-07-21T18:22:30.513",
+    "categoryId": 71
+   }
+  ]
+ },
+ "86": {
+  "totalItems": 21,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24826,
+    "name": "Blazing Fist",
+    "abbreviation": "GD07",
+    "isSupplemental": false,
+    "publishedOn": "2027-01-29T00:00:00",
+    "modifiedOn": "2026-08-20T14:59:44.85",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24804,
+    "name": "Stardust Trails",
+    "abbreviation": "GD06",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-30T00:00:00",
+    "modifiedOn": "2026-08-07T17:20:03.233",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24800,
+    "name": "Starter Deck 11: Aquatic Assault",
+    "abbreviation": "ST11",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-08-18T18:35:36.447",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24801,
+    "name": "Starter Deck 12: Raging Onslaught",
+    "abbreviation": "ST12",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-08-18T18:36:22.33",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24802,
+    "name": "Starter Deck 13: Silent Barrage",
+    "abbreviation": "ST13",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-08-18T18:37:05.847",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24803,
+    "name": "Starter Deck 14: Heavy Dominion",
+    "abbreviation": "ST14",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-08-18T18:37:44.557",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24767,
+    "name": "Deck Build Box Freedom Ascension",
+    "abbreviation": "SC01",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-24T00:00:00",
+    "modifiedOn": "2026-08-25T20:18:00.907",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24699,
+    "name": "Freedom Ascension",
+    "abbreviation": "GD05",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-24T00:00:00",
+    "modifiedOn": "2026-09-04T18:59:09.287",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24693,
+    "name": "Eternal Nexus",
+    "abbreviation": "EB01",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-08-25T20:30:47.277",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24692,
+    "name": "Starter Deck 10: Generation Pulse",
+    "abbreviation": "ST10",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-09-04T15:39:42.363",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24633,
+    "name": "Phantom Aria",
+    "abbreviation": "GD04",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-08-25T20:44:18.37",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24625,
+    "name": "Starter Deck 09: Destiny Ignition",
+    "abbreviation": "ST09",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-27T00:00:00",
+    "modifiedOn": "2026-08-25T20:46:37.187",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24522,
+    "name": "Steel Requiem",
+    "abbreviation": "GD03",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-30T00:00:00",
+    "modifiedOn": "2026-08-25T20:51:19.237",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24410,
+    "name": "Starter Deck 07: Celestial Drive",
+    "abbreviation": "ST07",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-16T00:00:00",
+    "modifiedOn": "2026-07-30T14:34:13.45",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24411,
+    "name": "Starter Deck 08: Flash of Radiance",
+    "abbreviation": "ST08",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-16T00:00:00",
+    "modifiedOn": "2026-07-30T14:34:03.35",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24408,
+    "name": "Dual Impact",
+    "abbreviation": "GD02",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-24T00:00:00",
+    "modifiedOn": "2026-08-25T20:26:21.687",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24409,
+    "name": "Starter Deck 06: Clan Unity",
+    "abbreviation": "ST06",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-24T00:00:00",
+    "modifiedOn": "2026-01-13T18:25:14.277",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24407,
+    "name": "Starter Deck 05: Iron Bloom",
+    "abbreviation": "ST05",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-01-05T13:42:37.043",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24221,
+    "name": "Newtype Rising",
+    "abbreviation": "GD01",
+    "isSupplemental": false,
+    "publishedOn": "2025-07-25T00:00:00",
+    "modifiedOn": "2026-08-19T16:59:03.46",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24222,
+    "name": "Starter Deck 01: Heroic Beginnings",
+    "abbreviation": "ST01",
+    "isSupplemental": false,
+    "publishedOn": "2025-07-11T00:00:00",
+    "modifiedOn": "2025-07-23T14:07:33.073",
+    "categoryId": 86
+   },
+   {
+    "groupId": 24223,
+    "name": "Starter Deck 02: Wings of Advance",
+    "abbreviation": "ST02",
+    "isSupplemental": false,
+    "publishedOn": "2025-07-11T00:00:00",
+    "modifiedOn": "2025-07-23T14:12:24.25",
+    "categoryId": 86
+   }
+  ]
+ },
+ "89": {
+  "totalItems": 12,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24832,
+    "name": "Legacy",
+    "abbreviation": "LGC",
+    "isSupplemental": false,
+    "publishedOn": "2027-01-29T00:00:00",
+    "modifiedOn": "2026-08-31T12:49:15.887",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24819,
+    "name": "Radiance",
+    "abbreviation": "RAD",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-23T00:00:00",
+    "modifiedOn": "2026-08-26T20:23:28.663",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24861,
+    "name": "Riftbound Bundles",
+    "abbreviation": "RBUN",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-01T00:00:00",
+    "modifiedOn": "2026-08-31T18:51:54.913",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24698,
+    "name": "Vendetta",
+    "abbreviation": "VEN",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-26T12:16:51.063",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24560,
+    "name": "Unleashed",
+    "abbreviation": "UNL",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-08T00:00:00",
+    "modifiedOn": "2026-08-17T18:31:38.02",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24519,
+    "name": "Spiritforged",
+    "abbreviation": "SFD",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-08-12T20:27:18.9",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24552,
+    "name": "Riftbound Judge Promotional Cards",
+    "abbreviation": "JDG",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-01T00:00:00",
+    "modifiedOn": "2026-08-12T20:31:25.087",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24344,
+    "name": "Origins",
+    "abbreviation": "OGN",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-08-12T20:21:07.447",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24439,
+    "name": "Origins: Proving Grounds",
+    "abbreviation": "OGS",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-08-12T20:22:47.78",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24528,
+    "name": "Riftbound Organized Play Promotional Cards",
+    "abbreviation": "OPP",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-09-04T15:25:07.34",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24343,
+    "name": "Riftbound Promotional Cards",
+    "abbreviation": "PR",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-08-12T20:25:34.333",
+    "categoryId": 89
+   },
+   {
+    "groupId": 24502,
+    "name": "Riftbound Worlds Bundle 2025",
+    "abbreviation": "RWB",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-28T00:00:00",
+    "modifiedOn": "2025-11-03T13:03:18.32",
+    "categoryId": 89
+   }
+  ]
+ }
+}

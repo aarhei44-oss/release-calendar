@@ -86,6 +86,15 @@ export const ORIGINS = {
   tcgplayer: { key: "tcgplayer", tier: "RETAILER", derivesFrom: null },
 
   wikipedia: { key: "wikipedia", tier: "COMMUNITY", derivesFrom: null },
+
+  // Bulbapedia is a Pokémon-franchise wiki whose expansion tables are
+  // transcribed from The Pokémon Company's own announcements and product
+  // pages, so it declares that ancestry -- it would not be an independent
+  // check on a pokemon-official provider. It *is* independent of Wikipedia:
+  // the two are separately edited communities with separate sourcing
+  // conventions, and neither republishes the other. That pairing is what gives
+  // Pokémon a second origin, and therefore any chance of satisfying G2.
+  bulbapedia: { key: "bulbapedia", tier: "COMMUNITY", derivesFrom: "pokemon-official" },
 } as const satisfies OriginRegistry;
 
 export type KnownOrigin = keyof typeof ORIGINS;
@@ -205,6 +214,13 @@ export type Candidate = {
   /** The page this was read from, carried through to SourceClaim.url. */
   url?: string;
   description?: string;
+  /**
+   * A freely-usable set image the provider happened to know about (YGOPRODeck
+   * publishes one per set, the wikis link a logo). Carried on the candidate so
+   * a later image pass has a URL to consider without re-fetching the source;
+   * nothing in the gate or identity stages reads it.
+   */
+  imageUrl?: string;
 };
 
 // ---------------------------------------------------------------------------
