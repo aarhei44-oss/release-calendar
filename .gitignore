@@ -41,6 +41,9 @@ yarn-error.log*
 # claude code local settings
 .claude/settings.local.json
 
+# local-machine environment/ops notes (real infra details -- repo is public, never commit)
+/ENVIRONMENT.md
+
 # sqlite
 *.db
 *.db-journal
