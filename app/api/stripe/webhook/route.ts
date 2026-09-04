@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe";
 import { logEvent } from "@/lib/logger";
 import {
-  findUserIdByStripeCustomerId,
+  findUserForStripeCustomerId,
   setStripeCustomerId,
   syncSubscriptionFromStripe,
   clearSubscription,
@@ -61,10 +61,23 @@ async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const customerId = toCustomerId(subscription.customer);
-  const userId = customerId ? await findUserIdByStripeCustomerId(customerId) : null;
+  const user = customerId ? await findUserForStripeCustomerId(customerId) : null;
 
-  if (!userId) {
+  if (!user) {
     logEvent({ action: "stripe.webhook.subscriptionUpdated", outcome: "ignored", reason: "no matching user", customerId });
+    return;
+  }
+  const userId = user.id;
+
+  if (user.stripeSubscriptionId && user.stripeSubscriptionId !== subscription.id) {
+    logEvent({
+      action: "stripe.webhook.subscriptionUpdated",
+      outcome: "ignored",
+      reason: "stale event for a superseded subscription",
+      userId,
+      eventSubscriptionId: subscription.id,
+      currentSubscriptionId: user.stripeSubscriptionId,
+    });
     return;
   }
 
@@ -90,15 +103,27 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const customerId = toCustomerId(subscription.customer);
-  const userId = customerId ? await findUserIdByStripeCustomerId(customerId) : null;
+  const user = customerId ? await findUserForStripeCustomerId(customerId) : null;
 
-  if (!userId) {
+  if (!user) {
     logEvent({ action: "stripe.webhook.subscriptionDeleted", outcome: "ignored", reason: "no matching user", customerId });
     return;
   }
 
-  await clearSubscription(userId);
-  logEvent({ action: "stripe.webhook.subscriptionDeleted", outcome: "success", userId });
+  if (user.stripeSubscriptionId && user.stripeSubscriptionId !== subscription.id) {
+    logEvent({
+      action: "stripe.webhook.subscriptionDeleted",
+      outcome: "ignored",
+      reason: "stale event for a superseded subscription",
+      userId: user.id,
+      eventSubscriptionId: subscription.id,
+      currentSubscriptionId: user.stripeSubscriptionId,
+    });
+    return;
+  }
+
+  await clearSubscription(user.id);
+  logEvent({ action: "stripe.webhook.subscriptionDeleted", outcome: "success", userId: user.id });
 }
 
 export async function POST(request: Request) {
