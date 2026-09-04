@@ -50,9 +50,19 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export function parseCalendarSearchParams(raw: RawSearchParams): ParsedCalendarSearchParams {
+/**
+ * `defaultTab` only applies when the URL has no (or an unrecognized) `tab`
+ * value -- an explicit `?tab=calendar` always wins. Callers use this to
+ * steer a bare `/calendar` visit toward the List tab on a phone, where the
+ * Calendar tab's month grid has much less room to work with.
+ */
+export function parseCalendarSearchParams(
+  raw: RawSearchParams,
+  defaultTab: CalendarTab = "calendar",
+): ParsedCalendarSearchParams {
   const tabRaw = first(raw.tab);
-  const tab: CalendarTab = tabRaw === "list" || tabRaw === "upcoming" ? tabRaw : "calendar";
+  const tab: CalendarTab =
+    tabRaw === "list" || tabRaw === "upcoming" || tabRaw === "calendar" ? tabRaw : defaultTab;
 
   return {
     tab,

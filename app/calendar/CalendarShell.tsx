@@ -14,6 +14,7 @@ import { type InstallOption } from "./FilterBar";
 import { FilterSidebar } from "./FilterSidebar";
 import { MonthSwitcher } from "./MonthSwitcher";
 import { ClientCalendar } from "./ClientCalendar";
+import { MobileMonthCalendar } from "./MobileMonthCalendar";
 import { EventsList } from "./EventsList";
 import { EventDrawer } from "./EventDrawer";
 import { mapEventsForGrid } from "./mapEvents";
@@ -67,6 +68,8 @@ export function CalendarShell({ parsed, events, installOptions, reactionSummarie
       router.push(buildCalendarHref({ ...parsed, eventId }, overrides));
     });
   }
+
+  const mappedEvents = mapEventsForGrid(events);
 
   function handleFiltersChange(patch: {
     installIds?: string[];
@@ -128,13 +131,23 @@ export function CalendarShell({ parsed, events, installOptions, reactionSummarie
                 onChange={(calMonth) => navigate({ calMonth })}
               />
               <div className="min-h-0 flex-1">
-                <ClientCalendar
-                  events={mapEventsForGrid(events)}
-                  month={parsed.calMonth}
-                  onNavigateMonth={(calMonth) => navigate({ calMonth })}
-                  onSelectEvent={setEventIdShallow}
-                  reactionSummaries={reactionSummaries}
-                />
+                <div className="h-full md:hidden">
+                  <MobileMonthCalendar
+                    events={mappedEvents}
+                    month={parsed.calMonth}
+                    onSelectEvent={setEventIdShallow}
+                    reactionSummaries={reactionSummaries}
+                  />
+                </div>
+                <div className="hidden h-full md:block">
+                  <ClientCalendar
+                    events={mappedEvents}
+                    month={parsed.calMonth}
+                    onNavigateMonth={(calMonth) => navigate({ calMonth })}
+                    onSelectEvent={setEventIdShallow}
+                    reactionSummaries={reactionSummaries}
+                  />
+                </div>
               </div>
             </div>
           )}

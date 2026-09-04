@@ -115,6 +115,20 @@ export function statusBadgeClass(status: CalendarEvent["status"]): string {
   return STATUS_STYLES[status];
 }
 
+// Solid (not pale) colors -- these back a ~6px dot in the mobile month grid,
+// where STATUS_STYLES' pastel badge backgrounds would be too faint to read.
+const STATUS_DOT_STYLES: Record<CalendarEvent["status"], string> = {
+  RUMORED: "bg-gray-400 dark:bg-gray-500",
+  ANNOUNCED: "bg-blue-500",
+  CONFIRMED: "bg-green-500",
+  RELEASED: "bg-purple-500",
+  CANCELLED: "bg-red-500",
+};
+
+export function statusDotClass(status: CalendarEvent["status"]): string {
+  return STATUS_DOT_STYLES[status];
+}
+
 /**
  * Fixed emoji reaction set for the free-tier "hype" feature (item 32) --
  * deliberately a closed list (not free-text emoji) so counts stay

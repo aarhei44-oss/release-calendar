@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getFilteredEvents } from "./actions";
@@ -22,9 +23,18 @@ function dateRangeFor(parsed: ReturnType<typeof parseCalendarSearchParams>) {
   return monthRange(parsed.calMonth);
 }
 
+// Phones get the List tab by default (a bare /calendar visit only) --
+// the Calendar tab's month grid has much less room to work with there.
+// A false positive/negative just lands on a different (still usable) tab,
+// so sniffing the UA for this is a low-stakes, no-client-JS way to steer
+// the initial render without a flash of the other tab's content.
+const MOBILE_USER_AGENT = /Mobi|Android|iPhone|iPod/i;
+
 export default async function CalendarPage({ searchParams }: Props) {
   const rawParams = await searchParams;
-  const parsed = parseCalendarSearchParams(rawParams);
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const defaultTab = MOBILE_USER_AGENT.test(userAgent) ? "list" : "calendar";
+  const parsed = parseCalendarSearchParams(rawParams, defaultTab);
 
   // A signed-in visitor landing on a completely bare /calendar (no query
   // string at all) gets their subscribed games pre-selected instead of every
