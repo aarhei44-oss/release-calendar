@@ -38,6 +38,8 @@ export const authOptions: NextAuthOptions = {
       session.user.active = user.active;
       session.user.timezone = user.timezone;
       session.user.isPremium = user.isPremium;
+      session.user.stripeCustomerId = user.stripeCustomerId;
+      session.user.premiumCurrentPeriodEnd = user.premiumCurrentPeriodEnd;
       return session;
     },
   },

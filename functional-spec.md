@@ -48,9 +48,10 @@ The rewrite preserves the proven product concept and UI patterns of the original
 - Admin console: manage profile packages/installs (enable/disable, seed), manage users (role, active flag), view scan/crawler run history and trigger dedup/data-quality actions.
 - Automated crawler/scraper subsystem that scans configured external sources per TCG profile, proposes/updates release events with source attribution and confidence, and records scan run history.
 - Self-hosted deployment via Docker Compose + Caddy reverse proxy.
+- Premium subscriptions via Stripe Checkout (monthly and annual recurring plans) with self-serve management via the Stripe Customer Portal; `isPremium` is synced from Stripe webhook events, with an admin override retained as a manual fallback.
 
 ### 4.2 Explicitly Out of Scope (for MVP)
-- Payments / e-commerce / marketplace features.
+- E-commerce / marketplace features beyond the single Premium subscription (no cart, no one-off product sales).
 - Native mobile apps (a responsive web UI is in scope; native apps are not).
 - Multi-tenant SaaS (separate orgs/tenants) — this is a single-deployment, single-community app.
 - Push/email notifications (candidate for future expansion, see §9).

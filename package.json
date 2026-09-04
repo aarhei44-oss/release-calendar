@@ -31,6 +31,7 @@
     "react": "19.2.8",
     "react-big-calendar": "^1.20.0",
     "react-dom": "19.2.8",
+    "stripe": "^18.0.0",
     "zod": "^4.5.4"
   },
   "overrides": {
@@ -51,5 +52,13 @@
     "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "better-sqlite3@13.0.3": true,
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true,
+    "unrs-resolver@1.12.2": true
   }
 }

@@ -3,6 +3,7 @@ import { Check, Minus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { createCheckoutSession, createPortalSession } from "./actions";
 
 export const metadata: Metadata = {
   title: "Premium - Release Watcher",
@@ -84,17 +85,54 @@ export default async function PremiumPage() {
       </section>
 
       <section className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 p-6 text-center dark:border-gray-800">
-        <h2 className="text-lg font-semibold">Premium is coming soon</h2>
-        <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
-          Checkout isn&apos;t live yet -- this page shows what Premium will unlock once it launches.
-        </p>
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed rounded-md bg-gray-300 px-5 py-2.5 text-sm font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-500"
-        >
-          Go Premium -- coming soon
-        </button>
+        {session?.user?.isPremium ? (
+          <>
+            <h2 className="text-lg font-semibold">You&apos;re on Premium</h2>
+            <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
+              {session.user.premiumCurrentPeriodEnd
+                ? `Renews ${new Date(session.user.premiumCurrentPeriodEnd).toLocaleDateString()}.`
+                : "Manage your plan, payment method, or cancel anytime."}
+            </p>
+            <form action={createPortalSession}>
+              <button
+                type="submit"
+                className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-gray-900"
+              >
+                Manage subscription
+              </button>
+            </form>
+          </>
+        ) : session?.user ? (
+          <>
+            <h2 className="text-lg font-semibold">Go Premium</h2>
+            <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
+              Choose monthly or annual billing -- cancel anytime from the Stripe customer portal.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <form action={createCheckoutSession.bind(null, "monthly")}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-gray-900"
+                >
+                  Subscribe monthly
+                </button>
+              </form>
+              <form action={createCheckoutSession.bind(null, "annual")}>
+                <button
+                  type="submit"
+                  className="rounded-md border border-gray-900 px-5 py-2.5 text-sm font-medium text-gray-900 dark:border-gray-100 dark:text-gray-100"
+                >
+                  Subscribe annually
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold">Go Premium</h2>
+            <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">Sign in to subscribe.</p>
+          </>
+        )}
       </section>
 
       {!session?.user && (

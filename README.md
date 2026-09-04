@@ -91,6 +91,9 @@ job.
 | `CRAWLER_SCHEDULE` | no | Enables the scheduled crawler scan when set to any positive number (its value isn't otherwise used). Runs once a day at midnight America/Los_Angeles. Unset or `0` disables the schedule (manual rescan from the admin System tab still works). |
 | `SITE_ADDRESS` | Docker Compose only | Domain Caddy serves and requests a TLS cert for, e.g. `calendar.example.com`. Defaults to `localhost` (no TLS). |
 | `SEED_ON_BOOT` | Docker Compose only | `true` runs `prisma db seed` on container boot (idempotent). |
+| `STRIPE_SECRET_KEY` | no | Enables Premium checkout when set. Unset means /premium's subscribe buttons no-op with an error instead of the app failing to boot. |
+| `STRIPE_WEBHOOK_SECRET` | no (required if `STRIPE_SECRET_KEY` is set) | Signing secret for `/api/stripe/webhook`, from the Stripe dashboard (or `stripe listen` in development). |
+| `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` | no (required if `STRIPE_SECRET_KEY` is set) | Stripe Price IDs for the two Premium recurring plans. |
 
 ### Health check
 
