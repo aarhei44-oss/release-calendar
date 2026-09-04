@@ -6,7 +6,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { authOptions } from "./auth";
 import { Providers } from "./providers";
-import { AuthButton } from "@/components/AuthButton";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,20 +55,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           />
         )}
         <Providers>
-          <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="font-semibold">Release Watcher</span>
-              <nav className="flex items-center gap-3">
-                <Link href="/calendar" className="text-sm text-gray-700 hover:underline">
-                  Calendar
-                </Link>
-                <Link href="/premium" className="text-sm text-gray-700 hover:underline">
-                  Upgrade
-                </Link>
-              </nav>
-            </div>
-            <AuthButton />
-          </header>
+          <SiteHeader />
           <main className="min-h-0 flex-1 overflow-y-auto">
             {children}
             <footer className="flex flex-wrap items-center justify-center gap-4 border-t border-gray-200 px-4 py-6 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-500">
