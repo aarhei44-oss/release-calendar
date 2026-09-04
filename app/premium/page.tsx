@@ -17,7 +17,6 @@ const ROWS: { label: string; anonymous: boolean; free: boolean; premium: boolean
   { label: "Calendar pre-filtered to your subscriptions", anonymous: false, free: true, premium: true },
   { label: "Immediate email alerts on subscribed-game changes", anonymous: false, free: true, premium: true },
   { label: "Discord webhook alerts", anonymous: false, free: true, premium: true },
-  { label: "Timezone-aware release times", anonymous: false, free: true, premium: true },
   { label: "Ad-free browsing", anonymous: false, free: false, premium: true },
   { label: "Daily/weekly digest email", anonymous: false, free: false, premium: true },
   { label: "Configurable lead-time reminders", anonymous: false, free: false, premium: true },

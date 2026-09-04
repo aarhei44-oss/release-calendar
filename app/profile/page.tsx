@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getProfile } from "@/data/profile/profileRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
-import { ProfileForm, AlertsForm, DigestForm, LeadTimeReminderForm } from "./ProfileForm";
+import { AlertsForm, DigestForm, LeadTimeReminderForm } from "./ProfileForm";
 import { DashboardCardsForm } from "./DashboardCardsForm";
 import { IcalFeedForm } from "./IcalFeedForm";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "@/app/dashboard/cards";
@@ -15,12 +15,13 @@ export default async function ProfilePage() {
   }
 
   const profile = await getProfile(session.user.id);
-  const timezones = Intl.supportedValuesOf("timeZone");
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-8 p-4">
       <h1 className="text-xl font-semibold">Profile</h1>
-      <ProfileForm timezones={timezones} initialTimezone={profile.timezone} />
+      {/* Timezone setting hidden for now -- release dates no longer honor it
+          (they're calendar days, not real instants; see eventDisplay.ts).
+          ProfileForm/updateTimezone left intact in case it's repurposed. */}
       <AlertsForm
         initialEmailAlertsEnabled={profile.emailAlertsEnabled}
         initialDiscordWebhookUrl={profile.discordWebhookUrl}
