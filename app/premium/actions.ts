@@ -13,7 +13,10 @@ function siteUrl(): string {
 }
 
 export async function createCheckoutSession(plan: PremiumPlan) {
-  return withActionLogging("premium.createCheckoutSession", async () => {
+  // redirect() throws internally (NEXT_REDIRECT), so it must run outside
+  // withActionLogging's try/catch -- otherwise every successful redirect
+  // gets caught and logged as outcome:"error".
+  const url = await withActionLogging("premium.createCheckoutSession", async () => {
     const user = await requireUser();
     const parsedPlan = planSchema.parse(plan);
 
@@ -44,12 +47,14 @@ export async function createCheckoutSession(plan: PremiumPlan) {
       throw new Error("Stripe did not return a Checkout URL.");
     }
 
-    redirect(session.url);
+    return session.url;
   });
+
+  redirect(url);
 }
 
 export async function createPortalSession() {
-  return withActionLogging("premium.createPortalSession", async () => {
+  const url = await withActionLogging("premium.createPortalSession", async () => {
     const user = await requireUser();
 
     const stripe = getStripeClient();
@@ -65,6 +70,8 @@ export async function createPortalSession() {
       return_url: `${siteUrl()}/premium`,
     });
 
-    redirect(session.url);
+    return session.url;
   });
+
+  redirect(url);
 }
