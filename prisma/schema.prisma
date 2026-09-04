@@ -88,6 +88,46 @@ enum DigestFrequency {
 }
 
 // ---------------------------------------------------------------------------
+// Ingest v2 enums (lib/ingest/*). The v2 pipeline is built alongside the v1
+// crawler (lib/crawler/*) and does not replace it yet -- everything below is
+// additive so both can coexist against the same database until v2 takes over.
+// ---------------------------------------------------------------------------
+
+/// Outcome of one provider's fetch within an ingest run. NOT_MODIFIED is a
+/// success (the conditional GET's ETag matched, so there was nothing new to
+/// parse), DEGRADED means the fetch succeeded but the payload was partial or
+/// suspicious, FAILED means no usable payload at all -- only FAILED providers
+/// are re-fetched by retryRun (lib/ingest/replay.ts).
+enum ProviderStatus {
+  OK
+  NOT_MODIFIED
+  DEGRADED
+  FAILED
+}
+
+/// Why a release event was routed to human review by the gate
+/// (lib/ingest/gate.ts). One per gate rule that can flag: G5 -> CONFLICT,
+/// G6 -> LARGE_SHIFT, plus two reserved for later phases.
+enum ReviewReason {
+  CONFLICT
+  LARGE_SHIFT
+  NEW_UNCORROBORATED
+  ANOMALY
+}
+
+/// What the gate decided to do with an event this run. PUBLISH writes the new
+/// date; HOLD leaves the currently published value alone with no review item;
+/// FLAG also holds but additionally opens a ReviewItem; STALE records that the
+/// supporting claims were absent this run (and, past the absence threshold,
+/// cancels the event -- never deletes it).
+enum VerdictAction {
+  PUBLISH
+  HOLD
+  FLAG
+  STALE
+}
+
+// ---------------------------------------------------------------------------
 // TCG profile / product / release domain
 // ---------------------------------------------------------------------------
 
@@ -140,7 +180,16 @@ model ProductSet {
 
   install       TcgProfileInstall @relation(fields: [tcgProfileInstallId], references: [id], onDelete: Cascade)
   releaseEvents ReleaseEvent[]
+  identities    SetIdentity[]
 
+  // TODO(phase5): `code` is nullable but participates in the composite unique
+  // below, and SQLite treats NULLs as distinct -- so any number of code-less
+  // ProductSets can coexist in one install and the v1 crawler's
+  // findOrCreateProductSet upsert can never match them. Fixing that means
+  // either backfilling a synthetic code for every existing NULL row or moving
+  // to a partial unique index, both of which would disrupt the v1 crawler
+  // while it is still the live pipeline. Deferred to phase 5, once v2 owns
+  // ProductSet writes and the backfill can run in the same migration.
   @@unique([tcgProfileInstallId, code])
   @@index([archivedAt])
 }
@@ -176,6 +225,7 @@ model ReleaseEvent {
   eventPersonalNotes EventPersonalNote[]
   eventDismissals    EventDismissal[]
   eventReactions     EventReaction[]
+  reviewItems        ReviewItem[]
 
   @@index([productSetId, type])
   @@index([dateType, dateExact, dateStart])
@@ -197,11 +247,31 @@ model SourceClaim {
   lastVerifiedAt          DateTime?
   raw                     Json?
   movedFromReleaseEventId String?
+  // Both nullable so the v1 crawler's writes (which set neither) still
+  // validate; the v2 ingest pipeline always sets both. `origin` is the
+  // declared upstream identity from lib/ingest/types.ts's ORIGINS registry --
+  // it's what the gate's independence test (G2) reasons about, and it is
+  // deliberately NOT the same thing as `host` (two hosts can republish one
+  // origin's data, which is exactly the correlation G2 must not be fooled by).
+  origin                  String?
+  // The ingest run that produced this claim. Together with `origin` and
+  // `releaseEventId` this is the idempotency key that makes replay
+  // convergent: re-running a stored run supersedes its own prior claims in
+  // place instead of stacking a fresh duplicate every time (see
+  // data/ingest/ingestRepo.ts's upsertIngestClaim). The event id stands in
+  // for the spec's (productSetId, type) pair -- an event *is* a
+  // (productSetId, type) within an install, so keying on it is equivalent
+  // and doesn't denormalize productSetId onto every claim row.
+  scanRunId               String?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
 
   releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
 
+  // SQLite treats NULLs as distinct in a unique index, so every v1 crawler
+  // claim (scanRunId + origin both NULL) is exempt from this constraint and
+  // keeps its existing append-only behaviour.
+  @@unique([scanRunId, origin, releaseEventId])
   @@index([releaseEventId, lastVerifiedAt])
   @@index([movedFromReleaseEventId])
 }
@@ -213,6 +283,11 @@ model ScanRun {
   status     ScanStatus    @default(RUNNING)
   totals     Json?
   trigger    ScanTrigger
+  // Set when this run was created by lib/ingest/replay.ts's retryRun as a
+  // re-fetch of another run's FAILED providers. Kept as a plain string rather
+  // than a self-relation: it's provenance for the run history UI, and a
+  // self-relation would make the retention pass's deletes order-dependent.
+  retryOfRunId String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   startedAt  DateTime?
@@ -221,6 +296,7 @@ model ScanRun {
   install TcgProfileInstall? @relation(fields: [scopeId], references: [id], onDelete: SetNull)
 
   @@index([scopeId])
+  @@index([retryOfRunId])
 }
 
 model DiscoveryHit {
@@ -249,6 +325,131 @@ model JobLock {
   updatedAt  DateTime  @updatedAt
 
   @@unique([jobName, scopeKey])
+}
+
+// ---------------------------------------------------------------------------
+// Ingest v2 substrate (lib/ingest/*)
+//
+// The design goal of everything below is that an ingest run is *replayable*:
+// the network response is stored verbatim before anything interprets it, so
+// every stage after Fetch is a pure function of stored bytes. That is what
+// lets a parser bug be fixed and re-run against yesterday's data without
+// re-hammering (or being lied to again by) an upstream site.
+// ---------------------------------------------------------------------------
+
+/// Maps an upstream provider's own identifier for a set onto our ProductSet.
+/// This is the identity resolver's primary key path (lib/ingest/identity.ts):
+/// an ID match is exact and stable, whereas the name-similarity fallback is a
+/// guess, so anything we can pin by id should be pinned by id forever after.
+model SetIdentity {
+  id           String   @id @default(cuid())
+  productSetId String
+  /// Which upstream declares this id -- a key from ORIGINS in lib/ingest/types.ts.
+  origin       String
+  /// The upstream's own identifier, verbatim (e.g. Scryfall's set code, a TCGplayer group id).
+  externalId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  productSet ProductSet @relation(fields: [productSetId], references: [id], onDelete: Cascade)
+
+  // Global rather than per-install: an origin's id space is the origin's, and
+  // one external id must never resolve to two different ProductSets or the
+  // resolver stops being deterministic.
+  @@unique([origin, externalId])
+  @@index([productSetId])
+}
+
+/// The replay substrate: one stored response body per (run, provider), written
+/// by Fetch *before* any parsing happens, so a payload that crashes the parser
+/// is still on disk to debug and re-run against.
+model RawPayload {
+  id          String   @id @default(cuid())
+  scanRunId   String
+  providerKey String
+  /// SHA-256 of the uncompressed body, so an unchanged payload is detectable
+  /// even from a provider that sends no ETag.
+  contentHash String
+  /// gzipped JSON (node:zlib). Bodies are large and highly compressible, and
+  /// this table is the one that grows without bound.
+  body        Bytes
+  fetchedAt   DateTime
+
+  @@unique([scanRunId, providerKey])
+  // Retention scans this by age (30-day cleanup), never by run.
+  @@index([fetchedAt])
+}
+
+/// Per-provider outcome within one run. Written alongside RawPayload before
+/// parsing, so a provider that fails mid-parse is still recorded as having
+/// been attempted -- and so retryRun can find exactly the FAILED ones.
+model ProviderRun {
+  id          String         @id @default(cuid())
+  scanRunId   String
+  providerKey String
+  status      ProviderStatus
+  /// Response ETag as returned this run, mirrored into ProviderEtag for the next run's conditional GET.
+  etag        String?
+  /// How many Candidates the parse yielded; 0 with status OK is itself a signal worth alerting on.
+  candidates  Int            @default(0)
+  error       String?
+  startedAt   DateTime
+  finishedAt  DateTime?
+
+  @@unique([scanRunId, providerKey])
+  @@index([providerKey, startedAt])
+}
+
+/// What one run actually changed, as a machine-readable diff. Separate from
+/// ScanRun.totals (which is only counts) because a human reviewing a bad run
+/// needs to see *which* events moved, not how many.
+model RunDiff {
+  id        String   @id @default(cuid())
+  scanRunId String   @unique
+  changes   Json
+  createdAt DateTime @default(now())
+}
+
+/// A gate decision that needs a human. Created by FLAG verdicts (G5/G6); the
+/// event keeps its previously published value until this is resolved, so an
+/// open ReviewItem is a hold, not just a notification.
+model ReviewItem {
+  id             String       @id @default(cuid())
+  releaseEventId String
+  reason         ReviewReason
+  /// The competing claims, machine-readable -- enough to reconstruct the
+  /// decision without re-reading the run's payloads.
+  detail         Json
+  /// Human-readable prose. Null until a Reviewer is wired up in a later phase;
+  /// nothing should depend on it being present.
+  summary        String?
+  resolvedAt     DateTime?
+  resolvedNote   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  releaseEvent ReleaseEvent @relation(fields: [releaseEventId], references: [id], onDelete: Cascade)
+
+  // The review queue is "everything still open", so resolvedAt leads.
+  @@index([resolvedAt])
+  @@index([releaseEventId])
+}
+
+/// Last-seen ETag per provider, so a conditional GET survives across runs.
+/// Deliberately not folded into ProviderRun: that table is per-run history and
+/// gets pruned, whereas this is a single current-state row per provider that
+/// must outlive any individual run's retention.
+model ProviderEtag {
+  id            String   @id @default(cuid())
+  providerKey   String
+  etag          String?
+  lastFetchedAt DateTime
+  /// Hash of the last body actually stored, for providers that send no ETag.
+  contentHash   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerKey])
 }
 
 // ---------------------------------------------------------------------------
