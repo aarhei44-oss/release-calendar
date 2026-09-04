@@ -3,6 +3,7 @@ import { Check, Minus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { isCheckoutConfigured } from "@/lib/stripe";
 import { createCheckoutSession, createPortalSession } from "./actions";
 
 export const metadata: Metadata = {
@@ -43,6 +44,7 @@ function Mark({ on }: { on: boolean }) {
 
 export default async function PremiumPage() {
   const session = await getServerSession(authOptions);
+  const checkoutConfigured = isCheckoutConfigured();
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-16">
@@ -93,39 +95,52 @@ export default async function PremiumPage() {
                 ? `Renews ${new Date(session.user.premiumCurrentPeriodEnd).toLocaleDateString()}.`
                 : "Manage your plan, payment method, or cancel anytime."}
             </p>
-            <form action={createPortalSession}>
-              <button
-                type="submit"
-                className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-gray-900"
-              >
-                Manage subscription
-              </button>
-            </form>
-          </>
-        ) : session?.user ? (
-          <>
-            <h2 className="text-lg font-semibold">Go Premium</h2>
-            <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
-              Choose monthly or annual billing -- cancel anytime from the Stripe customer portal.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <form action={createCheckoutSession.bind(null, "monthly")}>
+            {session.user.stripeCustomerId ? (
+              <form action={createPortalSession}>
                 <button
                   type="submit"
                   className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-gray-900"
                 >
-                  Subscribe monthly
+                  Manage subscription
                 </button>
               </form>
-              <form action={createCheckoutSession.bind(null, "annual")}>
-                <button
-                  type="submit"
-                  className="rounded-md border border-gray-900 px-5 py-2.5 text-sm font-medium text-gray-900 dark:border-gray-100 dark:text-gray-100"
-                >
-                  Subscribe annually
-                </button>
-              </form>
-            </div>
+            ) : (
+              <p className="max-w-md text-sm text-gray-500 dark:text-gray-500">
+                Your Premium access doesn&apos;t have a Stripe subscription attached to it -- contact support if you
+                need to manage billing.
+              </p>
+            )}
+          </>
+        ) : session?.user ? (
+          <>
+            <h2 className="text-lg font-semibold">Go Premium</h2>
+            {checkoutConfigured ? (
+              <>
+                <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
+                  Choose monthly or annual billing -- cancel anytime from the Stripe customer portal.
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <form action={createCheckoutSession.bind(null, "monthly")}>
+                    <button
+                      type="submit"
+                      className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-gray-900"
+                    >
+                      Subscribe monthly
+                    </button>
+                  </form>
+                  <form action={createCheckoutSession.bind(null, "annual")}>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-gray-900 px-5 py-2.5 text-sm font-medium text-gray-900 dark:border-gray-100 dark:text-gray-100"
+                    >
+                      Subscribe annually
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">Checkout is coming soon.</p>
+            )}
           </>
         ) : (
           <>

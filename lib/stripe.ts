@@ -19,3 +19,10 @@ export type PremiumPlan = "monthly" | "annual";
 export function priceIdForPlan(plan: PremiumPlan): string | undefined {
   return plan === "monthly" ? process.env.STRIPE_PRICE_MONTHLY : process.env.STRIPE_PRICE_ANNUAL;
 }
+
+// True only when checkout can actually succeed: a Stripe client plus both
+// plan prices. Used to gate the /premium page's buttons so a signed-in user
+// never sees a live "Subscribe" control that's guaranteed to error.
+export function isCheckoutConfigured(): boolean {
+  return getStripeClient() !== null && Boolean(process.env.STRIPE_PRICE_MONTHLY) && Boolean(process.env.STRIPE_PRICE_ANNUAL);
+}
