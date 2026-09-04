@@ -18,6 +18,14 @@ function toCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustome
   return typeof customer === "string" ? customer : customer.id;
 }
 
+// Stripe API versions moved current_period_end from the subscription itself
+// onto its line items; null here means a shape we don't recognize, not a
+// value to blindly index into.
+function currentPeriodEnd(subscription: Stripe.Subscription): Date | null {
+  const item = subscription.items.data[0];
+  return item ? new Date(item.current_period_end * 1000) : null;
+}
+
 async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.Session) {
   const userId = session.client_reference_id;
   const customerId = toCustomerId(session.customer);
@@ -28,13 +36,20 @@ async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.
     return;
   }
 
-  await setStripeCustomerId(userId, customerId);
+  const [, subscription] = await Promise.all([
+    setStripeCustomerId(userId, customerId),
+    stripe.subscriptions.retrieve(subscriptionId),
+  ]);
+  const periodEnd = currentPeriodEnd(subscription);
+  if (!periodEnd) {
+    logEvent({ action: "stripe.webhook.checkoutCompleted", outcome: "error", reason: "subscription has no line items", subscriptionId });
+    return;
+  }
 
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   await syncSubscriptionFromStripe(userId, {
     subscriptionId: subscription.id,
     status: subscription.status,
-    currentPeriodEnd: new Date(subscription.items.data[0].current_period_end * 1000),
+    currentPeriodEnd: periodEnd,
   });
 
   logEvent({ action: "stripe.webhook.checkoutCompleted", outcome: "success", userId, subscriptionId });
@@ -49,10 +64,21 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     return;
   }
 
+  const periodEnd = currentPeriodEnd(subscription);
+  if (!periodEnd) {
+    logEvent({
+      action: "stripe.webhook.subscriptionUpdated",
+      outcome: "error",
+      reason: "subscription has no line items",
+      subscriptionId: subscription.id,
+    });
+    return;
+  }
+
   await syncSubscriptionFromStripe(userId, {
     subscriptionId: subscription.id,
     status: subscription.status,
-    currentPeriodEnd: new Date(subscription.items.data[0].current_period_end * 1000),
+    currentPeriodEnd: periodEnd,
   });
 
   logEvent({ action: "stripe.webhook.subscriptionUpdated", outcome: "success", userId, status: subscription.status });
@@ -96,22 +122,35 @@ export async function POST(request: Request) {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      if (session.mode === "subscription") {
-        await handleCheckoutCompleted(stripe, session);
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        if (session.mode === "subscription") {
+          await handleCheckoutCompleted(stripe, session);
+        }
+        break;
       }
-      break;
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(event.data.object);
+        break;
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object);
+        break;
+      default:
+        logEvent({ action: "stripe.webhook", outcome: "ignored", eventType: event.type });
     }
-    case "customer.subscription.updated":
-      await handleSubscriptionUpdated(event.data.object);
-      break;
-    case "customer.subscription.deleted":
-      await handleSubscriptionDeleted(event.data.object);
-      break;
-    default:
-      logEvent({ action: "stripe.webhook", outcome: "ignored", eventType: event.type });
+  } catch (error) {
+    // Let Stripe retry: an uncaught throw here (e.g. a DB hiccup) is more
+    // likely transient than the "empty line items" case above, which is
+    // handled explicitly and returns 200 instead since retrying won't help.
+    logEvent({
+      action: "stripe.webhook",
+      outcome: "error",
+      eventType: event.type,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new Response("Webhook handler error", { status: 500 });
   }
 
   return new Response("ok", { status: 200 });
