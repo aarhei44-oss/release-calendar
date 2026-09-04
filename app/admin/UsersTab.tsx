@@ -12,6 +12,7 @@ type User = {
   role: "USER" | "ADMIN";
   active: boolean;
   isPremium: boolean;
+  premiumOverride: boolean;
   stripeSubscriptionStatus: string | null;
 };
 
@@ -132,7 +133,7 @@ export function UsersTab({ users }: { users: User[] }) {
                       type="button"
                       disabled={isPending}
                       onClick={() => togglePremium(user)}
-                      title="Admin override -- flips isPremium directly, independent of any Stripe subscription. A later webhook sync can still overwrite this if the user has (or gets) a real subscription."
+                      title="Admin override -- flips isPremium directly, independent of any Stripe subscription. Stays in effect through future webhook syncs (renewals/cancellations) until the user completes a real Stripe checkout or you toggle this again."
                       className={`rounded px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${
                         user.isPremium
                           ? "bg-purple-100 text-purple-800"
@@ -141,6 +142,11 @@ export function UsersTab({ users }: { users: User[] }) {
                     >
                       {user.isPremium ? "Premium" : "Free"}
                     </button>
+                    {user.premiumOverride && (
+                      <span className="ml-1 text-xs text-purple-700" title="isPremium is admin-set and won't be changed by Stripe webhook syncs">
+                        (override)
+                      </span>
+                    )}
                     {user.stripeSubscriptionStatus && (
                       <span className="ml-1 text-xs text-gray-500">({user.stripeSubscriptionStatus})</span>
                     )}

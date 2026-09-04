@@ -268,6 +268,14 @@ model User {
   discordWebhookUrl    String?
   discordAlertsEnabled Boolean         @default(false)
   isPremium            Boolean         @default(false)
+  // Set whenever an admin manually toggles isPremium (data/admin/adminRepo.ts's
+  // setUserPremium). While true, the Stripe webhook (syncSubscriptionFromStripe/
+  // clearSubscription) reports subscription status/dates as usual but leaves
+  // isPremium alone, so an admin override can't be silently clobbered by a
+  // routine renewal or cancellation event. Cleared automatically the next time
+  // this user completes a real Stripe checkout, since that's an explicit signal
+  // real billing should take back over.
+  premiumOverride      Boolean         @default(false)
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
   stripeSubscriptionStatus String?

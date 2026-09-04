@@ -62,13 +62,15 @@ export async function setUserActive(userId: string, active: boolean) {
 }
 
 /**
- * Manual stand-in for real billing (no checkout/subscription mechanism
- * exists yet -- see /premium's disabled "coming soon" button). Lets an
- * admin flip a user's premium status directly, so premium-gated features
- * can be built and tested ahead of that infra.
+ * Manual override, independent of the real Stripe billing in
+ * data/billing/billingRepo.ts. Setting premiumOverride alongside isPremium
+ * tells the webhook (syncSubscriptionFromStripe/clearSubscription) to leave
+ * isPremium alone on future subscription events, so this grant survives a
+ * routine renewal/cancellation webhook until the user completes a real
+ * checkout (which clears the override) or an admin toggles it again.
  */
 export async function setUserPremium(userId: string, isPremium: boolean) {
-  return prisma.user.update({ where: { id: userId }, data: { isPremium } });
+  return prisma.user.update({ where: { id: userId }, data: { isPremium, premiumOverride: true } });
 }
 
 export async function listScanRuns(installId?: string) {

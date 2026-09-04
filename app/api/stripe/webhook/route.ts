@@ -46,11 +46,15 @@ async function handleCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.
     return;
   }
 
-  await syncSubscriptionFromStripe(userId, {
-    subscriptionId: subscription.id,
-    status: subscription.status,
-    currentPeriodEnd: periodEnd,
-  });
+  await syncSubscriptionFromStripe(
+    userId,
+    {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      currentPeriodEnd: periodEnd,
+    },
+    { clearOverride: true },
+  );
 
   logEvent({ action: "stripe.webhook.checkoutCompleted", outcome: "success", userId, subscriptionId });
 }
