@@ -317,3 +317,80 @@ describe("runScan (resolving a dateless TBD placeholder with a fresh dated candi
     expect(result.totals.eventsDeleted).toBe(0);
   });
 });
+
+describe("runScan (resolving a lone dated event to TBD on a 'delayed, unknown' claim)", () => {
+  // Regression test for a real production bug: a source reporting a delay
+  // with no new date (dateParsing.ts's TBA/unparseable-text fallback) for a
+  // product that already has exactly one dated event on record. Before this
+  // fix, findMatchingEvent (dedup.ts) never matches a TBD candidate against a
+  // dated existing event, so this spawned a permanent duplicate TBD sibling
+  // instead of updating the original -- which then kept showing its stale
+  // date forever, since dedupPass.ts's cleanup merge deliberately never
+  // rewrites a survivor's date fields either.
+  const DELAYED_FIXTURE_HTML = `
+<html><body>
+<table class="wikitable">
+  <tr><th>Set No.</th><th>Name</th><th>Release date</th><th>Details</th></tr>
+  <tr><td>1</td><td>Delayed Fixture Set</td><td>TBA</td><td>Delayed, no new date given</td></tr>
+</table>
+</body></html>
+`;
+  const delayedSourceConfig: SourceConfig = {
+    url: "https://example.com/delayed-fixture-sets",
+    tier: "COMMUNITY",
+    parser: "fixture-delay-resolve",
+  };
+
+  beforeAll(() => {
+    registerAdapter(createFixtureAdapter(DELAYED_FIXTURE_HTML, "fixture-delay-resolve"));
+  });
+
+  it("resolves the sole existing dated event to TBD in place, clearing its old date fields, instead of creating a duplicate", async () => {
+    const pkg = await prisma.tcgProfilePackage.create({
+      data: {
+        slug: "crawler-orchestrate-delay-resolve-test",
+        name: "Crawler Orchestrate Delay Resolve Test",
+        version: "1.0.0",
+        discoveryConfig: {},
+        sourceConfigs: [delayedSourceConfig] as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const install = await prisma.tcgProfileInstall.create({
+      data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
+    });
+
+    // Pre-seed the dated (RANGE) event a delay announcement is about to hit
+    // -- same productSetCode the fixture's adapter will independently derive
+    // (SET-<slugified name>), so this scan's candidate matches this
+    // ProductSet rather than creating a new one.
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: install.id, code: "SET-DELAYED-FIXTURE-SET", name: "Delayed Fixture Set" },
+    });
+    const datedEvent = await prisma.releaseEvent.create({
+      data: {
+        productSetId: productSet.id,
+        type: "SHELF",
+        dateType: "RANGE",
+        dateStart: new Date("2026-05-01"),
+        dateEnd: new Date("2026-05-10"),
+        status: "CONFIRMED",
+        confidence: 0.6,
+      },
+    });
+
+    const result = await runScan({ scopeType: "INSTALL", scopeId: install.id, trigger: "MANUAL" });
+    expect(result.skipped).toBe(false);
+    if (result.skipped) return;
+
+    const events = await prisma.releaseEvent.findMany({ where: { productSetId: productSet.id } });
+    // Resolved in place -- same row, not a new sibling.
+    expect(events).toHaveLength(1);
+    expect(events[0].id).toBe(datedEvent.id);
+    expect(events[0].dateType).toBe("TBD");
+    expect(events[0].dateStart).toBeNull();
+    expect(events[0].dateEnd).toBeNull();
+    expect(events[0].dateExact).toBeNull();
+    expect(events[0].windowStart).toBeNull();
+    expect(events[0].windowEnd).toBeNull();
+  });
+});

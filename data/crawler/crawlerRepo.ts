@@ -624,6 +624,8 @@ export async function createReleaseEventFromCandidate(
     region: Region;
     dateType: DateType;
     dateExact?: Date | null;
+    dateStart?: Date | null;
+    dateEnd?: Date | null;
     windowGranularity?: WindowGranularity | null;
     windowStart?: Date | null;
     windowEnd?: Date | null;
@@ -636,6 +638,8 @@ export async function createReleaseEventFromCandidate(
 type EventDateFields = {
   dateType: DateType;
   dateExact?: Date | null;
+  dateStart?: Date | null;
+  dateEnd?: Date | null;
   windowGranularity?: WindowGranularity | null;
   windowStart?: Date | null;
   windowEnd?: Date | null;

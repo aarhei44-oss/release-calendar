@@ -10,9 +10,11 @@ export type MappedCalendarEvent = {
 };
 
 /**
- * Places EXACT/RANGE/WINDOW events on the month grid. TBD events have no
- * date to place and are excluded here (business rule 6.1) -- they still
- * surface in the Events List / Upcoming views.
+ * Places EXACT/WINDOW events on the month grid. TBD events have no date to
+ * place and are excluded here (business rule 6.1). RANGE events are also
+ * excluded: spanning every day from dateStart to dateEnd cluttered the grid
+ * (a multi-week preorder window, say, painting half the month) -- they still
+ * surface in the Events List / Upcoming views, each as its own row.
  */
 export function mapEventsForGrid(events: CalendarEvent[]): MappedCalendarEvent[] {
   const mapped: MappedCalendarEvent[] = [];
@@ -39,9 +41,7 @@ function dateSpanFor(event: CalendarEvent): { start: Date; end: Date } | null {
     case "EXACT":
       return event.dateExact ? { start: event.dateExact, end: event.dateExact } : null;
     case "RANGE":
-      return event.dateStart && event.dateEnd
-        ? { start: event.dateStart, end: event.dateEnd }
-        : null;
+      return null;
     case "WINDOW":
       return event.windowStart && event.windowEnd
         ? { start: event.windowStart, end: event.windowEnd }

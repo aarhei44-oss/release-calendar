@@ -349,6 +349,26 @@ async function applyCandidate(
       matchedExisting = existingEvents[0];
       resolvedFromTbdEventId = matchedExisting.id;
     }
+
+    // Mirror image of the block above: a lone existing *dated* event for
+    // this productSet+type, now reported TBD -- e.g. "delayed, no new date
+    // given." findMatchingEvent's TBD branch deliberately only matches an
+    // existing TBD event (so an unrelated scraper glitch can't clobber a
+    // genuinely distinct dated duplicate when several exist), but with only
+    // one dated event on record there's no such ambiguity: this candidate
+    // can only be describing it. Resolved in place so the delay actually
+    // updates the event's displayed date (via updateEventFromClaims below)
+    // instead of spawning a new TBD sibling that never gets reconciled --
+    // dedupPass.ts's own Phase 1 can't fix that after the fact, since it
+    // deliberately never rewrites a survivor's date fields on merge.
+    if (
+      !matchedExisting &&
+      candidateDateInfo.dateType === "TBD" &&
+      existingEvents.length === 1 &&
+      existingEvents[0].dateType !== "TBD"
+    ) {
+      matchedExisting = existingEvents[0];
+    }
     const resolvedExisting = matchedExisting;
 
     const event =
@@ -420,19 +440,44 @@ async function applyCandidate(
   });
 }
 
+// Every branch below explicitly nulls out the *other* date-type's fields,
+// not just sets its own -- otherwise an event that transitions dateType
+// (e.g. a dated event delayed to TBD, or vice versa) keeps stale
+// dateExact/dateStart/dateEnd/window* values sitting in the DB alongside its
+// new dateType forever, since Prisma's update only touches fields present in
+// the data it's given.
 function toDateInfo(candidate: ParsedCandidate): EventDateInfo {
   switch (candidate.dateType) {
     case "EXACT":
-      return { dateType: "EXACT", dateExact: candidate.dateExact };
+      return {
+        dateType: "EXACT",
+        dateExact: candidate.dateExact,
+        dateStart: null,
+        dateEnd: null,
+        windowGranularity: null,
+        windowStart: null,
+        windowEnd: null,
+      };
     case "WINDOW":
       return {
         dateType: "WINDOW",
+        dateExact: null,
+        dateStart: null,
+        dateEnd: null,
         windowGranularity: candidate.windowGranularity,
         windowStart: candidate.windowStart,
         windowEnd: candidate.windowEnd,
       };
     case "TBD":
-      return { dateType: "TBD" };
+      return {
+        dateType: "TBD",
+        dateExact: null,
+        dateStart: null,
+        dateEnd: null,
+        windowGranularity: null,
+        windowStart: null,
+        windowEnd: null,
+      };
   }
 }
 

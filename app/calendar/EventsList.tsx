@@ -52,6 +52,14 @@ export function EventsList({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <ReactionBadges counts={reactionSummaries?.[event.id]} />
+              {event.dateType === "RANGE" && (
+                <span
+                  title="Spans a date range -- not shown on the calendar grid"
+                  className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  Range
+                </span>
+              )}
               <span
                 className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(event.status)}`}
               >

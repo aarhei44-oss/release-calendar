@@ -71,13 +71,16 @@ describe("mapEventsForGrid", () => {
     expect(mapped.end).toEqual(day);
   });
 
-  it("places a RANGE event spanning dateStart to dateEnd", () => {
-    const start = new Date("2026-03-01");
-    const end = new Date("2026-03-10");
-    const events = [fakeEvent({ id: "range-1", dateType: "RANGE", dateStart: start, dateEnd: end })];
-    const [mapped] = mapEventsForGrid(events);
-    expect(mapped.start).toEqual(start);
-    expect(mapped.end).toEqual(end);
+  it("excludes RANGE events from the calendar grid", () => {
+    const events = [
+      fakeEvent({
+        id: "range-1",
+        dateType: "RANGE",
+        dateStart: new Date("2026-03-01"),
+        dateEnd: new Date("2026-03-10"),
+      }),
+    ];
+    expect(mapEventsForGrid(events)).toHaveLength(0);
   });
 
   it("places a WINDOW event spanning windowStart to windowEnd", () => {

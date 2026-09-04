@@ -90,6 +90,7 @@ The rewrite preserves the proven product concept and UI patterns of the original
 ### 6.1 Release Event Date Semantics
 - `dateType` is one of: `EXACT` (single confirmed date), `RANGE` (start/end date span), `WINDOW` (coarser granularity, e.g., month/quarter), or `TBD` (unknown).
 - `TBD` events are excluded from the calendar month grid (no date to place them on) but appear in the Events List/Upcoming views as "date unconfirmed".
+- `RANGE` events are also excluded from the calendar month grid (spanning every day of the range cluttered it) but appear in the Events List/Upcoming views, tagged with a "Range" badge.
 - `WINDOW` events carry a `windowGranularity` (e.g., month, quarter) plus `windowStart`/`windowEnd` bounds.
 
 ### 6.2 Confidence & Status
