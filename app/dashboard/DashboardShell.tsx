@@ -95,7 +95,7 @@ function EventCardGrid({
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2.5 @lg:grid-cols-2">
       {events.map((event) => (
         <EventCard key={event.id} event={event} onSelect={onSelect} showRelativeTime={showRelativeTime} />
       ))}
@@ -215,7 +215,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 p-4">
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 p-4 lg:p-8">
       <div className="flex flex-col gap-5 rounded-xl bg-linear-to-br from-gray-900 to-gray-700 p-6 text-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Your dashboard</h1>
@@ -253,56 +253,58 @@ export function DashboardShell({
         </div>
       </div>
 
-      {cardOrder.map((cardId) => {
-        switch (cardId) {
-          case "upcoming":
-            return (
-              <section key={cardId}>
-                <SectionHeading icon={CalendarDays} title="Next 7 days" />
-                <EventCardGrid
-                  events={upcomingWithDates}
-                  onSelect={openEvent}
-                  emptyMessage="Nothing with a set date in your subscriptions over the next 7 days."
-                />
-              </section>
-            );
-          case "newlyConfirmed":
-            // Unlike the other two cards, this one still hides itself when
-            // empty even when enabled -- "newly confirmed" with nothing to
-            // show reads as a broken section, not an empty state worth
-            // seeing, same as before this became configurable.
-            return newlyConfirmed.length > 0 ? (
-              <section key={cardId}>
-                <SectionHeading icon={PartyPopper} title="Newly confirmed" />
-                <EventCardGrid events={newlyConfirmed} onSelect={openEvent} showRelativeTime emptyMessage="" />
-              </section>
-            ) : null;
-          case "recentActivity":
-            return (
-              <section key={cardId}>
-                <SectionHeading icon={Sparkles} title="What's new" subtitle="scanned in the last 7 days" />
-                <EventCardGrid
-                  events={recentActivity}
-                  onSelect={openEvent}
-                  showRelativeTime
-                  emptyMessage="No activity on your subscriptions in the last 7 days."
-                />
-              </section>
-            );
-          case "communityPulse":
-            // Hides itself when nobody's reacted yet, same as newlyConfirmed --
-            // two empty "no reactions yet" columns reads as broken, not empty.
-            return mostHyped.length > 0 || mostMeh.length > 0 ? (
-              <section key={cardId}>
-                <SectionHeading icon={Flame} title="Community pulse" subtitle="based on reactions" />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <TrendingColumn title="Most hyped" emoji={"\u{1F525}"} events={mostHyped} onSelect={openEvent} />
-                  <TrendingColumn title="Getting meh reactions" emoji={"\u{1F614}"} events={mostMeh} onSelect={openEvent} />
-                </div>
-              </section>
-            ) : null;
-        }
-      })}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {cardOrder.map((cardId) => {
+          switch (cardId) {
+            case "upcoming":
+              return (
+                <section key={cardId} className="@container">
+                  <SectionHeading icon={CalendarDays} title="Next 7 days" />
+                  <EventCardGrid
+                    events={upcomingWithDates}
+                    onSelect={openEvent}
+                    emptyMessage="Nothing with a set date in your subscriptions over the next 7 days."
+                  />
+                </section>
+              );
+            case "newlyConfirmed":
+              // Unlike the other two cards, this one still hides itself when
+              // empty even when enabled -- "newly confirmed" with nothing to
+              // show reads as a broken section, not an empty state worth
+              // seeing, same as before this became configurable.
+              return newlyConfirmed.length > 0 ? (
+                <section key={cardId} className="@container">
+                  <SectionHeading icon={PartyPopper} title="Newly confirmed" />
+                  <EventCardGrid events={newlyConfirmed} onSelect={openEvent} showRelativeTime emptyMessage="" />
+                </section>
+              ) : null;
+            case "recentActivity":
+              return (
+                <section key={cardId} className="@container">
+                  <SectionHeading icon={Sparkles} title="What's new" subtitle="scanned in the last 7 days" />
+                  <EventCardGrid
+                    events={recentActivity}
+                    onSelect={openEvent}
+                    showRelativeTime
+                    emptyMessage="No activity on your subscriptions in the last 7 days."
+                  />
+                </section>
+              );
+            case "communityPulse":
+              // Hides itself when nobody's reacted yet, same as newlyConfirmed --
+              // two empty "no reactions yet" columns reads as broken, not empty.
+              return mostHyped.length > 0 || mostMeh.length > 0 ? (
+                <section key={cardId} className="@container">
+                  <SectionHeading icon={Flame} title="Community pulse" subtitle="based on reactions" />
+                  <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
+                    <TrendingColumn title="Most hyped" emoji={"\u{1F525}"} events={mostHyped} onSelect={openEvent} />
+                    <TrendingColumn title="Getting meh reactions" emoji={"\u{1F614}"} events={mostMeh} onSelect={openEvent} />
+                  </div>
+                </section>
+              ) : null;
+          }
+        })}
+      </div>
     </div>
   );
 }
