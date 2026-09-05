@@ -413,7 +413,10 @@ export async function getIdentityContext(tcgProfileInstallId: string) {
     // strongest thing short of an external id, and reading it here is what lets
     // a TCGplayer "ME06: Delta Reign" find the Bulbapedia "Mega Evolution-Delta
     // Reign" that was created for the same product on an earlier run.
-    select: { id: true, name: true, code: true },
+    // `codeIsSynthetic` rides along so identity.ts can tell a real published
+    // code from one this pipeline invented to satisfy the NOT NULL column --
+    // only the former is a fact worth matching on.
+    select: { id: true, name: true, code: true, codeIsSynthetic: true },
     // Oldest first, so identity.ts's "ties keep the first" tiebreak resolves
     // to the longest-standing set rather than an arbitrary one.
     orderBy: { createdAt: "asc" },
@@ -444,7 +447,13 @@ export async function recordSetIdentity(
 }
 
 export async function createProductSet(
-  params: { tcgProfileInstallId: string; code: string | null; name: string; description?: string },
+  params: {
+    tcgProfileInstallId: string;
+    code: string;
+    codeIsSynthetic?: boolean;
+    name: string;
+    description?: string;
+  },
   db: Db = prisma,
 ) {
   return db.productSet.create({ data: params });

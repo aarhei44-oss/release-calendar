@@ -203,9 +203,26 @@ out-of-range claim index) plus the System tab's health classification.
    when the code is finished.
 3. Then delete `lib/crawler/`, `data/crawler/`, `tests/crawler*.test.ts`, the
    dead source configs in `prisma/seed.ts`, and the in-process scheduler.
-4. `ProductSet.code` is nullable in a composite unique — SQLite allows unlimited
-   NULLs, so nameless sets bypass the constraint entirely. Backfill a synthetic
-   code and make it required. Marked `TODO(phase5)` in `prisma/schema.prisma`.
+4. **Done, ahead of cutover, commit `<PENDING>`.** `ProductSet.code` is now
+   `NOT NULL` with a `codeIsSynthetic` companion flag
+   (`prisma/schema.prisma`). Done before v1 was decommissioned, so the
+   migration (`prisma/migrations/20260905065243_require_product_set_code`)
+   deletes every existing `ProductSet` row (cascading to `ReleaseEvent` and
+   everything hanging off it -- claims, review items, and **all
+   user-generated data**: follows, personal notes, dismissals, reactions,
+   comments) rather than backfilling a code for rows already live, per the
+   site owner's explicit instruction to wipe production rather than
+   reconcile it. **Not applied to production yet** -- it runs the moment
+   this is deployed (`prisma migrate deploy` on push to `main`, since the
+   pipeline auto-deploys). `lib/ingest/orchestrate.ts`'s
+   `synthesizeProductSetCode` invents a code for any future candidate from a
+   code-less origin (a wiki) so new-product creation never blocks on a code
+   nobody's published yet; `codeIsSynthetic` keeps that invention out of
+   `identity.ts`'s code-tier matching (`buildCodeIndex` skips it) so it can
+   never masquerade as a fact a source printed. Covered by
+   `tests/ingestIdentity.test.ts` (matching-side exclusion) and
+   `tests/ingestSyntheticCode.test.ts` (creation + idempotency on replay).
+   745 tests passing, typecheck/lint/build clean.
 
 ## Known risks / deferred
 

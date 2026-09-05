@@ -167,7 +167,14 @@ model TcgProfileInstall {
 model ProductSet {
   id                  String    @id @default(cuid())
   tcgProfileInstallId String
-  code                String?
+  code                String
+  // Set when `code` was invented at creation time rather than read from a
+  // source (lib/ingest/orchestrate.ts), because the only candidate seen so
+  // far came from a code-less origin (a wiki, not a game-published catalogue).
+  // Excluded from identity resolution's code tier (lib/ingest/identity.ts's
+  // buildCodeIndex) -- it satisfies the uniqueness constraint below, not a
+  // claim about the product's real code, so it must never be treated as one.
+  codeIsSynthetic     Boolean   @default(false)
   name                String?
   releaseQuarter      String?
   meta                Json?
@@ -182,14 +189,6 @@ model ProductSet {
   releaseEvents ReleaseEvent[]
   identities    SetIdentity[]
 
-  // TODO(phase5): `code` is nullable but participates in the composite unique
-  // below, and SQLite treats NULLs as distinct -- so any number of code-less
-  // ProductSets can coexist in one install and the v1 crawler's
-  // findOrCreateProductSet upsert can never match them. Fixing that means
-  // either backfilling a synthetic code for every existing NULL row or moving
-  // to a partial unique index, both of which would disrupt the v1 crawler
-  // while it is still the live pipeline. Deferred to phase 5, once v2 owns
-  // ProductSet writes and the backfill can run in the same migration.
   @@unique([tcgProfileInstallId, code])
   @@index([archivedAt])
 }

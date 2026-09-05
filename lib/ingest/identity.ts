@@ -373,6 +373,13 @@ export type ExistingProductSet = {
   name: string | null;
   code?: string | null;
   /**
+   * Whether `code` was invented at creation time (lib/ingest/orchestrate.ts)
+   * rather than read from a source. A synthetic code exists only to satisfy
+   * the column's NOT NULL/unique constraint -- it is not a fact any origin
+   * published, so buildCodeIndex below must never hand it out as a match.
+   */
+  codeIsSynthetic?: boolean;
+  /**
    * Optional belt-and-braces game scope. Callers already narrow `sets` to one
    * install, so this is normally absent; when both sides state a game they must
    * agree, so a caller that forgets to scope cannot silently match a Pokemon
@@ -423,6 +430,7 @@ export function buildIdentityIndex(identities: SetIdentityRecord[]): Map<string,
 export function buildCodeIndex(sets: ExistingProductSet[]): Map<string, string> {
   const claims = new Map<string, Set<string>>();
   for (const set of sets) {
+    if (set.codeIsSynthetic) continue;
     for (const code of setCodesFor(set)) {
       const owners = claims.get(code) ?? new Set<string>();
       owners.add(set.id);

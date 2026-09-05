@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
 import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
@@ -43,6 +44,22 @@ const LOCK_TTL_MS = 10 * 60 * 1000;
 const JOB_NAME = "crawler";
 
 const FETCH_CONCURRENCY = 4;
+
+/**
+ * Invents a code for a ProductSet whose only candidate so far has none, so
+ * `create` can satisfy the NOT NULL/unique column. Not a guess at the
+ * product's real code -- codeIsSynthetic marks it so identity.ts's code tier
+ * never treats it as one -- so a random suffix is fine; readability would
+ * buy nothing since no source is ever expected to agree with it.
+ */
+function synthesizeProductSetCode(name: string): string {
+  const slug = name
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "")
+    .slice(0, 24);
+  return `SYN-${slug || "SET"}-${randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+}
 
 export type IngestTotals = {
   providersFetched: number;
@@ -469,9 +486,18 @@ async function resolveInstallCandidates(
     let resolution = resolveSetIdentity(candidate, context);
 
     if (!resolution.productSetId) {
+      // `code` is NOT NULL: most origins print one, but a code-less origin
+      // (a wiki) can be the first to see a brand new product. Rather than
+      // block on a real code that hasn't been published anywhere yet, invent
+      // one that only has to satisfy the column's uniqueness -- codeIsSynthetic
+      // keeps it out of identity.ts's code tier, so it can never masquerade as
+      // a fact a source actually printed.
+      const codeIsSynthetic = candidate.code == null;
+      const code = candidate.code ?? synthesizeProductSetCode(candidate.name);
       const created = await ingestRepo.createProductSet({
         tcgProfileInstallId: installId,
-        code: candidate.code,
+        code,
+        codeIsSynthetic,
         name: candidate.name,
         description: candidate.description,
       });
@@ -480,8 +506,10 @@ async function resolveInstallCandidates(
       // product, later in this same batch, matches the set we just made
       // instead of creating a twin the dedup pass would have to clean up.
       // The code goes in too, so the very next candidate can resolve by code
-      // rather than falling back to the name heuristics.
-      context.sets.push({ id: created.id, name: created.name, code: created.code });
+      // rather than falling back to the name heuristics -- unless it's
+      // synthetic, in which case buildCodeIndex ignores it for the same
+      // reason the database copy will on the next run.
+      context.sets.push({ id: created.id, name: created.name, code: created.code, codeIsSynthetic: created.codeIsSynthetic });
       resolution = { productSetId: created.id, matchedBy: "new" };
     }
 

@@ -360,6 +360,19 @@ describe("resolveSetIdentity: code matching", () => {
       resolveSetIdentity(candidate({ name: "GD04 Whatever", code: "GD04", game: "one-piece-tcg" }), context).matchedBy,
     ).toBe("new");
   });
+
+  it("never matches a stored set's synthetic code, even one that is code-shaped", () => {
+    // orchestrate.ts invents a code (SYN-...) for a set first seen from a
+    // code-less origin, purely to satisfy the NOT NULL column -- no source
+    // ever published it, so it must not be able to pair two products the way
+    // a real shared code does.
+    const context: IdentityContext = {
+      sets: [{ id: "set-wiki-only", name: "Some New Set", code: "SYNABC123", codeIsSynthetic: true }],
+      identities: [],
+    };
+    const result = resolveSetIdentity(candidate({ name: "Unrelated Name", code: "SYNABC123" }), context);
+    expect(result.matchedBy).toBe("new");
+  });
 });
 
 describe("resolveSetIdentity: name matching across naming conventions", () => {
