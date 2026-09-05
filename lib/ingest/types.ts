@@ -227,13 +227,25 @@ export type Candidate = {
 // Stage 3 output: resolved candidates
 // ---------------------------------------------------------------------------
 
-export type MatchedBy = "id" | "name" | "new";
+/**
+ * Which identity tier resolved a candidate, in descending confidence.
+ *
+ * "code" sits between "id" and "name" deliberately. A set code (ME06, OP-13,
+ * GD04) is how this hobby actually identifies a product: it is published by the
+ * game's own numbering scheme rather than invented by us, so two origins
+ * agreeing on one is far stronger evidence than two names scoring well against
+ * each other -- and it is the only thing that pairs a retailer's "ME06: Delta
+ * Reign" with a wiki's "Mega Evolution-Delta Reign" at all.
+ */
+export type MatchedBy = "id" | "code" | "name" | "new";
 
 export type IdentityResolution = {
   productSetId: string | null;
   matchedBy: MatchedBy;
   /** Which origin's external id produced an "id" match, for debugging a bad pin. */
   matchedOrigin?: Origin;
+  /** The normalized set code that produced a "code" match, so a bad merge names its own cause. */
+  matchedCode?: string;
   /** Name-similarity score for a "name" match, so a marginal match is auditable. */
   score?: number;
 };

@@ -203,7 +203,11 @@ export async function cleanupOldRawPayloads(olderThanDays = 30): Promise<number>
 export async function getIdentityContext(tcgProfileInstallId: string) {
   const sets = await prisma.productSet.findMany({
     where: { tcgProfileInstallId, archivedAt: null },
-    select: { id: true, name: true },
+    // `code` is selected for identity.ts's code tier: a stored set code is the
+    // strongest thing short of an external id, and reading it here is what lets
+    // a TCGplayer "ME06: Delta Reign" find the Bulbapedia "Mega Evolution-Delta
+    // Reign" that was created for the same product on an earlier run.
+    select: { id: true, name: true, code: true },
     // Oldest first, so identity.ts's "ties keep the first" tiebreak resolves
     // to the longest-standing set rather than an arbitrary one.
     orderBy: { createdAt: "asc" },

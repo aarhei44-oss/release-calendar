@@ -5,7 +5,7 @@ import { logEvent } from "@/lib/logger";
 import { applyVerdicts, type ApplyItem, type ClaimWrite } from "./apply";
 import { buildClaimRecords } from "./claims";
 import { evaluateGate } from "./gate";
-import { resolveSetIdentity } from "./identity";
+import { collectAmbiguousCodes, resolveSetIdentity } from "./identity";
 import { normalizeRun } from "./normalize";
 import { getProvider, providersForGames } from "./providers/registry";
 import type { FetchContext, Provider } from "./providers/types";
@@ -406,7 +406,14 @@ async function resolveInstallCandidates(
   candidates: Candidate[],
   totals: StageTotals,
 ): Promise<ResolvedCandidate[]> {
-  const context = await ingestRepo.getIdentityContext(installId);
+  const stored = await ingestRepo.getIdentityContext(installId);
+  // Which codes this run must not use as identity keys, computed from the run's
+  // own candidates rather than from the database. The distinction matters most
+  // on a first run against an empty catalogue: tcgcsv hands the code "POP" to
+  // all nine POP Series sets in one payload, and without this the first of them
+  // would create a set that the other eight then merged into. The database-side
+  // guard in buildCodeIndex only sees duplicates that have already been stored.
+  const context = { ...stored, ambiguousCodes: collectAmbiguousCodes(candidates) };
   const resolved: ResolvedCandidate[] = [];
 
   for (const candidate of candidates) {
@@ -423,7 +430,9 @@ async function resolveInstallCandidates(
       // Extend the in-memory context so a second candidate for the same new
       // product, later in this same batch, matches the set we just made
       // instead of creating a twin the dedup pass would have to clean up.
-      context.sets.push({ id: created.id, name: created.name });
+      // The code goes in too, so the very next candidate can resolve by code
+      // rather than falling back to the name heuristics.
+      context.sets.push({ id: created.id, name: created.name, code: created.code });
       resolution = { productSetId: created.id, matchedBy: "new" };
     }
 
