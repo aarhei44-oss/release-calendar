@@ -203,7 +203,7 @@ out-of-range claim index) plus the System tab's health classification.
    when the code is finished.
 3. Then delete `lib/crawler/`, `data/crawler/`, `tests/crawler*.test.ts`, the
    dead source configs in `prisma/seed.ts`, and the in-process scheduler.
-4. **Done, ahead of cutover, commit `<PENDING>`.** `ProductSet.code` is now
+4. **Done, ahead of cutover, commit `f9b7cfb`.** `ProductSet.code` is now
    `NOT NULL` with a `codeIsSynthetic` companion flag
    (`prisma/schema.prisma`). Done before v1 was decommissioned, so the
    migration (`prisma/migrations/20260905065243_require_product_set_code`)
