@@ -279,10 +279,13 @@ function variantsMatchExactly(a: NameVariants, b: NameVariants): boolean {
   const tailB = b.tail ? normalize(b.tail) : null;
 
   // Tail against tail: "ME06: Delta Reign" vs "Mega Evolution-Delta Reign".
-  // Safe regardless of either head, because two products that share a full tail
-  // *and* both carry a prefix are being described by two naming conventions for
-  // the same thing far more often than they are genuinely different.
-  if (tailA && tailB && tailA === tailB) return true;
+  // Still requires a code-shaped head on one side, and Bandai's accessory
+  // naming is why: "Official Playmat - Flame-Flame Fruit Coliseum Edition",
+  // "Limited Card Sleeve - Flame-Flame Fruit Coliseum Edition" and two more
+  // share a tail exactly and are four different products. A shared tail means
+  // "same thing, two naming conventions" only when one of the conventions is a
+  // code; otherwise it means "same theme, several products".
+  if (tailA && tailB && tailA === tailB && (a.headIsCode || b.headIsCode)) return true;
 
   // Tail against whole name -- only from a code-shaped head. See NameVariants.
   if (tailA && a.headIsCode && formsB.includes(tailA)) return true;

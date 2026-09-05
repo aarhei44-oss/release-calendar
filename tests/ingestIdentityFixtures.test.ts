@@ -5,6 +5,8 @@ import {
   type ExistingProductSet,
   type SetIdentityRecord,
 } from "@/lib/ingest/identity";
+import { bandaiGundamProvider } from "@/lib/ingest/providers/bandaiGundam";
+import { bandaiOnePieceProvider } from "@/lib/ingest/providers/bandaiOnePiece";
 import { bulbapediaProvider } from "@/lib/ingest/providers/bulbapedia";
 import { scryfallProvider } from "@/lib/ingest/providers/scryfall";
 import { tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv";
@@ -40,6 +42,8 @@ const FETCHED_AT = new Date("2026-09-04T20:00:00.000Z");
  * in a different order would not be testing the production sequence.
  */
 const FIXTURES = [
+  [bandaiGundamProvider, "bandaiGundam.pages.json"],
+  [bandaiOnePieceProvider, "bandaiOnePiece.pages.json"],
   [bulbapediaProvider, "bulbapedia.pages.json"],
   [scryfallProvider, "scryfall.sets.json"],
   [tcgcsvProvider, "tcgcsv.groups.json"],
@@ -177,6 +181,41 @@ describe("real fixtures: the cross-origin pairings gate rule G2 needs", () => {
     }
   });
 
+  it("pairs the Bandai publisher pages against the retailer, which is what makes G1 reachable", () => {
+    // Bandai and TCGplayer agree on almost nothing textually -- "BOOSTER PACK
+    // -THE WORLD'S STRONGEST WARRIORS-" against "The World's Strongest
+    // Warriors", "Heavy Dominion" against "Starter Deck 14: Heavy Dominion" --
+    // and on the set code exactly. Without the code tier these providers would
+    // have doubled One Piece's and Gundam's ProductSet count instead of
+    // corroborating it.
+    expectSameSet("one-piece-tcg", "BOOSTER PACK -THE WORLD’S STRONGEST WARRIORS-", "The World's Strongest Warriors");
+    expectSameSet("one-piece-tcg", "STARTER DECK -BLUE Kuzan-", "Starter Deck 33: BLUE Kuzan");
+    expectSameSet(
+      "one-piece-tcg",
+      "EXTRA BOOSTER -ONE PIECE HEROINES EDITION vol.2-",
+      "Extra Booster: One Piece Heroine's Edition Vol. 2",
+    );
+    expectSameSet("gundam-card-game", "Heavy Dominion", "Starter Deck 14: Heavy Dominion");
+    expectSameSet("gundam-card-game", "Stardust Trails", "Stardust Trails");
+  });
+
+  it("puts an OFFICIAL claim on the games that had none, so G1 can fire", () => {
+    for (const game of ["one-piece-tcg", "gundam-card-game"] as const) {
+      const origins = new Set(forGame(game).candidates.map((candidate) => candidate.origin));
+      expect(origins, game).toContain("bandai-official");
+      // ...and on the same ProductSet as the retailer, not beside it. A
+      // publisher claim on a set of its own would publish a duplicate event
+      // under G1 rather than confirming the one already on the calendar.
+      const publisherSets = forGame(game)
+        .candidates.filter((candidate) => candidate.origin === "bandai-official")
+        .map((candidate) => forGame(game).setOf.get(candidate.name) as string);
+      const shared = publisherSets.filter((id) =>
+        (forGame(game).members.get(id) ?? []).some((candidate) => candidate.origin === "tcgplayer"),
+      );
+      expect(shared.length, `${game}: publisher sets also claimed by the retailer`).toBeGreaterThanOrEqual(6);
+    }
+  });
+
   it("pairs Magic's differently-worded Commander and supplemental sets", () => {
     // Scryfall says "Star Trek Commander", TCGplayer says "Commander: Star
     // Trek", Wikipedia says neither about this one. All three vocabularies
@@ -277,15 +316,17 @@ describe("real fixtures: cross-origin pairing rate per game", () => {
     // 2 paired before; unchanged. Both Lorcana pairings were plain exact-name
     // matches that never needed help.
     "disney-lorcana": { candidates: 6, sets: 4, paired: 2 },
-    // 0 before, 0 now: tcgplayer is this game's only origin. Task B's publisher
-    // provider is the only thing that can move this.
-    "gundam-card-game": { candidates: 10, sets: 10, paired: 0 },
+    // 0 paired before the Bandai provider existed, because tcgplayer was the
+    // game's only origin. All six of the publisher's in-window products pair.
+    "gundam-card-game": { candidates: 16, sets: 10, paired: 6 },
     // 8 -> 11, and 50 -> 55 sets: three of the new pairings are Wikipedia rows
     // that now find their set by code, and the five extra sets are false merges
     // the code veto took apart.
     "magic-the-gathering": { candidates: 73, sets: 55, paired: 11 },
-    // 0 before, 0 now, same reason as Gundam.
-    "one-piece-tcg": { candidates: 14, sets: 14, paired: 0 },
+    // 0 before, same reason as Gundam. Ten of the publisher's eleven in-window
+    // products pair; the eleventh (Double Pack Set Vol.12) is one TCGplayer
+    // does not carry.
+    "one-piece-tcg": { candidates: 25, sets: 15, paired: 10 },
     // 2 -> 3, and the two that already paired now pull in the retailer too.
     "pokemon-tcg": { candidates: 28, sets: 24, paired: 3 },
     "riftbound": { candidates: 10, sets: 7, paired: 3 },

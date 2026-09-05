@@ -1,3 +1,5 @@
+import { bandaiGundamProvider } from "./bandaiGundam";
+import { bandaiOnePieceProvider } from "./bandaiOnePiece";
 import { bulbapediaProvider } from "./bulbapedia";
 import { scryfallProvider } from "./scryfall";
 import { tcgcsvProvider } from "./tcgcsv";
@@ -19,21 +21,29 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  *
  * Per-game origin coverage this produces:
  *
- *   pokemon-tcg         tcgplayer, wikipedia, bulbapedia   (3 independent)
- *   magic-the-gathering tcgplayer, wikipedia, scryfall     (3 independent)
- *   yugioh-tcg          tcgplayer, ygoprodeck              (2 independent)
- *   disney-lorcana      tcgplayer, wikipedia               (2 independent)
- *   riftbound           tcgplayer, wikipedia               (2 independent)
- *   one-piece-tcg       tcgplayer                          (1 -- G3 only)
- *   gundam-card-game    tcgplayer                          (1 -- G3 only)
+ *   pokemon-tcg         tcgplayer, wikipedia, bulbapedia   (3 independent, G2)
+ *   magic-the-gathering tcgplayer, wikipedia, scryfall     (3 independent, G2)
+ *   yugioh-tcg          tcgplayer, ygoprodeck              (2 independent, G2)
+ *   disney-lorcana      tcgplayer, wikipedia               (2 independent, G2)
+ *   riftbound           tcgplayer, wikipedia               (2 independent, G2)
+ *   one-piece-tcg       tcgplayer, bandai-official         (2, and G1)
+ *   gundam-card-game    tcgplayer, bandai-official         (2, and G1)
  *
- * One Piece and Gundam are honestly single-origin: neither has a maintained
- * Wikipedia set table, and the community trackers v1 used are ordinary scraped
- * pages rather than sanctioned APIs. Their dates still publish, but only via
- * gate rule G3 -- a lone retailer claim that has held still for seven runs --
- * which is slower and is the correct amount of caution for evidence this thin.
- * tests/ingestProviderRegistry.test.ts asserts this table so a regression in it
- * is a test failure rather than a quiet loss of corroboration.
+ * The two Bandai entries are the pipeline's first OFFICIAL-tier origins, which
+ * makes them the first providers whose claims satisfy gate rule G1 -- one
+ * official source is enough on its own. Before them One Piece and Gundam had
+ * tcgcsv alone and could only publish through G3's seven-run retailer streak;
+ * they are also, as the only OFFICIAL providers, what turns G1 from an untested
+ * branch of the gate into live code.
+ *
+ * Riot (Riftbound) and Ravensburger (Lorcana) are deliberately absent. Neither
+ * publishes an index page carrying release dates: Riot's site is news and a
+ * "get started" page, and Ravensburger states dates only in marketing prose on
+ * ~28 individual product pages, with labels that disagree with the retailer's
+ * street date by a week. Both games already have two independent origins and
+ * publish under G2, so a fragile parser would be buying nothing. See
+ * tests/ingestProviderRegistry.test.ts, which asserts this table so a
+ * regression in it is a test failure rather than a quiet loss of corroboration.
  */
 const registry = new Map<string, Provider>();
 
@@ -74,6 +84,8 @@ export const PRODUCTION_PROVIDERS: readonly Provider[] = [
   ygoprodeckProvider,
   wikipediaProvider,
   bulbapediaProvider,
+  bandaiOnePieceProvider,
+  bandaiGundamProvider,
 ];
 
 for (const provider of PRODUCTION_PROVIDERS) {
