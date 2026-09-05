@@ -1,8 +1,27 @@
 # Ingestion v2 — rebuild status and handoff
 
 Rebuild of how release dates enter the system, replacing the v1 crawler in
-`lib/crawler/`. Started 2026-09-04. **v1 is still the live production pipeline;
-v2 is not cut over.**
+`lib/crawler/`. Started 2026-09-04.
+
+**Update 2026-09-05: v2 is live in production, ahead of the plan below.**
+Per explicit site-owner instruction, the golden-set/shadow-run validation in
+"Then — cutover (Phase 6)" was skipped rather than done first: `ProductSet`
+data was wiped in production (migration
+`20260905065243_require_product_set_code`, cascading to every dependent row
+including user-generated follows/notes/reactions -- confirmed acceptable
+before running it), v2 was run manually per-game and then all-scope against
+real production data, two real bugs it surfaced were fixed (`ProviderRun`
+.candidates always 0; a scan-run-crashing collision on tcgcsv's ambiguous
+"POP"/"PR" codes), and a nightly cron (`ops/trigger-ingest.sh`, 20:30 UTC,
+installed on the droplet, not deploy-pipeline-managed) now drives it going
+forward. **v1's in-process scheduler is disabled** (`CRAWLER_SCHEDULE=0` in
+production's `.env`) so the two pipelines can no longer both write to
+`ProductSet`/`ReleaseEvent` on their own schedules. `lib/crawler/` itself is
+untouched and still present -- this is not the Phase 6 code deletion, just
+its trigering turned off -- so rolling back to v1 is still possible by
+reverting `CRAWLER_SCHEDULE`. The golden-set fixture (Phase 6 item 1) and a
+retroactive audit of what actually published were **not** done; do that
+before trusting the calendar's current contents blindly.
 
 Design doc (options analysis + full architecture, with the measured v1
 diagnosis): https://claude.ai/code/artifact/eb5f4531-8d53-4683-946a-6ea917a7329b
