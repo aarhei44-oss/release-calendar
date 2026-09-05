@@ -7,7 +7,7 @@ import { applyVerdicts, type ApplyItem, type ClaimWrite } from "./apply";
 import { buildClaimRecords } from "./claims";
 import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
-import { collectAmbiguousCodes, resolveSetIdentity } from "./identity";
+import { collectAmbiguousCodes, normalizeSetCode, resolveSetIdentity } from "./identity";
 import { normalizeRun } from "./normalize";
 import { getProvider, providersForGames } from "./providers/registry";
 import type { FetchContext, Provider } from "./providers/types";
@@ -502,8 +502,23 @@ async function resolveInstallCandidates(
       // one that only has to satisfy the column's uniqueness -- codeIsSynthetic
       // keeps it out of identity.ts's code tier, so it can never masquerade as
       // a fact a source actually printed.
-      const codeIsSynthetic = candidate.code == null;
-      const code = candidate.code ?? synthesizeProductSetCode(candidate.name);
+      //
+      // Two more cases need the same fallback, both discovered by tcgcsv's own
+      // real "POP" abbreviation (all nine Pokemon POP Series sets) and "PR"
+      // (four unrelated promo sets): resolveSetIdentity above refuses to code-
+      // match an ambiguousCodes member -- correctly, since matching would fuse
+      // nine different products into one -- so every candidate carrying it
+      // resolves "new", and every one of them would otherwise try to write the
+      // identical literal string into a column unique on (install, code). The
+      // second check is a plain safety net for any collision the ambiguity
+      // heuristic doesn't recognize (this batch didn't see the sibling that
+      // already claimed the code, say): a create is never allowed to find out
+      // about a duplicate by throwing.
+      const normalizedCode = candidate.code ? normalizeSetCode(candidate.code) : null;
+      const codeIsAmbiguous = normalizedCode !== null && context.ambiguousCodes?.has(normalizedCode) === true;
+      const codeAlreadyTaken = candidate.code !== null && context.sets.some((set) => set.code === candidate.code);
+      const codeIsSynthetic = candidate.code == null || codeIsAmbiguous || codeAlreadyTaken;
+      const code = codeIsSynthetic ? synthesizeProductSetCode(candidate.name) : candidate.code!;
       const created = await ingestRepo.createProductSet({
         tcgProfileInstallId: installId,
         code,
