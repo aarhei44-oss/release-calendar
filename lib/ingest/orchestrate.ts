@@ -383,7 +383,7 @@ export async function runStagesFromPayloads(params: {
   }));
 
   // ---- Stage 2: Normalize ----
-  const { candidates, errors } = normalizeRun(payloads, getProvider);
+  const { candidates, errors, candidatesByProvider } = normalizeRun(payloads, getProvider);
   totals.candidates = candidates.length;
   totals.parseErrors = errors.length;
   for (const error of errors) {
@@ -402,6 +402,16 @@ export async function runStagesFromPayloads(params: {
       .catch(() => {
         totals.errors += 1;
       });
+  }
+  // The Fetch stage's recordProviderRun necessarily wrote 0 -- parsing hadn't
+  // happened yet -- so backfill the real count for every provider that
+  // actually parsed this run. A provider absent here was NOT_MODIFIED, sent an
+  // empty body, or errored (handled above via DEGRADED's own 0), so its row is
+  // correctly left alone rather than overwritten with a stale zero.
+  for (const [providerKey, count] of candidatesByProvider) {
+    await ingestRepo.updateProviderRunCandidateCount({ scanRunId, providerKey, candidates: count }).catch(() => {
+      totals.errors += 1;
+    });
   }
 
   const items: ApplyItem[] = [];

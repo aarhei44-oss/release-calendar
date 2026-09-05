@@ -143,6 +143,17 @@ export type NormalizeResult = {
   candidates: Candidate[];
   /** One entry per provider whose payload failed; the run continues without it (a partial run beats no run). */
   errors: Array<{ providerKey: string; path: string; message: string }>;
+  /**
+   * How many candidates each provider's payload yielded this run, for
+   * ProviderRun.candidates (data/ingest/ingestRepo.ts's
+   * updateProviderRunCandidateCount). Fetch time is too early to know this --
+   * parsing hasn't happened yet -- which is why the Fetch stage's
+   * recordProviderRun call always wrote 0 here until this map existed. A
+   * provider absent from this map was NOT_MODIFIED or sent an empty body, both
+   * of which correctly leave its ProviderRun row's count alone rather than
+   * overwriting a real prior count with a stale zero.
+   */
+  candidatesByProvider: Map<string, number>;
 };
 
 /**
@@ -160,6 +171,7 @@ export function normalizeRun(
 ): NormalizeResult {
   const candidates: Candidate[] = [];
   const errors: NormalizeResult["errors"] = [];
+  const candidatesByProvider = new Map<string, number>();
 
   for (const payload of payloads) {
     const provider = lookupProvider(payload.providerKey);
@@ -177,7 +189,9 @@ export function normalizeRun(
     if (payload.status === "NOT_MODIFIED" || payload.body.length === 0) continue;
 
     try {
-      candidates.push(...normalizePayload(payload, provider));
+      const parsed = normalizePayload(payload, provider);
+      candidates.push(...parsed);
+      candidatesByProvider.set(payload.providerKey, (candidatesByProvider.get(payload.providerKey) ?? 0) + parsed.length);
     } catch (error) {
       if (error instanceof ParseError) {
         errors.push({ providerKey: error.providerKey, path: error.path, message: error.message });
@@ -191,5 +205,5 @@ export function normalizeRun(
     }
   }
 
-  return { candidates, errors };
+  return { candidates, errors, candidatesByProvider };
 }

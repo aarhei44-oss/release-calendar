@@ -148,6 +148,22 @@ export async function getProviderRuns(scanRunId: string) {
   return prisma.providerRun.findMany({ where: { scanRunId }, orderBy: { providerKey: "asc" } });
 }
 
+/**
+ * Backfills the real candidate count onto a ProviderRun row that
+ * recordProviderRun already wrote at fetch time (necessarily with 0 --
+ * parsing hasn't happened yet at that point). Called once per provider after
+ * Normalize, from lib/ingest/normalize.ts's candidatesByProvider.
+ */
+export async function updateProviderRunCandidateCount(
+  params: { scanRunId: string; providerKey: string; candidates: number },
+  db: Db = prisma,
+) {
+  return db.providerRun.update({
+    where: { scanRunId_providerKey: { scanRunId: params.scanRunId, providerKey: params.providerKey } },
+    data: { candidates: params.candidates },
+  });
+}
+
 /** The providers retryRun re-fetches: exactly the ones with no usable payload. */
 export async function getFailedProviderKeys(scanRunId: string): Promise<string[]> {
   const rows = await prisma.providerRun.findMany({
