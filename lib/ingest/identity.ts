@@ -50,6 +50,48 @@ import type { Candidate, IdentityResolution, Origin } from "./types";
  */
 const PLACEHOLDER_CODE = /^(?:n\/?a|tba|tbd|tbc|unknown|none)$/i;
 
+// ---------------------------------------------------------------------------
+// Placeholder names
+// ---------------------------------------------------------------------------
+
+/** A cell that names nothing at all: "TBA", "—", "?", "n/a". */
+const PLACEHOLDER_NAME_EXACT = /^(?:[—–\-?]+|n\/?a|tba|tbd|tbc|unknown|none)$/i;
+
+/**
+ * A name that is a *description of a gap* rather than a name: "Unnamed
+ * Universes Beyond Set", "Untitled expansion", "TBA Universes Beyond set".
+ *
+ * The word boundary is load-bearing. Magic's un-sets are real products called
+ * Unglued, Unhinged, Unstable, Unsanctioned and Unfinity, and a prefix match
+ * without `\b` would delete all five from the calendar.
+ */
+const PLACEHOLDER_NAME_PREFIX = /^(?:unnamed|untitled|unannounced|unrevealed|undisclosed|tba|tbd)\b/i;
+
+/**
+ * Whether a name is a placeholder, and therefore must not be used to identify
+ * anything.
+ *
+ * This is the name-shaped twin of PLACEHOLDER_CODE above, and it exists for a
+ * failure that was measured rather than imagined: English Wikipedia's Magic set
+ * list carries three separate rows all called "Unnamed Universes Beyond Set" --
+ * three distinct products Wizards has slotted and not announced. Because
+ * mediawiki.ts builds a row's external id as `${page}:${code ?? name}` and the
+ * code column reads "TBA" on all three, the three rows produced one external id,
+ * one ProductSet, and one release event that no later pass could take apart.
+ *
+ * A placeholder name disqualifies a row from the *name* tier here and, in
+ * mediawiki.ts, from being emitted at all. Both, deliberately: the provider-side
+ * refusal is what keeps three contentless rows off the calendar, and this one is
+ * what stops any future provider re-introducing the merge through a different
+ * door.
+ */
+export function isPlaceholderName(name: string | null | undefined): boolean {
+  if (!name) return true;
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  return PLACEHOLDER_NAME_EXACT.test(trimmed) || PLACEHOLDER_NAME_PREFIX.test(trimmed);
+}
+
 /**
  * Canonical form of a set code: upper case, separators removed, so that
  * "OP-13", "OP13" and "op 13" are one key rather than three.
@@ -463,6 +505,14 @@ export function resolveSetIdentity(candidate: IdentityCandidateInput, context: I
   // to code-stripped and tail-split forms of each name, and vetoed outright
   // whenever the two sides' codes disagree.
   // -------------------------------------------------------------------------
+  // A placeholder name identifies nothing, and three rows sharing one is not
+  // evidence that they are one product -- it is evidence that none of them has
+  // a name yet. Checked before the name tier and after the id/code tiers, so a
+  // row that *is* pinned by an upstream id still resolves normally.
+  if (isPlaceholderName(candidate.name)) {
+    return { productSetId: null, matchedBy: "new" };
+  }
+
   const candidateVariants = nameVariants(candidate.name);
   if (!candidateVariants.forms.some((form) => isMatchableNormalizedName(normalizeProductSetName(form)))) {
     // A name that normalizes to nothing usable (e.g. "(2026)") must not become
@@ -471,7 +521,9 @@ export function resolveSetIdentity(candidate: IdentityCandidateInput, context: I
   }
 
   const comparable = scopedSets
-    .filter((set) => set.name)
+    // ...and symmetrically: a stored set that was created under a placeholder
+    // name (by an earlier run, or by the v1 crawler) must not absorb anything.
+    .filter((set) => set.name && !isPlaceholderName(set.name))
     .map((set) => ({ set, codes: setCodesFor(set), variants: nameVariants(set.name as string) }))
     // The code veto, applied before any string is compared: whatever the names
     // say, two products whose codes disagree are two products.

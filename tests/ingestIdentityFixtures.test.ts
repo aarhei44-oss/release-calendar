@@ -12,7 +12,9 @@ import { scryfallProvider } from "@/lib/ingest/providers/scryfall";
 import { tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv";
 import { wikipediaProvider } from "@/lib/ingest/providers/wikipedia";
 import { ygoprodeckProvider } from "@/lib/ingest/providers/ygoprodeck";
-import { ORIGINS, originsAreIndependent, type Candidate, type Origin } from "@/lib/ingest/types";
+import { evaluateGate } from "@/lib/ingest/gate";
+import { eventGroupKey } from "@/lib/ingest/orchestrate";
+import { ORIGINS, originsAreIndependent, type Candidate, type ClaimRecord, type Origin } from "@/lib/ingest/types";
 import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 
 /**
@@ -57,6 +59,8 @@ type ResolvedGame = {
   /** Candidate name -> the ProductSet id it resolved to. */
   setOf: Map<string, string>;
   candidates: Candidate[];
+  /** Candidate -> the ProductSet id it resolved to, by identity rather than by name. */
+  setOfCandidate: Map<Candidate, string>;
 };
 
 /**
@@ -67,14 +71,17 @@ type ResolvedGame = {
  * SHELF events only. A PRERELEASE candidate is the same product under a
  * different event type, so counting it would double-count the pairing.
  */
-function resolveGame(all: Candidate[], game: string): ResolvedGame {
-  const candidates = all.filter((candidate) => candidate.game === game && candidate.type === "SHELF");
+function resolveGame(all: Candidate[], game: string, shelfOnly = true): ResolvedGame {
+  const candidates = all.filter(
+    (candidate) => candidate.game === game && (!shelfOnly || candidate.type === "SHELF"),
+  );
   const sets: ExistingProductSet[] = [];
   const identities: SetIdentityRecord[] = [];
   const ambiguousCodes = collectAmbiguousCodes(candidates);
 
   const members = new Map<string, Candidate[]>();
   const setOf = new Map<string, string>();
+  const setOfCandidate = new Map<Candidate, string>();
   let next = 0;
 
   for (const candidate of candidates) {
@@ -89,9 +96,10 @@ function resolveGame(all: Candidate[], game: string): ResolvedGame {
     }
     members.set(productSetId, [...(members.get(productSetId) ?? []), candidate]);
     setOf.set(candidate.name, productSetId);
+    setOfCandidate.set(candidate, productSetId);
   }
 
-  return { members, setOf, candidates };
+  return { members, setOf, candidates, setOfCandidate };
 }
 
 /** Whether a set's claims include two origins the gate would count as separate observations. */
@@ -284,6 +292,198 @@ describe("real fixtures: products that must stay distinct", () => {
     expectDifferentSets("riftbound", "Set 8", "Set 9");
   });
 
+  it("emits none of the three placeholder-named Magic rows, so they cannot fuse", () => {
+    // The pre-existing false merge phase 3 named and did not touch. Three
+    // separate rows on Wikipedia's Magic list read "Unnamed Universes Beyond
+    // Set"; all three carry "TBA" in the code column, so mediawiki.ts's
+    // `${page}:${code ?? name}` external id was byte-identical for all three and
+    // they collapsed onto one ProductSet.
+    //
+    // The fix refuses the rows rather than inventing per-row ids for them. Row
+    // index is the only per-row key the page offers and it is not stable: the
+    // placeholders are interleaved between dated rows, so naming one of them
+    // re-indexes the rest and would silently re-point three ProductSets at each
+    // other's ids. And the rows are worth nothing anyway -- no name, no code, no
+    // date.
+    const names = forGame("magic-the-gathering").candidates.map((candidate) => candidate.name);
+    expect(names).not.toContain("Unnamed Universes Beyond Set");
+  });
+
+  it("keeps three placeholder-named rows on three ProductSets if a provider ever does emit them", () => {
+    // Belt and braces for the rule above, at the identity layer rather than the
+    // provider layer, because the provider refusal is the only thing standing
+    // between these rows and the merge and it should not be the only thing.
+    const rows: Candidate[] = [1, 2, 3].map((index) => ({
+      origin: "wikipedia",
+      game: "magic-the-gathering",
+      externalIds: { wikipedia: `wp-mtg-sets:slot-${index}` },
+      name: "Unnamed Universes Beyond Set",
+      code: null,
+      date: { kind: "TBD" },
+      region: "GLOBAL",
+      type: "SHELF",
+    }));
+
+    const resolved = resolveGame(rows, "magic-the-gathering");
+    expect(resolved.members.size).toBe(3);
+  });
+
+  it("does not treat an un-set as an unnamed one", () => {
+    // The placeholder-name rule is a prefix match on "Unnamed"/"Untitled"/..., so
+    // it has to stop at a word boundary: Unglued, Unhinged, Unstable,
+    // Unsanctioned and Unfinity are real Magic products.
+    for (const name of ["Unglued", "Unhinged", "Unstable", "Unsanctioned", "Unfinity"]) {
+      const resolved = resolveGame(
+        [
+          {
+            origin: "wikipedia",
+            game: "magic-the-gathering",
+            externalIds: {},
+            name,
+            code: null,
+            date: { kind: "TBD" },
+            region: "GLOBAL",
+            type: "SHELF",
+          },
+        ],
+        "magic-the-gathering",
+      );
+      const only = [...resolved.members.values()][0];
+      expect(only?.[0]?.name, name).toBe(name);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Region: the phase-4 event key
+// ---------------------------------------------------------------------------
+
+describe("real fixtures: region as part of the event key", () => {
+  /**
+   * Every event this run would create, keyed exactly as the pipeline keys them.
+   *
+   * PRERELEASE candidates are included here (unlike the pairing counts above,
+   * which are SHELF-only to avoid double-counting a product): the question this
+   * section asks is "how many *events*", and a prerelease is one.
+   */
+  function eventsFor(game: (typeof GAMES)[number]): Map<string, { region: string; type: string }> {
+    const resolved = resolveGame(ALL, game, false);
+    const events = new Map<string, { region: string; type: string }>();
+    for (const candidate of resolved.candidates) {
+      const productSetId = resolved.setOfCandidate.get(candidate);
+      if (!productSetId) continue;
+      events.set(eventGroupKey(productSetId, candidate.type, candidate.region), {
+        region: candidate.region,
+        type: candidate.type,
+      });
+    }
+    return events;
+  }
+
+  /**
+   * Events per game, split by region, from the recorded 2026-09-04 payloads.
+   *
+   * Exact rather than a floor, for the same reason the pairing table above is:
+   * a number that moves in either direction wants a human glance. JP appears for
+   * Pokemon alone today, because Bulbapedia's Japanese expansion list is the
+   * only non-GLOBAL source wired up -- Bandai's Japanese sites are noted as
+   * deferred in bandaiOnePiece.ts.
+   */
+  const EXPECTED_EVENTS: Record<string, Record<string, number>> = {
+    // 4 SHELF + 3 PRERELEASE: Wikipedia's Lorcana table splits "Local game
+    // store release" from "Retail release", which is a type split, not a region
+    // one -- worth stating because it was on phase 4's list and turned out to
+    // need nothing.
+    "disney-lorcana": { GLOBAL: 7 },
+    "gundam-card-game": { GLOBAL: 10 },
+    "magic-the-gathering": { GLOBAL: 56 },
+    "one-piece-tcg": { GLOBAL: 15 },
+    "pokemon-tcg": { GLOBAL: 24, JP: 2 },
+    riftbound: { GLOBAL: 7 },
+    "yugioh-tcg": { GLOBAL: 32 },
+  };
+
+  for (const game of GAMES) {
+    it(`${game} resolves to a stable event count per region`, () => {
+      const counts: Record<string, number> = {};
+      for (const event of eventsFor(game).values()) {
+        counts[event.region] = (counts[event.region] ?? 0) + 1;
+      }
+      expect(counts).toEqual(EXPECTED_EVENTS[game]);
+    });
+  }
+
+  it("gives Delta Reign a Japanese event and a global one, on the same product", () => {
+    // The concrete case phase 2 and phase 3 both deferred. Bulbapedia's English
+    // list dates Delta Reign 2026-11-06; its Japanese list dates the same
+    // product (as "Storm Emeralda", English equivalent "Delta Reign")
+    // 2026-07-31. Ninety-eight days apart.
+    const resolved = resolveGame(ALL, "pokemon-tcg", false);
+    const deltaReign = resolved.candidates.filter(
+      (candidate) => resolved.setOfCandidate.get(candidate) === resolved.setOf.get("Mega Evolution—Delta Reign"),
+    );
+
+    const jp = deltaReign.filter((candidate) => candidate.region === "JP");
+    const global = deltaReign.filter((candidate) => candidate.region === "GLOBAL");
+    expect(jp.length, "the Japanese list should reach the same product").toBe(1);
+    expect(global.length).toBeGreaterThan(0);
+    expect(jp[0].date).toEqual({ kind: "EXACT", date: new Date("2026-07-31T00:00:00.000Z") });
+
+    // One ProductSet, two events -- which is the whole point.
+    const keys = new Set(
+      deltaReign.map((candidate) =>
+        eventGroupKey(resolved.setOfCandidate.get(candidate) as string, candidate.type, candidate.region),
+      ),
+    );
+    expect(keys.size).toBe(2);
+  });
+
+  it("publishes Delta Reign's global date only because the Japanese one is on its own event", () => {
+    // The counterfactual, stated as a test so the reason for the change cannot
+    // quietly stop being true.
+    //
+    // A claim is stored per (run, origin, event) -- see ingestRepo's
+    // upsertIngestClaim -- so before region joined the event key, Bulbapedia's
+    // English row and its Japanese row for one product shared a single claim
+    // slot and the later write silently replaced the earlier. What the gate then
+    // saw was TCGplayer on 2026-11-06 against "Bulbapedia" on 2026-07-31: no
+    // agreement, no G2, and the flagship set's date never published at all.
+    const resolved = resolveGame(ALL, "pokemon-tcg", false);
+    const setId = resolved.setOf.get("Mega Evolution—Delta Reign") as string;
+    const shelf = resolved.candidates.filter(
+      (candidate) => resolved.setOfCandidate.get(candidate) === setId && candidate.type === "SHELF",
+    );
+
+    const asClaim = (candidate: Candidate): ClaimRecord => ({
+      origin: candidate.origin,
+      tier: ORIGINS[candidate.origin as keyof typeof ORIGINS]?.tier ?? "COMMUNITY",
+      date: candidate.date,
+      consecutiveRuns: 1,
+      seenInCurrentRun: true,
+      lastSeenAt: FETCHED_AT,
+    });
+
+    // One claim slot per origin, last write wins -- the pre-phase-4 shape.
+    const fusedByOrigin = new Map<Origin, ClaimRecord>();
+    for (const candidate of shelf) fusedByOrigin.set(candidate.origin, asClaim(candidate));
+    const fused = evaluateGate({ now: FETCHED_AT, claims: [...fusedByOrigin.values()], published: null });
+    expect(fused.action).toBe("HOLD");
+    expect(fused.date).toBeNull();
+
+    // Region-scoped, as the pipeline now does it: the global event publishes on
+    // G2 (TCGplayer and Bulbapedia agreeing), and the Japanese event carries its
+    // own date without arguing with it.
+    const global = shelf.filter((candidate) => candidate.region === "GLOBAL").map(asClaim);
+    const globalVerdict = evaluateGate({ now: FETCHED_AT, claims: global, published: null });
+    expect(globalVerdict.action).toBe("PUBLISH");
+    expect(globalVerdict.rule).toBe("G2");
+    expect(globalVerdict.date).toEqual({ kind: "EXACT", date: new Date("2026-11-06T00:00:00.000Z") });
+
+    const jp = shelf.filter((candidate) => candidate.region === "JP").map(asClaim);
+    const jpVerdict = evaluateGate({ now: FETCHED_AT, claims: jp, published: null });
+    expect(jpVerdict.action, "a lone-origin region holds, it never conflicts").not.toBe("FLAG");
+  });
+
   it("keeps the six sequential One Piece starter decks apart", () => {
     const ids = new Set(
       forGame("one-piece-tcg")
@@ -321,14 +521,21 @@ describe("real fixtures: cross-origin pairing rate per game", () => {
     "gundam-card-game": { candidates: 16, sets: 10, paired: 6 },
     // 8 -> 11, and 50 -> 55 sets: three of the new pairings are Wikipedia rows
     // that now find their set by code, and the five extra sets are false merges
-    // the code veto took apart.
-    "magic-the-gathering": { candidates: 73, sets: 55, paired: 11 },
+    // the code veto took apart. Phase 4 then dropped three candidates and one
+    // set: Wikipedia's three "Unnamed Universes Beyond Set" rows, which shared
+    // a placeholder name, a "TBA" code and therefore one external id, and had
+    // fused into a single contentless ProductSet.
+    "magic-the-gathering": { candidates: 70, sets: 54, paired: 11 },
     // 0 before, same reason as Gundam. Ten of the publisher's eleven in-window
     // products pair; the eleventh (Double Pack Set Vol.12) is one TCGplayer
     // does not carry.
     "one-piece-tcg": { candidates: 25, sets: 15, paired: 10 },
     // 2 -> 3, and the two that already paired now pull in the retailer too.
-    "pokemon-tcg": { candidates: 28, sets: 24, paired: 3 },
+    // Phase 4 added two candidates and no sets: the Japanese expansion list's
+    // two in-window rows both resolved onto the English product they name,
+    // through the Bulbapedia article link both pages carry. Two extra
+    // candidates landing on zero extra sets is the whole claim of that change.
+    "pokemon-tcg": { candidates: 30, sets: 24, paired: 3 },
     "riftbound": { candidates: 10, sets: 7, paired: 3 },
     "yugioh-tcg": { candidates: 40, sets: 32, paired: 8 },
   };

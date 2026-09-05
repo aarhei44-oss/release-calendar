@@ -1,0 +1,11 @@
+-- (productSetId, type, region) is the v2 ingest pipeline's event key: a Japanese
+-- street date and a global one for the same product are two events rather than
+-- two contradicting claims about one.
+--
+-- Deliberately an index and NOT a unique constraint. The v1 crawler still
+-- creates several events per (productSet, type) on purpose and matches them by
+-- +/-14-day date proximity (lib/crawler/dedup.ts's findMatchingEvent), so a
+-- uniqueness constraint here would break the live pipeline and would require
+-- backfilling every existing row.
+-- CreateIndex
+CREATE INDEX "ReleaseEvent_productSetId_type_region_idx" ON "ReleaseEvent"("productSetId", "type", "region");

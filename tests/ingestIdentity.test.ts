@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectAmbiguousCodes,
+  isPlaceholderName,
   normalizeSetCode,
   resolveSetIdentity,
   setCodesFor,
@@ -465,5 +466,73 @@ describe("resolveSetIdentity: new products", () => {
   it("reports `new` against an empty catalogue", () => {
     const result = resolveSetIdentity(candidate({ name: "The First Chapter" }), { sets: [], identities: [] });
     expect(result).toEqual({ productSetId: null, matchedBy: "new" });
+  });
+});
+
+describe("placeholder names", () => {
+  /**
+   * The name-shaped twin of the placeholder-code rule. Wikipedia's Magic list
+   * carries three separate rows all called "Unnamed Universes Beyond Set", with
+   * "TBA" in every other column -- three products Wizards has slotted and not
+   * announced. They are not one product, and a shared placeholder is not
+   * evidence that they are; it is evidence that none of them has a name yet.
+   */
+  it("recognises the placeholders the fixtures actually contain", () => {
+    for (const name of [
+      "Unnamed Universes Beyond Set",
+      "TBA",
+      "TBD",
+      "—",
+      "?",
+      "N/A",
+      "Untitled expansion",
+      "TBA Universes Beyond set",
+      "",
+    ]) {
+      expect(isPlaceholderName(name), name).toBe(true);
+    }
+  });
+
+  it("does not mistake an un-set for an unnamed one", () => {
+    // The prefix rule stops at a word boundary, because these are real products.
+    for (const name of ["Unglued", "Unhinged", "Unstable", "Unsanctioned", "Unfinity", "Undercity"]) {
+      expect(isPlaceholderName(name), name).toBe(false);
+    }
+  });
+
+  it("keeps three identically-named placeholder rows on three sets", () => {
+    // Resolved in sequence against a catalogue that grows as they are created,
+    // exactly as orchestrate.ts's resolveInstallCandidates does.
+    const sets: ExistingProductSet[] = [];
+    const ids = new Set<string>();
+    for (let index = 0; index < 3; index++) {
+      const result = resolveSetIdentity(candidate({ name: "Unnamed Universes Beyond Set" }), {
+        sets,
+        identities: [],
+      });
+      expect(result.matchedBy).toBe("new");
+      const id = `placeholder-${index}`;
+      sets.push({ id, name: "Unnamed Universes Beyond Set" });
+      ids.add(id);
+    }
+    expect(ids.size).toBe(3);
+  });
+
+  it("still honours an external id on a placeholder-named row", () => {
+    // The refusal is scoped to the *name* tier. A row an upstream has pinned by
+    // id is identified, whatever its name column says.
+    const result = resolveSetIdentity(
+      candidate({ origin: "wikipedia", externalIds: { wikipedia: "wp-1" }, name: "TBA" }),
+      { sets: [{ id: "set-known", name: "Known Set" }], identities: [{ origin: "wikipedia", externalId: "wp-1", productSetId: "set-known" }] },
+    );
+    expect(result).toMatchObject({ productSetId: "set-known", matchedBy: "id" });
+  });
+
+  it("never lets a placeholder-named stored set absorb a real one", () => {
+    const result = resolveSetIdentity(candidate({ name: "Unnamed Universes Beyond Set" }), {
+      sets: [{ id: "set-placeholder", name: "Unnamed Universes Beyond Set" }],
+      identities: [],
+    });
+    expect(result.matchedBy).toBe("new");
   });
 });

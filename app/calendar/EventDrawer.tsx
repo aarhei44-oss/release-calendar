@@ -8,7 +8,7 @@ import { X, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { googleCalendarEventUrl, outlookComEventUrl, office365EventUrl } from "@/lib/calendarLinks";
 import { getEventDetail } from "./actions";
-import { formatEventDate, statusBadgeClass } from "./eventDisplay";
+import { NEUTRAL_BADGE_CLASS, formatEventDate, regionBadgeLabel, regionBadgeTitle, statusBadgeClass } from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
 import { CommentsForEvent } from "./CommentsForEvent";
 import { EventPersonalization } from "./EventPersonalization";
@@ -149,6 +149,15 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       >
                         {detail.status}
                       </span>
+                      {regionBadgeLabel(detail.region) && (
+                        <span
+                          data-testid="event-region"
+                          title={regionBadgeTitle(detail.region)}
+                          className={NEUTRAL_BADGE_CLASS}
+                        >
+                          {regionBadgeLabel(detail.region)}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         Confidence: {Math.round(detail.confidence * 100)}%
                       </span>

@@ -22,16 +22,34 @@ import type { FetchContext, Provider } from "./types";
  * origins in the pipeline, so they are also what turns G1 from an untested
  * branch into live code.
  *
- * **The English site only.** Bandai runs a separate Japanese site with earlier
- * dates for the same products, and ingesting both would be actively harmful:
- * ReleaseEvents are keyed by (productSet, type) and *not* by region, so a JP
- * street date and a global one for one product would land on a single event as
- * two claims months apart, which the gate would correctly read as a G5 conflict
- * and flag for review -- on every One Piece set, forever. Region needs to become
- * part of the event key before the JP catalogue can be ingested; that is a
- * pipeline change, not a provider one. Until then this provider emits GLOBAL
- * dates only, matching what the event keying can actually represent. (The same
- * limitation is why bulbapedia.ts defers the Japanese Pokemon expansion list.)
+ * **The English site only, still -- but no longer for the original reason.**
+ * Phases 2 and 3 held the Japanese site back because ReleaseEvents were keyed by
+ * (productSet, type) and not by region, so a JP street date and a global one for
+ * one product landed on a single event as two claims months apart and the gate
+ * correctly read that as a G5 conflict. Phase 4 fixed that: region is part of
+ * the event key now (lib/ingest/orchestrate.ts's eventGroupKey), and
+ * bulbapedia.ts's Japanese expansion list went live on the strength of it.
+ *
+ * What still blocks www.onepiece-cardgame.com is parsing, and it is more than a
+ * flag flip. The page reuses this one's class names (`.linkListColBox`,
+ * `.linkListColTitle`, `.linkListColDate`) but nothing else:
+ *
+ *   - the release-date label is "発売日", not "Release date", so RELEASE_DATE_LABEL
+ *     below cannot tell a street date from a Premium Bandai delivery month;
+ *   - dates read "2026.10.03(土)" or "2026.10" -- a dotted format with a
+ *     weekday in kana, and a bare month for a month-granularity release. Neither
+ *     reaches parseCandidateDateText, and both have to keep their granularity
+ *     (see the note below on why the `datetime` attribute is not read);
+ *   - set codes are printed in full-width brackets, 【EB-05】, so TITLE_CODE
+ *     misses them -- and that regex is the accessory filter, so getting it wrong
+ *     fills the calendar with playmats at OFFICIAL tier;
+ *   - product names are Japanese, so a JP-only product would appear on an
+ *     English calendar under a Japanese name, which is a display decision that
+ *     wants making deliberately rather than by accident.
+ *
+ * Three new parsing rules and a display decision is a provider of its own, not a
+ * spec entry, so it is left for a later phase. The same applies to
+ * www.gundam-gcg.com; see bandaiGundam.ts.
  */
 
 const PROVIDER_KEY = "bandai-onepiece";

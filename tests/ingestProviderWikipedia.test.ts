@@ -144,10 +144,25 @@ describe("wikipedia provider: the forward window", () => {
     expect(names).toContain("Kamigawa: Titanbreach"); // Magic, 2027-06-04
   });
 
-  it("keeps an undated announced set as TBD", () => {
-    const unnamed = parse().filter((candidate) => candidate.name === "Unnamed Universes Beyond Set");
-    expect(unnamed.length).toBeGreaterThan(0);
-    expect(unnamed[0].date).toEqual({ kind: "TBD" });
+  it("keeps an undated but genuinely named announced set as TBD", () => {
+    // "Kaladesh: The Gift Box" has a real name and no date at all. Undated is
+    // not the same as unidentified: the forward window deliberately passes a
+    // TBD through (an announced-but-undated product is often the most
+    // interesting row on the page), and a real name is enough to resolve it and
+    // to show it. Only rows whose *name* says nothing are refused.
+    const undated = parse().filter((candidate) => candidate.name === "Kaladesh: The Gift Box");
+    expect(undated.length).toBeGreaterThan(0);
+    expect(undated[0].date).toEqual({ kind: "TBD" });
+  });
+
+  it("refuses the three placeholder-named Magic rows outright", () => {
+    // Three separate rows on the Magic list read "Unnamed Universes Beyond Set"
+    // with "TBA" in every other column. They are three different products, and
+    // nothing on the page distinguishes them -- so they must not be emitted
+    // (see mediawiki.ts's placeholder-name refusal), and the three-way false
+    // merge they used to produce is asserted gone in
+    // ingestIdentityFixtures.test.ts.
+    expect(parse().map((candidate) => candidate.name)).not.toContain("Unnamed Universes Beyond Set");
   });
 });
 

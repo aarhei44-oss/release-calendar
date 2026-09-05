@@ -19,9 +19,13 @@ import type { FetchContext, Provider } from "./types";
  * and every date has to wait out gate rule G3's seven-run retailer streak, where
  * an OFFICIAL claim publishes under G1 on first sight.
  *
- * English site only, and for the same modelling reason -- ReleaseEvent is keyed
- * by (productSet, type) and not by region, so a Japanese street date beside a
- * global one would be a permanent G5 conflict rather than two events.
+ * English site only. That was a modelling limit through phases 2 and 3 -- a
+ * Japanese street date beside a global one was a permanent G5 conflict rather
+ * than two events -- and since phase 4 made region part of the event key it is
+ * a parsing limit instead: the Japanese site states its dates and set codes in
+ * formats this parser does not read. bandaiOnePiece.ts sets out exactly what
+ * that would take; the two sites are built from the same template and the same
+ * list applies here.
  *
  * One page, four kinds of product block. The blocks share their inner class
  * names (.title, .number, .date) but not their containers, because the page

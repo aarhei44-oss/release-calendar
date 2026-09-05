@@ -97,6 +97,61 @@ export function statusBadgeClass(status: CalendarEvent["status"]): string {
   return STATUS_STYLES[status];
 }
 
+/**
+ * Short label for a non-global release region, or null for a global one.
+ *
+ * Null for GLOBAL deliberately, and the null is the feature. Most events on the
+ * calendar are global, so a "GLOBAL" pill on every card would be a column of
+ * identical noise that teaches a reader to stop looking at that corner of the
+ * card -- which is precisely where a "JP" needs to be noticed. A region badge
+ * only ever means "this date is not the one that applies to you unless you are
+ * there", so it only ever appears when that is true.
+ *
+ * Region became a real distinction in the v2 ingest pipeline's phase 4, where it
+ * joined (productSet, type) as part of the event key: a Japanese street date and
+ * a global one for the same product are now two events rather than one
+ * self-contradicting one, so for the first time there are events on the calendar
+ * whose date genuinely does not apply everywhere.
+ */
+const REGION_LABELS: Record<CalendarEvent["region"], string | null> = {
+  GLOBAL: null,
+  NA: "NA",
+  EU: "EU",
+  APAC: "APAC",
+  JP: "JP",
+  OTHER: "Regional",
+};
+
+export function regionBadgeLabel(region: CalendarEvent["region"]): string | null {
+  return REGION_LABELS[region];
+}
+
+/** The long form, for the badge's `title`/tooltip -- the short code alone is not self-explanatory. */
+const REGION_TITLES: Record<CalendarEvent["region"], string> = {
+  GLOBAL: "Global release date",
+  NA: "North America release date",
+  EU: "Europe release date",
+  APAC: "Asia-Pacific release date",
+  JP: "Japan release date",
+  OTHER: "Region-specific release date",
+};
+
+export function regionBadgeTitle(region: CalendarEvent["region"]): string {
+  return REGION_TITLES[region];
+}
+
+/**
+ * The neutral pill the "Range" marker already uses.
+ *
+ * Shared rather than restated so the two read as one family, and deliberately
+ * not colour-coded per region: the label carries the meaning (a screen reader
+ * and a monochrome display both get "JP"), and colour here would compete with
+ * the status badge, which is the one badge on the card whose colour is load
+ * bearing.
+ */
+export const NEUTRAL_BADGE_CLASS =
+  "shrink-0 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300";
+
 // Solid (not pale) colors -- these back a ~6px dot in the mobile month grid,
 // where STATUS_STYLES' pastel badge backgrounds would be too faint to read.
 const STATUS_DOT_STYLES: Record<CalendarEvent["status"], string> = {

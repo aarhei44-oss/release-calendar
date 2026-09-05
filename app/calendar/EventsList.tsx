@@ -2,7 +2,16 @@
 
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { eventTitle } from "./mapEvents";
-import { formatEventDate, formatRelativeTime, sortKeyFor, statusBadgeClass, type ReactionCounts } from "./eventDisplay";
+import {
+  NEUTRAL_BADGE_CLASS,
+  formatEventDate,
+  formatRelativeTime,
+  regionBadgeLabel,
+  regionBadgeTitle,
+  sortKeyFor,
+  statusBadgeClass,
+  type ReactionCounts,
+} from "./eventDisplay";
 import { ReactionBadges } from "./ReactionBadges";
 
 type Props = {
@@ -50,11 +59,13 @@ export function EventsList({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <ReactionBadges counts={reactionSummaries?.[event.id]} />
+              {regionBadgeLabel(event.region) && (
+                <span data-testid="event-region" title={regionBadgeTitle(event.region)} className={NEUTRAL_BADGE_CLASS}>
+                  {regionBadgeLabel(event.region)}
+                </span>
+              )}
               {event.dateType === "RANGE" && (
-                <span
-                  title="Spans a date range -- not shown on the calendar grid"
-                  className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                >
+                <span title="Spans a date range -- not shown on the calendar grid" className={NEUTRAL_BADGE_CLASS}>
                   Range
                 </span>
               )}

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatEventDate, formatRelativeTime, topReactions } from "@/app/calendar/eventDisplay";
+import {
+  NEUTRAL_BADGE_CLASS,
+  formatEventDate,
+  formatRelativeTime,
+  regionBadgeLabel,
+  regionBadgeTitle,
+  topReactions,
+} from "@/app/calendar/eventDisplay";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 
 function fakeDateFields(overrides: Partial<CalendarEvent>): CalendarEvent {
@@ -72,6 +79,41 @@ describe("formatRelativeTime", () => {
 
   it("formats a future time", () => {
     expect(formatRelativeTime(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000))).toBe("in 2 days");
+  });
+});
+
+describe("regionBadgeLabel", () => {
+  // The event card renders the badge only when this returns a label, so "no
+  // label for GLOBAL" is the whole rule: most releases are global, and a
+  // "GLOBAL" pill on every card is a column of identical noise that trains a
+  // reader to ignore exactly the corner where a "JP" has to be noticed.
+  it("returns nothing for a global release", () => {
+    expect(regionBadgeLabel("GLOBAL")).toBeNull();
+  });
+
+  it("labels every region that is not global", () => {
+    expect(regionBadgeLabel("JP")).toBe("JP");
+    expect(regionBadgeLabel("NA")).toBe("NA");
+    expect(regionBadgeLabel("EU")).toBe("EU");
+    expect(regionBadgeLabel("APAC")).toBe("APAC");
+    // OTHER has no meaningful abbreviation, so it says what it means.
+    expect(regionBadgeLabel("OTHER")).toBe("Regional");
+  });
+
+  it("carries the meaning in text, never in colour alone", () => {
+    // The badge is rendered with the same neutral pill the "Range" marker uses
+    // and is not colour-coded per region: a screen reader, a monochrome display
+    // and a colour-blind reader all get the same information, and the one badge
+    // on the card whose colour *is* load-bearing (status) keeps that job to
+    // itself.
+    for (const region of ["JP", "NA", "EU", "APAC", "OTHER"] as const) {
+      const label = regionBadgeLabel(region);
+      expect(label, region).toBeTruthy();
+      expect(label?.trim().length).toBeGreaterThan(0);
+      // ...and a tooltip that spells the short code out.
+      expect(regionBadgeTitle(region)).toMatch(/release date$/);
+    }
+    expect(NEUTRAL_BADGE_CLASS).not.toMatch(/red|green|blue|amber|purple/);
   });
 });
 

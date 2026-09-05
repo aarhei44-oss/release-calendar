@@ -334,21 +334,7 @@ export async function runStagesFromPayloads(params: {
 
     const resolved = await resolveInstallCandidates(install.id, forInstall, totals);
 
-    // One event per (productSet, type): that pairing *is* a release event, and
-    // grouping here means the gate sees an event's whole claim set at once
-    // rather than one claim at a time -- which is precisely what v1 could not
-    // do, and why v1 had to decide with a running total instead of a rule.
-    const groups = new Map<string, { productSetId: string; type: Candidate["type"]; entries: ResolvedCandidate[] }>();
-    for (const entry of resolved) {
-      const productSetId = entry.resolution.productSetId;
-      if (!productSetId) continue;
-      const key = `${productSetId} ${entry.type}`;
-      const group = groups.get(key) ?? { productSetId, type: entry.type, entries: [] };
-      group.entries.push(entry);
-      groups.set(key, group);
-    }
-
-    for (const group of groups.values()) {
+    for (const group of groupResolvedCandidates(resolved).values()) {
       try {
         const item = await gateGroup(group, now);
         touchedEventIds.add(item.releaseEventId);
@@ -454,15 +440,60 @@ async function resolveInstallCandidates(
   return resolved;
 }
 
-/** Stage 4 for one (productSet, type): assemble claims, run the gate, package the result for Apply. */
-async function gateGroup(
-  group: { productSetId: string; type: Candidate["type"]; entries: ResolvedCandidate[] },
-  now: Date,
-): Promise<ApplyItem> {
+/** One release event's worth of this run's candidates, as the gate wants to see them. */
+export type EventGroup = {
+  productSetId: string;
+  type: Candidate["type"];
+  region: Candidate["region"];
+  entries: ResolvedCandidate[];
+};
+
+/**
+ * The key that says which candidates are talking about the same release event.
+ *
+ * NUL-separated so no component can forge a collision by containing the
+ * separator, the same reasoning as identity.ts's identityKey.
+ */
+export function eventGroupKey(productSetId: string, type: Candidate["type"], region: Candidate["region"]): string {
+  return `${productSetId}\0${type}\0${region}`;
+}
+
+/**
+ * Groups this run's resolved candidates into one bucket per release event.
+ *
+ * (productSet, type, region) -- and the third component is the whole of phase 4.
+ * Grouping on (productSet, type) alone made a Japanese street date and a global
+ * one for the same expansion two claims about a single event, three months
+ * apart, which the gate reads (correctly, given what it was told) as a G5
+ * conflict. That is not a gate bug: the gate was handed a question with no right
+ * answer. Two dates for two regions are two facts, and they belong on two
+ * events, so the split happens here -- before the gate ever sees them -- and the
+ * gate's conflict rule goes on meaning exactly what it always meant, within one
+ * region.
+ *
+ * Exported so the property that matters ("claims from different regions never
+ * meet") is testable without a database; lib/ingest/gate.ts stays pure and
+ * region-agnostic.
+ */
+export function groupResolvedCandidates(resolved: ResolvedCandidate[]): Map<string, EventGroup> {
+  const groups = new Map<string, EventGroup>();
+  for (const entry of resolved) {
+    const productSetId = entry.resolution.productSetId;
+    if (!productSetId) continue;
+    const key = eventGroupKey(productSetId, entry.type, entry.region);
+    const group = groups.get(key) ?? { productSetId, type: entry.type, region: entry.region, entries: [] };
+    group.entries.push(entry);
+    groups.set(key, group);
+  }
+  return groups;
+}
+
+/** Stage 4 for one (productSet, type, region): assemble claims, run the gate, package the result for Apply. */
+async function gateGroup(group: EventGroup, now: Date): Promise<ApplyItem> {
   const event = await ingestRepo.findOrCreateReleaseEvent({
     productSetId: group.productSetId,
     type: group.type,
-    region: group.entries[0].region,
+    region: group.region,
     date: group.entries[0].date,
   });
 

@@ -227,7 +227,17 @@ model ReleaseEvent {
   eventReactions     EventReaction[]
   reviewItems        ReviewItem[]
 
+  // (productSetId, type, region) is the v2 ingest pipeline's event key: a
+  // Japanese street date and a global one for the same product are two events,
+  // not two contradicting claims about one (see lib/ingest/orchestrate.ts's
+  // eventGroupKey). Deliberately an index and NOT a @@unique -- the v1 crawler
+  // still creates several events per (productSet, type) on purpose, matching
+  // them by +/-14-day date proximity (lib/crawler/dedup.ts's
+  // findMatchingEvent), so a uniqueness constraint here would break the live
+  // pipeline and require a backfill of every existing row. v2 scopes by region
+  // in its resolution logic instead.
   @@index([productSetId, type])
+  @@index([productSetId, type, region])
   @@index([dateType, dateExact, dateStart])
   @@index([archivedAt])
   @@index([movedFromProductSetId])
@@ -259,9 +269,13 @@ model SourceClaim {
   // convergent: re-running a stored run supersedes its own prior claims in
   // place instead of stacking a fresh duplicate every time (see
   // data/ingest/ingestRepo.ts's upsertIngestClaim). The event id stands in
-  // for the spec's (productSetId, type) pair -- an event *is* a
-  // (productSetId, type) within an install, so keying on it is equivalent
-  // and doesn't denormalize productSetId onto every claim row.
+  // for the spec's (productSetId, type, region) triple -- to v2 an event *is*
+  // a (productSetId, type, region) within an install (see
+  // findOrCreateReleaseEvent), so keying on it is equivalent and doesn't
+  // denormalize three columns onto every claim row. Region joined that triple
+  // in phase 4; because the claim key was already the event id, it came along
+  // for free, and a JP claim can no longer overwrite a GLOBAL one from the
+  // same origin in the same run.
   scanRunId               String?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt

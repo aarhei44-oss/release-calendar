@@ -268,12 +268,35 @@ export async function getPublishedState(releaseEventId: string): Promise<Publish
   return { date: date.kind === "TBD" ? null : date, status: event.status };
 }
 
+/**
+ * Resolves the one event a (productSet, type, region) triple names, creating it
+ * if this is the first time anything has claimed it.
+ *
+ * Region is part of the lookup, not just of the row it creates. Without it a
+ * Japanese street date and a global one for the same expansion resolve to a
+ * single event, arrive at the gate as two claims three months apart, and are
+ * correctly read as a G5 conflict -- on every set with a JP release, forever.
+ * That is the reason Phase 2 held back Bulbapedia's Japanese expansion list and
+ * both Bandai sites' JP catalogues.
+ *
+ * Note the *absence* of a matching database constraint: ReleaseEvent carries an
+ * `@@index([productSetId, type, region])` and deliberately no `@@unique`. The v1
+ * crawler still creates several events per (productSet, type) on purpose, for
+ * dates far enough apart to be different printings (lib/crawler/dedup.ts's
+ * findMatchingEvent, +/-14 days), and it is still the live pipeline. Scoping
+ * happens here, in v2's resolution logic, so v1 is untouched.
+ */
 export async function findOrCreateReleaseEvent(
   params: { productSetId: string; type: ReleaseEventType; region: Region; date: CandidateDate },
   db: Db = prisma,
 ) {
   const existing = await db.releaseEvent.findFirst({
-    where: { productSetId: params.productSetId, type: params.type, archivedAt: null },
+    where: {
+      productSetId: params.productSetId,
+      type: params.type,
+      region: params.region,
+      archivedAt: null,
+    },
     orderBy: { createdAt: "asc" },
   });
   if (existing) return existing;

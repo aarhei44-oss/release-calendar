@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { eventTitle } from "@/app/calendar/mapEvents";
-import { formatEventDate, formatRelativeTime, statusBadgeClass } from "@/app/calendar/eventDisplay";
+import {
+  NEUTRAL_BADGE_CLASS,
+  formatEventDate,
+  formatRelativeTime,
+  regionBadgeLabel,
+  regionBadgeTitle,
+  statusBadgeClass,
+} from "@/app/calendar/eventDisplay";
 import { DEFAULT_DASHBOARD_CARD_ORDER, type DashboardCardId } from "./cards";
 
 type SubscribedGame = { id: string; name: string };
@@ -65,6 +72,11 @@ function EventCard({
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {regionBadgeLabel(event.region) && (
+          <span data-testid="event-region" title={regionBadgeTitle(event.region)} className={NEUTRAL_BADGE_CLASS}>
+            {regionBadgeLabel(event.region)}
+          </span>
+        )}
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(event.status)}`}>
           {event.status}
         </span>
