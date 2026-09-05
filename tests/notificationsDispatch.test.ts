@@ -1,22 +1,39 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanChange } from "@/lib/notifications/types";
-import type { InstallSubscriber, EventFollower } from "@/data/notifications/notificationsRepo";
+import type { AdminAlertRecipient, InstallSubscriber, EventFollower } from "@/data/notifications/notificationsRepo";
 
 const sendEmailAlert = vi.fn().mockResolvedValue(undefined);
 const sendDiscordAlert = vi.fn().mockResolvedValue(undefined);
+const sendAdminAlarmEmail = vi.fn().mockResolvedValue(undefined);
+const sendAdminAlarmDiscord = vi.fn().mockResolvedValue(undefined);
 const getSubscribersForInstalls = vi.fn<(installIds: string[]) => Promise<InstallSubscriber[]>>();
 const getFollowersForEvents = vi.fn<(eventIds: string[]) => Promise<EventFollower[]>>();
+const getAdminAlertRecipients = vi.fn<() => Promise<AdminAlertRecipient[]>>();
 
 vi.mock("@/lib/notifications/email", () => ({
   sendEmailAlert: (...args: unknown[]) => sendEmailAlert(...args),
+  sendAdminAlarmEmail: (...args: unknown[]) => sendAdminAlarmEmail(...args),
 }));
 vi.mock("@/lib/notifications/discord", () => ({
   sendDiscordAlert: (...args: unknown[]) => sendDiscordAlert(...args),
+  sendAdminAlarmDiscord: (...args: unknown[]) => sendAdminAlarmDiscord(...args),
 }));
 vi.mock("@/data/notifications/notificationsRepo", () => ({
   getSubscribersForInstalls: (...args: [string[]]) => getSubscribersForInstalls(...args),
   getFollowersForEvents: (...args: [string[]]) => getFollowersForEvents(...args),
+  getAdminAlertRecipients: (...args: []) => getAdminAlertRecipients(...args),
 }));
+
+function adminRecipient(overrides: Partial<AdminAlertRecipient> = {}): AdminAlertRecipient {
+  return {
+    userId: "admin-1",
+    email: "admin@example.com",
+    emailAlertsEnabled: true,
+    discordWebhookUrl: null,
+    discordAlertsEnabled: false,
+    ...overrides,
+  };
+}
 
 function follower(overrides: Partial<EventFollower> = {}): EventFollower {
   return {
@@ -57,10 +74,14 @@ function subscriber(overrides: Partial<InstallSubscriber> = {}): InstallSubscrib
 beforeEach(() => {
   sendEmailAlert.mockClear();
   sendDiscordAlert.mockClear();
+  sendAdminAlarmEmail.mockClear();
+  sendAdminAlarmDiscord.mockClear();
   getSubscribersForInstalls.mockReset();
   getSubscribersForInstalls.mockResolvedValue([]);
   getFollowersForEvents.mockReset();
   getFollowersForEvents.mockResolvedValue([]);
+  getAdminAlertRecipients.mockReset();
+  getAdminAlertRecipients.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -232,5 +253,91 @@ describe("dispatchScanChangeNotifications", () => {
 
     const [, changesArg] = sendEmailAlert.mock.calls[0];
     expect(changesArg).toHaveLength(1);
+  });
+});
+
+describe("dispatchAdminAlarm", () => {
+  it("does nothing when there are no active admins", async () => {
+    getAdminAlertRecipients.mockResolvedValue([]);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await dispatchAdminAlarm({ subject: "s", body: "b" });
+
+    expect(sendAdminAlarmEmail).not.toHaveBeenCalled();
+    expect(sendAdminAlarmDiscord).not.toHaveBeenCalled();
+  });
+
+  it("emails an admin with email alerts enabled", async () => {
+    getAdminAlertRecipients.mockResolvedValue([adminRecipient({ emailAlertsEnabled: true })]);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await dispatchAdminAlarm({ subject: "Provider gone quiet", body: "details" });
+
+    expect(sendAdminAlarmEmail).toHaveBeenCalledTimes(1);
+    expect(sendAdminAlarmEmail).toHaveBeenCalledWith("admin@example.com", "Provider gone quiet", "details");
+  });
+
+  it("does not email an admin who has email alerts disabled", async () => {
+    getAdminAlertRecipients.mockResolvedValue([adminRecipient({ emailAlertsEnabled: false })]);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await dispatchAdminAlarm({ subject: "s", body: "b" });
+
+    expect(sendAdminAlarmEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not post to Discord for an admin with alerts enabled but no webhook URL", async () => {
+    getAdminAlertRecipients.mockResolvedValue([
+      adminRecipient({ discordAlertsEnabled: true, discordWebhookUrl: null }),
+    ]);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await dispatchAdminAlarm({ subject: "s", body: "b" });
+
+    expect(sendAdminAlarmDiscord).not.toHaveBeenCalled();
+  });
+
+  it("posts to Discord for an admin with both alerts enabled and a webhook URL", async () => {
+    getAdminAlertRecipients.mockResolvedValue([
+      adminRecipient({ discordAlertsEnabled: true, discordWebhookUrl: "https://discord.com/api/webhooks/1/a" }),
+    ]);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await dispatchAdminAlarm({ subject: "Provider gone quiet", body: "details" });
+
+    expect(sendAdminAlarmDiscord).toHaveBeenCalledTimes(1);
+    expect(sendAdminAlarmDiscord).toHaveBeenCalledWith(
+      "https://discord.com/api/webhooks/1/a",
+      "**Provider gone quiet**\ndetails",
+    );
+  });
+
+  it("keeps notifying other admins when one admin's email send fails", async () => {
+    getAdminAlertRecipients.mockResolvedValue([
+      adminRecipient({ userId: "admin-1", email: "fails@example.com" }),
+      adminRecipient({ userId: "admin-2", email: "ok@example.com" }),
+    ]);
+    sendAdminAlarmEmail.mockRejectedValueOnce(new Error("SMTP down")).mockResolvedValueOnce(undefined);
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await expect(dispatchAdminAlarm({ subject: "s", body: "b" })).resolves.toBeUndefined();
+
+    expect(sendAdminAlarmEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it("still sends Discord when email fails for the same admin", async () => {
+    getAdminAlertRecipients.mockResolvedValue([
+      adminRecipient({
+        emailAlertsEnabled: true,
+        discordAlertsEnabled: true,
+        discordWebhookUrl: "https://discord.com/api/webhooks/1/a",
+      }),
+    ]);
+    sendAdminAlarmEmail.mockRejectedValueOnce(new Error("SMTP down"));
+    const { dispatchAdminAlarm } = await import("@/lib/notifications/dispatch");
+
+    await expect(dispatchAdminAlarm({ subject: "s", body: "b" })).resolves.toBeUndefined();
+
+    expect(sendAdminAlarmDiscord).toHaveBeenCalledTimes(1);
   });
 });

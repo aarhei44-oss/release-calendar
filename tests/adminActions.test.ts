@@ -23,6 +23,14 @@ import {
   listRecentMerges,
   undoProductSetMerge,
   undoReleaseEventMerge,
+  listIngestRunHealth,
+  listProviderHealth,
+  replayIngestRun,
+  retryIngestRun,
+  triggerFreshnessCheck,
+  listReviewQueue,
+  countOpenReviewItems,
+  resolveReviewItem,
 } from "@/app/admin/actions";
 
 const mockGetServerSession = vi.mocked(getServerSession);
@@ -86,6 +94,14 @@ describe("admin Server Actions -- authorization", () => {
     ["listRecentMerges", () => listRecentMerges()],
     ["undoProductSetMerge", () => undoProductSetMerge(installId)],
     ["undoReleaseEventMerge", () => undoReleaseEventMerge(installId)],
+    ["listIngestRunHealth", () => listIngestRunHealth()],
+    ["listProviderHealth", () => listProviderHealth()],
+    ["replayIngestRun", () => replayIngestRun("no-such-run")],
+    ["retryIngestRun", () => retryIngestRun("no-such-run")],
+    ["triggerFreshnessCheck", () => triggerFreshnessCheck()],
+    ["listReviewQueue", () => listReviewQueue()],
+    ["countOpenReviewItems", () => countOpenReviewItems()],
+    ["resolveReviewItem", () => resolveReviewItem("no-such-item", { kind: "dismiss" })],
   ];
 
   for (const [name, call] of unauthenticatedCases) {
@@ -317,6 +333,190 @@ describe("triggerRetentionCleanup / listRecentMerges / undo*Merge (System tab)",
 
     const restored = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: duplicate.id } });
     expect(restored.archivedAt).toBeNull();
+  });
+});
+
+describe("v2 ingest admin actions (System tab / Review tab)", () => {
+  it("reports provider health classified OK/PARTIAL/FAILED across a run's providers", async () => {
+    const run = await prisma.scanRun.create({
+      data: { scopeType: "ALL", trigger: "SCHEDULED", status: "SUCCEEDED", startedAt: new Date(), finishedAt: new Date() },
+    });
+    await prisma.providerRun.create({
+      data: { scanRunId: run.id, providerKey: "admin-actions-ok", status: "OK", candidates: 3, startedAt: new Date(), finishedAt: new Date() },
+    });
+    await prisma.providerRun.create({
+      data: { scanRunId: run.id, providerKey: "admin-actions-failed", status: "FAILED", error: "timeout", candidates: 0, startedAt: new Date(), finishedAt: new Date() },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const health = await listIngestRunHealth();
+
+    const row = health.find((r) => r.id === run.id);
+    expect(row?.providerHealth).toBe("PARTIAL");
+    expect(row?.hasFailedProviders).toBe(true);
+  });
+
+  it("lists per-provider freshness including a standing alarm", async () => {
+    const providerKey = `admin-actions-freshness-${crypto.randomUUID()}`;
+    await prisma.providerRun.create({
+      data: { scanRunId: crypto.randomUUID(), providerKey, status: "OK", startedAt: new Date(0), finishedAt: new Date(0) },
+    });
+    await prisma.providerAlarm.create({
+      data: { providerKey, openedAt: new Date(0), notifiedAt: new Date(0) },
+    });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const health = await listProviderHealth();
+
+    const row = health.find((r) => r.providerKey === providerKey);
+    expect(row?.stale).toBe(true);
+    expect(row?.alarm).not.toBeNull();
+  });
+
+  it("rejects replaying/retrying an unknown run id", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(replayIngestRun("no-such-run")).rejects.toThrow(/No such run/);
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(retryIngestRun("no-such-run")).rejects.toThrow();
+  });
+
+  it("lets an admin run a freshness check on demand", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const result = await triggerFreshnessCheck();
+    expect(result.checked).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("review queue resolution (Review tab)", () => {
+  let productSetId: string;
+
+  beforeAll(async () => {
+    const productSet = await prisma.productSet.create({
+      data: { tcgProfileInstallId: installId, code: "REVIEWQ-1", name: "Review Queue Test Set" },
+    });
+    productSetId = productSet.id;
+  });
+
+  async function createReviewItem() {
+    const event = await prisma.releaseEvent.create({
+      data: {
+        productSetId,
+        type: "SHELF",
+        dateType: "EXACT",
+        dateExact: new Date("2026-06-01"),
+        status: "ANNOUNCED",
+        confidence: 0.4,
+      },
+    });
+    const item = await prisma.reviewItem.create({
+      data: {
+        releaseEventId: event.id,
+        reason: "CONFLICT",
+        detail: {
+          publishedDate: { kind: "EXACT", date: "2026-06-01T00:00:00.000Z" },
+          proposedDate: { kind: "EXACT", date: "2026-06-10T00:00:00.000Z" },
+          gapDays: 9,
+          claims: [
+            {
+              origin: "test-origin-a",
+              tier: "RETAILER",
+              date: { kind: "EXACT", date: "2026-06-01T00:00:00.000Z" },
+              consecutiveRuns: 1,
+              seenInCurrentRun: true,
+              lastSeenAt: "2026-06-01T00:00:00.000Z",
+            },
+            {
+              origin: "test-origin-b",
+              tier: "RETAILER",
+              date: { kind: "EXACT", date: "2026-06-10T00:00:00.000Z" },
+              consecutiveRuns: 1,
+              seenInCurrentRun: true,
+              lastSeenAt: "2026-06-01T00:00:00.000Z",
+            },
+          ],
+        },
+      },
+    });
+    return { event, item };
+  }
+
+  it("lists an open review item with its claims", async () => {
+    const { item, event } = await createReviewItem();
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const queue = await listReviewQueue();
+
+    const row = queue.find((r) => r.id === item.id);
+    expect(row?.eventId).toBe(event.id);
+    expect(row?.claims).toHaveLength(2);
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(countOpenReviewItems()).resolves.toBeGreaterThanOrEqual(1);
+  });
+
+  it("accepting a claim writes its date onto the event and pins isManualOverride", async () => {
+    const { item, event } = await createReviewItem();
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await resolveReviewItem(item.id, { kind: "accept", claimIndex: 1, note: "trusting origin b" });
+
+    const updated = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+    expect(updated.isManualOverride).toBe(true);
+    expect(updated.dateExact?.toISOString()).toBe("2026-06-10T00:00:00.000Z");
+    expect(updated.manualNotes).toBe("trusting origin b");
+
+    const resolved = await prisma.reviewItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(resolved.resolvedAt).not.toBeNull();
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    const queue = await listReviewQueue();
+    expect(queue.map((r) => r.id)).not.toContain(item.id);
+  });
+
+  it("keeping the current value closes the item without touching the event", async () => {
+    const { item, event } = await createReviewItem();
+    const before = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await resolveReviewItem(item.id, { kind: "keep" });
+
+    const after = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+    expect(after.isManualOverride).toBe(before.isManualOverride);
+    expect(after.dateExact?.toISOString()).toBe(before.dateExact?.toISOString());
+
+    const resolved = await prisma.reviewItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(resolved.resolvedAt).not.toBeNull();
+  });
+
+  it("dismissing closes the item without touching the event", async () => {
+    const { item, event } = await createReviewItem();
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await resolveReviewItem(item.id, { kind: "dismiss" });
+
+    const after = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: event.id } });
+    expect(after.isManualOverride).toBe(false);
+
+    const resolved = await prisma.reviewItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(resolved.resolvedAt).not.toBeNull();
+  });
+
+  it("rejects resolving an already-resolved item", async () => {
+    const { item } = await createReviewItem();
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await resolveReviewItem(item.id, { kind: "dismiss" });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(resolveReviewItem(item.id, { kind: "dismiss" })).rejects.toThrow();
+  });
+
+  it("rejects an out-of-range claimIndex on accept", async () => {
+    const { item } = await createReviewItem();
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(resolveReviewItem(item.id, { kind: "accept", claimIndex: 99 })).rejects.toThrow(
+      /no longer part of this review item/,
+    );
   });
 });
 

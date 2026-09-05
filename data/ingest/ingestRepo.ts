@@ -157,6 +157,212 @@ export async function getFailedProviderKeys(scanRunId: string): Promise<string[]
   return rows.map((row) => row.providerKey);
 }
 
+/**
+ * Per-provider first-attempt and last-success timestamps, for
+ * lib/ingest/freshness.ts.
+ *
+ * Two groupBy queries rather than one, because the question has two halves
+ * that filter differently: "when did we last hear anything usable" is scoped
+ * to OK/NOT_MODIFIED, while "how long have we been trying at all" is over
+ * every attempt. NOT_MODIFIED counts as a success on purpose -- a 304 means
+ * the upstream answered and confirmed nothing changed, which is the pipeline
+ * working exactly as intended, not a provider going quiet.
+ */
+export async function getProviderRunTimestamps(): Promise<
+  Array<{ providerKey: string; lastOkAt: Date | null; firstSeenAt: Date | null }>
+> {
+  const [successes, attempts] = await Promise.all([
+    prisma.providerRun.groupBy({
+      by: ["providerKey"],
+      where: { status: { in: ["OK", "NOT_MODIFIED"] } },
+      _max: { startedAt: true },
+    }),
+    prisma.providerRun.groupBy({
+      by: ["providerKey"],
+      _min: { startedAt: true },
+    }),
+  ]);
+
+  const lastOk = new Map(successes.map((row) => [row.providerKey, row._max.startedAt]));
+  return attempts.map((row) => ({
+    providerKey: row.providerKey,
+    lastOkAt: lastOk.get(row.providerKey) ?? null,
+    firstSeenAt: row._min.startedAt,
+  }));
+}
+
+/**
+ * The most recent ProviderRun per provider, so the System tab can show what
+ * the current state actually is (FAILED with an error, DEGRADED, or fine)
+ * rather than only when it was last OK.
+ */
+export async function getLatestProviderRuns() {
+  const latest = await prisma.providerRun.groupBy({
+    by: ["providerKey"],
+    _max: { startedAt: true },
+  });
+  if (latest.length === 0) return [];
+
+  // SQLite has no lateral join through Prisma, so this fetches the candidate
+  // rows by (providerKey, startedAt) and picks one per provider. The pair is
+  // indexed (@@index([providerKey, startedAt])), and there is one row per
+  // provider per run, so the over-fetch is at most a handful of duplicates.
+  const rows = await prisma.providerRun.findMany({
+    where: {
+      OR: latest
+        .filter((row) => row._max.startedAt !== null)
+        .map((row) => ({ providerKey: row.providerKey, startedAt: row._max.startedAt as Date })),
+    },
+    orderBy: { startedAt: "desc" },
+  });
+
+  const byProvider = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) if (!byProvider.has(row.providerKey)) byProvider.set(row.providerKey, row);
+  return [...byProvider.values()].sort((a, b) => a.providerKey.localeCompare(b.providerKey));
+}
+
+// ---------------------------------------------------------------------------
+// Freshness alarms (lib/ingest/freshness.ts)
+// ---------------------------------------------------------------------------
+
+export async function listProviderAlarms() {
+  return prisma.providerAlarm.findMany({ orderBy: { providerKey: "asc" } });
+}
+
+/**
+ * Opens an alarm for a provider, or re-stamps a standing one after the repeat
+ * window. Upserted on providerKey so an episode reuses its row: the pass asks
+ * "is this provider alarmed right now", never "how many times has it ever
+ * been", and one row per provider makes the former a single lookup.
+ */
+export async function raiseProviderAlarm(params: {
+  providerKey: string;
+  openedAt: Date;
+  notifiedAt: Date;
+  lastOkAt: Date | null;
+}) {
+  return prisma.providerAlarm.upsert({
+    where: { providerKey: params.providerKey },
+    update: {
+      openedAt: params.openedAt,
+      notifiedAt: params.notifiedAt,
+      lastOkAt: params.lastOkAt,
+      // Reopening an episode that had been cleared.
+      clearedAt: null,
+    },
+    create: {
+      providerKey: params.providerKey,
+      openedAt: params.openedAt,
+      notifiedAt: params.notifiedAt,
+      lastOkAt: params.lastOkAt,
+    },
+  });
+}
+
+/** Marks a standing alarm recovered. The row is kept, so the System tab can still show "recovered at". */
+export async function clearProviderAlarm(providerKey: string, clearedAt: Date) {
+  return prisma.providerAlarm.updateMany({
+    where: { providerKey, clearedAt: null },
+    data: { clearedAt },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Review queue
+// ---------------------------------------------------------------------------
+
+/**
+ * Every unresolved ReviewItem, newest first, with enough of the event to name
+ * it in the admin queue.
+ *
+ * `summary` is selected but is currently always null -- it is where a future
+ * automated reviewer would write a plain-language explanation. The UI renders
+ * the raw claim comparison out of `detail` when it is null rather than
+ * inventing prose, because a fabricated "summary" of a date conflict is
+ * exactly the kind of confident-sounding wrong thing a human would then act
+ * on.
+ */
+export async function listOpenReviewItems(limit = 50) {
+  return prisma.reviewItem.findMany({
+    where: { resolvedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      releaseEvent: {
+        select: {
+          id: true,
+          type: true,
+          region: true,
+          status: true,
+          isManualOverride: true,
+          dateType: true,
+          dateExact: true,
+          dateStart: true,
+          dateEnd: true,
+          windowGranularity: true,
+          windowStart: true,
+          windowEnd: true,
+          productSet: { select: { name: true, code: true, install: { select: { package: { select: { name: true } } } } } },
+        },
+      },
+    },
+  });
+}
+
+export async function countOpenReviewItems(): Promise<number> {
+  return prisma.reviewItem.count({ where: { resolvedAt: null } });
+}
+
+export async function getReviewItem(id: string) {
+  return prisma.reviewItem.findUnique({ where: { id } });
+}
+
+/**
+ * Records a human's decision on a review item, and -- when they accepted a
+ * specific claim's date -- pins that date onto the event.
+ *
+ * `isManualOverride` is the load-bearing part. Without it the next scan's
+ * verdict would write straight over the date a human just chose, and the queue
+ * would hand the same conflict back tomorrow, forever. It is the same flag v1
+ * respects (data/crawler/crawlerRepo.ts's updateEventConfidence) and that v2's
+ * applyVerdictToEvent already honours, so setting it here is enough for both
+ * pipelines to leave the decision alone.
+ *
+ * Done in one transaction so an event can never end up pinned to a date whose
+ * review item still reads as open, or vice versa.
+ */
+export async function resolveReviewItem(params: {
+  id: string;
+  note: string;
+  /** Null for "keep the current value" and "dismiss"; a date for "accept this claim". */
+  acceptedDate: CandidateDate | null;
+  now: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.reviewItem.findUniqueOrThrow({
+      where: { id: params.id },
+      select: { id: true, releaseEventId: true, resolvedAt: true },
+    });
+    if (item.resolvedAt) throw new Error("That review item has already been resolved.");
+
+    if (params.acceptedDate) {
+      await tx.releaseEvent.update({
+        where: { id: item.releaseEventId },
+        data: {
+          ...toEventDateColumns(params.acceptedDate),
+          isManualOverride: true,
+          manualNotes: params.note,
+        },
+      });
+    }
+
+    return tx.reviewItem.update({
+      where: { id: params.id },
+      data: { resolvedAt: params.now, resolvedNote: params.note },
+    });
+  });
+}
+
 export async function getProviderEtag(providerKey: string) {
   return prisma.providerEtag.findUnique({ where: { providerKey } });
 }

@@ -466,6 +466,39 @@ model ProviderEtag {
   @@unique([providerKey])
 }
 
+/// Whether a provider is currently considered stale, and whether anyone has
+/// been told about it (lib/ingest/freshness.ts).
+///
+/// This table exists for exactly one reason: idempotency. "Provider X has not
+/// returned data for 48 hours" is true on every run for the whole length of an
+/// outage, so alarming off the condition alone would mail an admin once per
+/// run for days and train them to ignore it. `notifiedAt` is the "do not
+/// repeat until" stamp and `clearedAt` records the recovery, so an ongoing
+/// outage alarms once (then at most once per repeat window) and a recovery is
+/// itself a distinct, visible event.
+///
+/// One row per provider, reused across episodes rather than appended to: the
+/// question the System tab and the alarm pass both ask is "is this provider
+/// alarmed right now", not "how many times has it ever been".
+model ProviderAlarm {
+  id          String    @id @default(cuid())
+  providerKey String
+  /// When the provider first crossed the staleness threshold in this episode.
+  openedAt    DateTime
+  /// Last time a notification actually went out for this episode.
+  notifiedAt  DateTime
+  /// Freshness at the moment of the last notification, so the UI can say how
+  /// stale it was without recomputing from ProviderRun history.
+  lastOkAt    DateTime?
+  /// Set when the provider came back; a non-null value means "not alarmed".
+  clearedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([providerKey])
+  @@index([clearedAt])
+}
+
 // ---------------------------------------------------------------------------
 // Identity / auth (NextAuth Prisma adapter shape) + personalization
 // ---------------------------------------------------------------------------

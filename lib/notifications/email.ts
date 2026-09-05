@@ -108,3 +108,25 @@ export async function sendLeadTimeReminderEmail(
     text: leadTimeReminderBody(events),
   });
 }
+
+/**
+ * An operational alarm to an admin's email (lib/ingest/freshness.ts). Same
+ * lazily-built transporter and same degrade-to-no-op-when-unconfigured
+ * behaviour as every other sender here -- an alarm that throws because SMTP
+ * was never set up would take down the pass that was trying to report a
+ * problem.
+ */
+export async function sendAdminAlarmEmail(toEmail: string, subject: string, body: string): Promise<void> {
+  const client = getTransporter();
+  if (!client) {
+    logEvent({ action: "notifications.sendAdminAlarmEmail", outcome: "skipped", reason: "SMTP_HOST not configured" });
+    return;
+  }
+
+  await client.sendMail({
+    from: process.env.SMTP_FROM ?? "Release Watcher <no-reply@releasewatcher.com>",
+    to: toEmail,
+    subject,
+    text: body,
+  });
+}

@@ -40,3 +40,25 @@ export async function sendDiscordAlert(webhookUrl: string, changes: ScanChange[]
     throw new Error(`Discord webhook responded with ${response.status}`);
   }
 }
+
+/**
+ * An operational alarm to an admin's Discord webhook (lib/ingest/freshness.ts).
+ *
+ * Deliberately reuses sendDiscordAlert's transport shape and, crucially, the
+ * same isValidDiscordWebhookUrl check: the URL is still user-supplied and this
+ * is still the server POSTing to it unprompted, so the SSRF argument in that
+ * function's comment applies here word for word.
+ */
+export async function sendAdminAlarmDiscord(webhookUrl: string, content: string): Promise<void> {
+  if (!isValidDiscordWebhookUrl(webhookUrl)) return;
+
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: content.slice(0, 2000) }), // Discord's message content limit.
+  });
+
+  if (!response.ok) {
+    throw new Error(`Discord webhook responded with ${response.status}`);
+  }
+}

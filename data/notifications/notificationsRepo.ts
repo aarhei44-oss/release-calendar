@@ -131,3 +131,47 @@ export async function getFollowersForEvents(eventIds: string[]): Promise<EventFo
       discordAlertsEnabled: f.user.discordAlertsEnabled,
     }));
 }
+
+export type AdminAlertRecipient = {
+  userId: string;
+  email: string;
+  emailAlertsEnabled: boolean;
+  discordWebhookUrl: string | null;
+  discordAlertsEnabled: boolean;
+};
+
+/**
+ * Active admins, with the same alert-channel preferences every other
+ * notification path reads.
+ *
+ * Operational alarms (lib/ingest/freshness.ts) are admin-facing: a user does
+ * not need to know that Bulbapedia stopped answering, and telling them would
+ * be alarming without being actionable. Recipients are resolved by role rather
+ * than by a separate "ops contact" setting, so there is exactly one place
+ * (/admin's Users tab) where "who gets told" is decided.
+ *
+ * The per-channel opt-ins are still honoured. An admin who turned email alerts
+ * off asked not to be emailed, and quietly overriding that for a class of
+ * message we happen to consider important is how an app teaches people to
+ * distrust its preferences.
+ */
+export async function getAdminAlertRecipients(): Promise<AdminAlertRecipient[]> {
+  const users = await prisma.user.findMany({
+    where: { role: "ADMIN", active: true },
+    select: {
+      id: true,
+      email: true,
+      emailAlertsEnabled: true,
+      discordWebhookUrl: true,
+      discordAlertsEnabled: true,
+    },
+  });
+
+  return users.map((u) => ({
+    userId: u.id,
+    email: u.email,
+    emailAlertsEnabled: u.emailAlertsEnabled,
+    discordWebhookUrl: u.discordWebhookUrl,
+    discordAlertsEnabled: u.discordAlertsEnabled,
+  }));
+}

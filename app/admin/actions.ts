@@ -133,3 +133,80 @@ export async function undoReleaseEventMerge(releaseEventId: string) {
     return adminRepo.undoReleaseEventMerge(idSchema.parse(releaseEventId));
   });
 }
+
+// ---------------------------------------------------------------------------
+// v2 ingest pipeline (lib/ingest) -- provider health, replay/retry, review
+// queue. Same requireAdmin gate and same withActionLogging wrapper as
+// everything above; no second auth mechanism.
+// ---------------------------------------------------------------------------
+
+export async function listIngestRunHealth() {
+  return withActionLogging("admin.listIngestRunHealth", async () => {
+    await requireAdmin();
+    return adminRepo.listIngestRunHealth();
+  });
+}
+
+export async function listProviderHealth() {
+  return withActionLogging("admin.listProviderHealth", async () => {
+    await requireAdmin();
+    return adminRepo.listProviderHealth();
+  });
+}
+
+/** Re-derives a stored run's conclusions from its saved payloads. Does no network I/O -- see lib/ingest/replay.ts. */
+export async function replayIngestRun(runId: string) {
+  return withActionLogging("admin.replayIngestRun", async () => {
+    await requireAdmin();
+    return adminRepo.triggerIngestReplay(idSchema.parse(runId));
+  });
+}
+
+/** Re-fetches only the providers that FAILED in a run, then replays it. This one does hit the network. */
+export async function retryIngestRun(runId: string) {
+  return withActionLogging("admin.retryIngestRun", async () => {
+    await requireAdmin();
+    return adminRepo.triggerIngestRetry(idSchema.parse(runId));
+  });
+}
+
+export async function triggerFreshnessCheck() {
+  return withActionLogging("admin.triggerFreshnessCheck", async () => {
+    await requireAdmin();
+    return adminRepo.triggerFreshnessAlarmPass();
+  });
+}
+
+export async function listReviewQueue() {
+  return withActionLogging("admin.listReviewQueue", async () => {
+    await requireAdmin();
+    return adminRepo.listReviewQueue();
+  });
+}
+
+export async function countOpenReviewItems() {
+  return withActionLogging("admin.countOpenReviewItems", async () => {
+    await requireAdmin();
+    return adminRepo.countOpenReviewItems();
+  });
+}
+
+/**
+ * Resolves one review item.
+ *
+ * The resolution is parsed rather than trusted: it arrives from a client
+ * component, and "accept claim #3" writes a date onto a live event and pins it
+ * against future scans, so the shape is checked before it reaches the repo.
+ */
+const reviewResolutionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("accept"), claimIndex: z.number().int().min(0), note: z.string().max(500).optional() }),
+  z.object({ kind: z.literal("keep"), note: z.string().max(500).optional() }),
+  z.object({ kind: z.literal("dismiss"), note: z.string().max(500).optional() }),
+]);
+
+export async function resolveReviewItem(itemId: string, resolution: z.input<typeof reviewResolutionSchema>) {
+  return withActionLogging("admin.resolveReviewItem", async () => {
+    await requireAdmin();
+    return adminRepo.resolveReviewItem(idSchema.parse(itemId), reviewResolutionSchema.parse(resolution));
+  });
+}

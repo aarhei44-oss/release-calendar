@@ -4,6 +4,7 @@ import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
 import { applyVerdicts, type ApplyItem, type ClaimWrite } from "./apply";
 import { buildClaimRecords } from "./claims";
+import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
 import { collectAmbiguousCodes, resolveSetIdentity } from "./identity";
 import { normalizeRun } from "./normalize";
@@ -88,9 +89,34 @@ export type RunIngestParams = {
   fetchImpl?: typeof globalThis.fetch;
 };
 
-export async function runIngest(params: RunIngestParams): Promise<IngestResult> {
+/**
+ * What `startIngest` hands back: either the run refused to start (the lock is
+ * held) or it has started, and the caller may either await `completed` or walk
+ * away with the id.
+ *
+ * The split exists for the cron trigger in app/api/ingest/run/route.ts. A full
+ * run takes tens of seconds, which is longer than a cron client (or a reverse
+ * proxy) is willing to hold a connection open, so the handler needs the
+ * ScanRun id *before* the pipeline finishes -- and the id only exists after the
+ * lock has been taken and the row written. Splitting there, rather than
+ * polling for the row the way tests have to, keeps "did it start" and "is
+ * something else already running" exact answers instead of guesses.
+ */
+export type StartIngestResult =
+  | { started: false; reason: string }
+  | { started: true; scanRunId: string; completed: Promise<IngestResult> };
+
+/**
+ * Takes the lock, writes the ScanRun row, and returns as soon as both are
+ * done -- the remaining stages run on the returned promise.
+ *
+ * The caller owns that promise: nothing here attaches a handler to it, so a
+ * fire-and-forget caller must `.catch()` it or Node will report an unhandled
+ * rejection. `runIngest` below awaits it, which is why its behaviour is
+ * unchanged.
+ */
+export async function startIngest(params: RunIngestParams): Promise<StartIngestResult> {
   const start = Date.now();
-  const now = params.now ?? new Date();
   const { scopeType, scopeId } = params.scope;
   const lockScopeKey = scopeType === "INSTALL" && scopeId ? scopeId : "global";
 
@@ -104,10 +130,32 @@ export async function runIngest(params: RunIngestParams): Promise<IngestResult> 
       durationMs: Date.now() - start,
       outcome: "skipped",
     });
-    return { skipped: true, reason: "a scan is already running for this scope" };
+    return { started: false, reason: "a scan is already running for this scope" };
   }
 
   const scanRun = await ingestRepo.createIngestRun({ scopeType, scopeId, trigger: params.trigger });
+  return {
+    started: true,
+    scanRunId: scanRun.id,
+    completed: executeIngest(params, scanRun.id, lockScopeKey, start),
+  };
+}
+
+export async function runIngest(params: RunIngestParams): Promise<IngestResult> {
+  const started = await startIngest(params);
+  if (!started.started) return { skipped: true, reason: started.reason };
+  return started.completed;
+}
+
+/** Stages 1-6 for a run whose lock is already held and whose ScanRun row already exists. Always releases the lock. */
+async function executeIngest(
+  params: RunIngestParams,
+  scanRunId: string,
+  lockScopeKey: string,
+  start: number,
+): Promise<IngestResult> {
+  const now = params.now ?? new Date();
+  const { scopeType, scopeId } = params.scope;
   const totals = emptyTotals();
 
   try {
@@ -117,13 +165,13 @@ export async function runIngest(params: RunIngestParams): Promise<IngestResult> 
 
     // ---- Stage 1: Fetch. The only network I/O in the pipeline. ----
     await mapWithConcurrency(providers, FETCH_CONCURRENCY, async (provider) => {
-      const outcome = await fetchProvider(provider, scanRun.id, now, params.fetchImpl ?? globalThis.fetch);
+      const outcome = await fetchProvider(provider, scanRunId, now, params.fetchImpl ?? globalThis.fetch);
       if (outcome === "failed") totals.providersFailed += 1;
       else totals.providersFetched += 1;
     });
 
     // ---- Stages 2-6, from what Fetch wrote down. ----
-    const stageTotals = await runStagesFromPayloads({ scanRunId: scanRun.id, now, installs });
+    const stageTotals = await runStagesFromPayloads({ scanRunId, now, installs });
     Object.assign(totals, stageTotals, {
       providersFetched: totals.providersFetched,
       providersFailed: totals.providersFailed,
@@ -133,14 +181,29 @@ export async function runIngest(params: RunIngestParams): Promise<IngestResult> 
     // successes have already been applied, and marking the whole run FAILED
     // would both discard that fact and invite an operator to re-run the
     // providers that worked. retryRun exists precisely to repair the rest.
-    await ingestRepo.finalizeIngestRun(scanRun.id, {
+    await ingestRepo.finalizeIngestRun(scanRunId, {
       status: "SUCCEEDED",
       totals: totals as unknown as Prisma.InputJsonValue,
     });
 
+    // ---- Freshness alarms. ----
+    // Runs after finalize, and swallows its own errors, because it is
+    // observability rather than pipeline work: a calendar that has quietly
+    // stopped updating is the failure this checks for, and a notification
+    // transport failing must never turn a run that produced good data into a
+    // FAILED one. See lib/ingest/freshness.ts.
+    await runProviderFreshnessAlarmPass({ now }).catch((error) => {
+      logEvent({
+        action: "ingest.freshnessAlarmPass",
+        scanRunId,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
     logEvent({
       action: "ingest.runIngest",
-      scanRunId: scanRun.id,
+      scanRunId,
       scopeType,
       scopeId,
       trigger: params.trigger,
@@ -148,15 +211,15 @@ export async function runIngest(params: RunIngestParams): Promise<IngestResult> 
       outcome: "success",
       ...totals,
     });
-    return { skipped: false, scanRunId: scanRun.id, totals };
+    return { skipped: false, scanRunId, totals };
   } catch (error) {
-    await ingestRepo.finalizeIngestRun(scanRun.id, {
+    await ingestRepo.finalizeIngestRun(scanRunId, {
       status: "FAILED",
       totals: totals as unknown as Prisma.InputJsonValue,
     });
     logEvent({
       action: "ingest.runIngest",
-      scanRunId: scanRun.id,
+      scanRunId,
       scopeType,
       scopeId,
       trigger: params.trigger,

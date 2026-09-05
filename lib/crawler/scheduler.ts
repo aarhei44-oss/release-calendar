@@ -60,6 +60,14 @@ function scheduleNextRun() {
  * Deliberately does not run an immediate scan on boot -- only the recurring
  * daily one -- so `next dev` restarts don't repeatedly hit live external
  * sites while iterating.
+ *
+ * SCHEDULED FOR REMOVAL AT THE v2 CUTOVER. This in-process timer is the
+ * failure mode POST /api/ingest/run exists to fix: the schedule lives inside
+ * the Next.js process, so a deploy or a crash near midnight silently skips
+ * that night's scan and nothing reports it. v2 is driven by an external cron
+ * hitting that endpoint instead (see README's "Triggering an ingest run").
+ * This stays exactly as it is until v2 is cut over, because v1 is still the
+ * live pipeline -- the two share one JobLock, so they cannot run at once.
  */
 export function startCrawlerScheduler() {
   if (started) return;

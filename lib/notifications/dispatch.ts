@@ -1,7 +1,11 @@
-import { getSubscribersForInstalls, getFollowersForEvents } from "@/data/notifications/notificationsRepo";
+import {
+  getAdminAlertRecipients,
+  getSubscribersForInstalls,
+  getFollowersForEvents,
+} from "@/data/notifications/notificationsRepo";
 import { logEvent } from "@/lib/logger";
-import { sendEmailAlert } from "./email";
-import { sendDiscordAlert } from "./discord";
+import { sendAdminAlarmEmail, sendEmailAlert } from "./email";
+import { sendAdminAlarmDiscord, sendDiscordAlert } from "./discord";
 import type { ScanChange } from "./types";
 
 type RecipientAccumulator = {
@@ -111,6 +115,55 @@ export async function dispatchScanChangeNotifications(changes: ScanChange[]): Pr
         userId,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+}
+
+export type AdminAlarm = { subject: string; body: string };
+
+/**
+ * Sends one operational alarm to every active admin's enabled channels.
+ *
+ * Structurally the same as dispatchScanChangeNotifications above -- per
+ * recipient, per channel, each send isolated in its own try/catch -- for the
+ * same reason: one bad address or a Discord hiccup must not swallow the alarm
+ * for everyone else. And, as there, the whole call is best-effort from its
+ * caller's point of view; lib/ingest/freshness.ts's pass has already written
+ * the ProviderAlarm rows the admin System tab reads, so a failed send costs
+ * the email, not the signal.
+ */
+export async function dispatchAdminAlarm(alarm: AdminAlarm): Promise<void> {
+  const recipients = await getAdminAlertRecipients();
+  if (recipients.length === 0) {
+    logEvent({ action: "notifications.dispatchAdminAlarm", outcome: "skipped", reason: "no active admins" });
+    return;
+  }
+
+  for (const recipient of recipients) {
+    if (recipient.emailAlertsEnabled) {
+      try {
+        await sendAdminAlarmEmail(recipient.email, alarm.subject, alarm.body);
+      } catch (error) {
+        logEvent({
+          action: "notifications.sendAdminAlarmEmail",
+          outcome: "error",
+          userId: recipient.userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (recipient.discordAlertsEnabled && recipient.discordWebhookUrl) {
+      try {
+        await sendAdminAlarmDiscord(recipient.discordWebhookUrl, `**${alarm.subject}**\n${alarm.body}`);
+      } catch (error) {
+        logEvent({
+          action: "notifications.sendAdminAlarmDiscord",
+          outcome: "error",
+          userId: recipient.userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 }

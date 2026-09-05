@@ -1,8 +1,11 @@
 import Link from "next/link";
-import type { listContradictedEvents } from "./actions";
+import { ReviewQueue } from "./ReviewQueue";
+import type { listContradictedEvents, listReviewQueue } from "./actions";
 
 type Props = {
   events: Awaited<ReturnType<typeof listContradictedEvents>>;
+  /** Gate-flagged items from the v2 ingest pipeline (ReviewItem rows), separate from v1's contradiction list below. */
+  reviewQueue: Awaited<ReturnType<typeof listReviewQueue>>;
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -24,13 +27,35 @@ function currentBestDate(event: Props["events"][number]): string {
   }
 }
 
-export function ReviewTab({ events }: Props) {
+export function ReviewTab({ events, reviewQueue }: Props) {
   const highTierContradictions = (claims: Props["events"][number]["sourceClaims"]) =>
     claims.filter((c) => c.disposition === "CONTRADICTS" && (c.tier === "OFFICIAL" || c.tier === "RETAILER"));
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-gray-600">
+    <div className="flex flex-col gap-6">
+      {/*
+        Two lists, kept apart on purpose. The queue above is the v2 ingest
+        pipeline's own output -- ReviewItem rows the gate opened, each with a
+        resolution that writes back. The list below is v1's derived view of
+        high-tier contradictions, which has no state of its own. While both
+        pipelines are live these answer different questions, and merging them
+        would make it impossible to tell which pipeline flagged what.
+      */}
+      <section className="flex flex-col gap-3">
+        <div>
+          <h3 className="text-sm font-medium text-gray-700">Ingest review queue (v2)</h3>
+          <p className="text-sm text-gray-600">
+            Events the publish gate routed to a human: the sources disagree (CONFLICT) or the agreed date moved further
+            than a release date plausibly moves unannounced (LARGE_SHIFT). Resolving an item closes it; accepting a
+            claim also pins that date against future scans.
+          </p>
+        </div>
+        <ReviewQueue items={reviewQueue} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h3 className="text-sm font-medium text-gray-700">High-tier contradictions (v1 crawler)</h3>
+        <p className="text-sm text-gray-600">
         Events with a high-tier (official or retailer) source claim that contradicts the current
         best-known date. Confidence already discounts for this, but it&apos;s worth a human look --
         it may mean the date changed, or the low-tier claims currently winning are wrong.
@@ -74,6 +99,7 @@ export function ReviewTab({ events }: Props) {
           ))}
         </ul>
       )}
+      </section>
     </div>
   );
 }

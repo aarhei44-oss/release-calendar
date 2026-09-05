@@ -8,9 +8,11 @@ import { ReviewTab } from "./ReviewTab";
 import type {
   listPackagesWithInstalls,
   listUsers,
-  listScanRuns,
   listContradictedEvents,
   listRecentMerges,
+  listIngestRunHealth,
+  listProviderHealth,
+  listReviewQueue,
 } from "./actions";
 
 type AdminTab = "profiles" | "users" | "system" | "review";
@@ -25,13 +27,33 @@ const TABS: { value: AdminTab; label: string }[] = [
 type Props = {
   packages: Awaited<ReturnType<typeof listPackagesWithInstalls>>;
   users: Awaited<ReturnType<typeof listUsers>>;
-  scanRuns: Awaited<ReturnType<typeof listScanRuns>>;
   contradictedEvents: Awaited<ReturnType<typeof listContradictedEvents>>;
   recentMerges: Awaited<ReturnType<typeof listRecentMerges>>;
+  ingestRuns: Awaited<ReturnType<typeof listIngestRunHealth>>;
+  providerHealth: Awaited<ReturnType<typeof listProviderHealth>>;
+  providerStaleHours: number;
+  reviewQueue: Awaited<ReturnType<typeof listReviewQueue>>;
 };
 
-export function AdminTabs({ packages, users, scanRuns, contradictedEvents, recentMerges }: Props) {
+export function AdminTabs({
+  packages,
+  users,
+  contradictedEvents,
+  recentMerges,
+  ingestRuns,
+  providerHealth,
+  providerStaleHours,
+  reviewQueue,
+}: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
+
+  // Everything waiting on a human, in one number on the tab itself. The
+  // ingest queue (ReviewItem rows the gate opened) and v1's derived
+  // contradiction list are separate lists inside the tab -- see ReviewTab --
+  // but a curator's question at the nav is only ever "is there anything for
+  // me", so they are summed here rather than shown as two badges.
+  const openReviewCount = contradictedEvents.length + reviewQueue.length;
+  const staleProviderCount = providerHealth.filter((provider) => provider.stale).length;
 
   const installOptions = packages.flatMap((pkg) =>
     pkg.installs.map((install) => ({
@@ -82,9 +104,22 @@ export function AdminTabs({ packages, users, scanRuns, contradictedEvents, recen
               }`}
             >
               {tab.label}
-              {tab.value === "review" && contradictedEvents.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800">
-                  {contradictedEvents.length}
+              {tab.value === "review" && openReviewCount > 0 && (
+                <span
+                  className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800"
+                  title={`${reviewQueue.length} ingest review item(s) + ${contradictedEvents.length} contradicted event(s)`}
+                >
+                  {openReviewCount}
+                  <span className="sr-only"> items awaiting review</span>
+                </span>
+              )}
+              {tab.value === "system" && staleProviderCount > 0 && (
+                <span
+                  className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800"
+                  title={`${staleProviderCount} provider(s) have not returned data in ${providerStaleHours}h`}
+                >
+                  {staleProviderCount}
+                  <span className="sr-only"> providers stale</span>
                 </span>
               )}
             </button>
@@ -119,7 +154,13 @@ export function AdminTabs({ packages, users, scanRuns, contradictedEvents, recen
           aria-labelledby="admin-tab-system"
           tabIndex={0}
         >
-          <SystemTab installs={installOptions} scanRuns={scanRuns} recentMerges={recentMerges} />
+          <SystemTab
+            installs={installOptions}
+            ingestRuns={ingestRuns}
+            providerHealth={providerHealth}
+            providerStaleHours={providerStaleHours}
+            recentMerges={recentMerges}
+          />
         </div>
       )}
       {active === "review" && (
@@ -129,7 +170,7 @@ export function AdminTabs({ packages, users, scanRuns, contradictedEvents, recen
           aria-labelledby="admin-tab-review"
           tabIndex={0}
         >
-          <ReviewTab events={contradictedEvents} />
+          <ReviewTab events={contradictedEvents} reviewQueue={reviewQueue} />
         </div>
       )}
     </div>
