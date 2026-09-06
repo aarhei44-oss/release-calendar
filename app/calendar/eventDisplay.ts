@@ -46,6 +46,31 @@ export function stripDescriptionForAnonymous(events: CalendarEvent[], isLoggedIn
 // calendar day these fields were built from, for every viewer alike.
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+const YEAR_FORMATTER = new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: "UTC" });
+
+/**
+ * A WINDOW's real precision is its granularity, not just windowStart -- a
+ * QUARTER window is a three-month span, and formatting it through
+ * MONTH_FORMATTER alone (as this used to) silently drops that down to just
+ * its first month, e.g. a stored Oct 1 - Dec 31 (Q4) window reading back as
+ * the falsely-precise "October 2026". Read via UTC getters, not the
+ * Intl.DateTimeFormat above, since a quarter number isn't something that API
+ * derives for us.
+ */
+function formatWindow(event: CalendarEvent): string {
+  if (!event.windowStart) return "Date unconfirmed";
+  switch (event.windowGranularity) {
+    case "YEAR":
+      return YEAR_FORMATTER.format(event.windowStart);
+    case "QUARTER": {
+      const quarter = Math.floor(event.windowStart.getUTCMonth() / 3) + 1;
+      return `Q${quarter} ${event.windowStart.getUTCFullYear()}`;
+    }
+    case "MONTH":
+    default:
+      return MONTH_FORMATTER.format(event.windowStart);
+  }
+}
 
 export function formatEventDate(event: CalendarEvent): string {
   switch (event.dateType) {
@@ -56,7 +81,7 @@ export function formatEventDate(event: CalendarEvent): string {
         ? `${DATE_FORMATTER.format(event.dateStart)} – ${DATE_FORMATTER.format(event.dateEnd)}`
         : "Date unconfirmed";
     case "WINDOW":
-      return event.windowStart ? MONTH_FORMATTER.format(event.windowStart) : "Date unconfirmed";
+      return formatWindow(event);
     case "TBD":
       return "Date unconfirmed";
   }
@@ -138,6 +163,28 @@ const REGION_TITLES: Record<CalendarEvent["region"], string> = {
 
 export function regionBadgeTitle(region: CalendarEvent["region"]): string {
   return REGION_TITLES[region];
+}
+
+/**
+ * Short label for a non-SHELF event type, or null for SHELF.
+ *
+ * Same null-for-the-common-case shape as regionBadgeLabel above: SHELF is
+ * what almost every event on the calendar is, so it stays silent, and a
+ * PRERELEASE/PROMO/SPECIAL badge only appears when a card needs to be told
+ * apart from the general release it sits next to (e.g. a set's local-game-
+ * store prerelease and its retail shelf date are two separate cards with the
+ * same product name and a similar date -- without this, telling them apart
+ * meant opening the drawer).
+ */
+const TYPE_LABELS: Record<CalendarEvent["type"], string | null> = {
+  SHELF: null,
+  PRERELEASE: "Prerelease",
+  PROMO: "Promo",
+  SPECIAL: "Special",
+};
+
+export function typeBadgeLabel(type: CalendarEvent["type"]): string | null {
+  return TYPE_LABELS[type];
 }
 
 /**

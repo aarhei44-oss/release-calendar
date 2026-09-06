@@ -10,6 +10,7 @@ import {
   regionBadgeTitle,
   sortKeyFor,
   statusBadgeClass,
+  typeBadgeLabel,
   type ReactionCounts,
 } from "./eventDisplay";
 import { ReactionBadges } from "./ReactionBadges";
@@ -59,6 +60,11 @@ export function EventsList({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <ReactionBadges counts={reactionSummaries?.[event.id]} />
+              {typeBadgeLabel(event.type) && (
+                <span data-testid="event-type" className={NEUTRAL_BADGE_CLASS}>
+                  {typeBadgeLabel(event.type)}
+                </span>
+              )}
               {regionBadgeLabel(event.region) && (
                 <span data-testid="event-region" title={regionBadgeTitle(event.region)} className={NEUTRAL_BADGE_CLASS}>
                   {regionBadgeLabel(event.region)}

@@ -6,6 +6,7 @@ import {
   regionBadgeLabel,
   regionBadgeTitle,
   topReactions,
+  typeBadgeLabel,
 } from "@/app/calendar/eventDisplay";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 
@@ -31,12 +32,37 @@ describe("formatEventDate", () => {
   // UTC -- e.g. a WINDOW starting 2026-01-01T00:00:00Z showed as "December
   // 2025". It must always read back in UTC regardless of the environment's
   // local timezone.
-  it("formats a WINDOW's year-start date as its own month/year, not the previous one", () => {
+  it("formats a YEAR window as just the year, not a false month/year", () => {
     const event = fakeDateFields({
       dateType: "WINDOW",
       windowGranularity: "YEAR",
       windowStart: new Date("2026-01-01T00:00:00.000Z"),
       windowEnd: new Date("2026-12-31T00:00:00.000Z"),
+    });
+    expect(formatEventDate(event)).toBe("2026");
+  });
+
+  // Regression test: a QUARTER window used to format through the same
+  // month/year formatter as an exact month, so a Q4 2026 window (Oct-Dec)
+  // silently truncated down to "October 2026" -- indistinguishable from a
+  // genuinely narrowed-down single month, and confusing next to a SHELF
+  // event for the same product that really does land in October.
+  it("formats a QUARTER window as its quarter, not its start month", () => {
+    const event = fakeDateFields({
+      dateType: "WINDOW",
+      windowGranularity: "QUARTER",
+      windowStart: new Date("2026-10-01T00:00:00.000Z"),
+      windowEnd: new Date("2026-12-31T00:00:00.000Z"),
+    });
+    expect(formatEventDate(event)).toBe("Q4 2026");
+  });
+
+  it("formats a MONTH window as its month/year", () => {
+    const event = fakeDateFields({
+      dateType: "WINDOW",
+      windowGranularity: "MONTH",
+      windowStart: new Date("2026-01-01T00:00:00.000Z"),
+      windowEnd: new Date("2026-01-31T00:00:00.000Z"),
     });
     expect(formatEventDate(event)).toBe("January 2026");
   });
@@ -114,6 +140,23 @@ describe("regionBadgeLabel", () => {
       expect(regionBadgeTitle(region)).toMatch(/release date$/);
     }
     expect(NEUTRAL_BADGE_CLASS).not.toMatch(/red|green|blue|amber|purple/);
+  });
+});
+
+describe("typeBadgeLabel", () => {
+  // Same "no label for the common case" shape as regionBadgeLabel: SHELF is
+  // almost every event, so it stays silent, and PRERELEASE/PROMO/SPECIAL only
+  // speak up when a card needs to be told apart from a sibling event for the
+  // same product (e.g. a set's own PRERELEASE and SHELF cards, previously
+  // indistinguishable without opening the drawer).
+  it("returns nothing for SHELF", () => {
+    expect(typeBadgeLabel("SHELF")).toBeNull();
+  });
+
+  it("labels every non-SHELF type", () => {
+    expect(typeBadgeLabel("PRERELEASE")).toBe("Prerelease");
+    expect(typeBadgeLabel("PROMO")).toBe("Promo");
+    expect(typeBadgeLabel("SPECIAL")).toBe("Special");
   });
 });
 
