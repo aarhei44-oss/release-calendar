@@ -1,6 +1,7 @@
 import { bandaiGundamProvider } from "./bandaiGundam";
 import { bandaiOnePieceProvider } from "./bandaiOnePiece";
 import { bulbapediaProvider } from "./bulbapedia";
+import { playriftboundProvider } from "./playriftbound";
 import { scryfallProvider } from "./scryfall";
 import { tcgcsvProvider } from "./tcgcsv";
 import type { Provider } from "./types";
@@ -25,23 +26,26 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  *   magic-the-gathering tcgplayer, wikipedia, scryfall     (3 independent, G2)
  *   yugioh-tcg          tcgplayer, ygoprodeck              (2 independent, G2)
  *   disney-lorcana      tcgplayer, wikipedia               (2 independent, G2)
- *   riftbound           tcgplayer, wikipedia               (2 independent, G2)
+ *   riftbound           tcgplayer, wikipedia, riot-official (3, and G1)
  *   one-piece-tcg       tcgplayer, bandai-official         (2, and G1)
  *   gundam-card-game    tcgplayer, bandai-official         (2, and G1)
  *
- * The two Bandai entries are the pipeline's first OFFICIAL-tier origins, which
- * makes them the first providers whose claims satisfy gate rule G1 -- one
- * official source is enough on its own. Before them One Piece and Gundam had
- * tcgcsv alone and could only publish through G3's seven-run retailer streak;
- * they are also, as the only OFFICIAL providers, what turns G1 from an untested
- * branch of the gate into live code.
+ * The Bandai entries and playriftbound are the pipeline's OFFICIAL-tier
+ * origins, which makes them the only providers whose claims satisfy gate rule
+ * G1 -- one official source is enough on its own. Before the Bandai providers,
+ * One Piece and Gundam had tcgcsv alone and could only publish through G3's
+ * seven-run retailer streak; they were also what first turned G1 from an
+ * untested branch of the gate into live code.
  *
- * Riot (Riftbound) and Ravensburger (Lorcana) are deliberately absent. Neither
- * publishes an index page carrying release dates: Riot's site is news and a
- * "get started" page, and Ravensburger states dates only in marketing prose on
- * ~28 individual product pages, with labels that disagree with the retailer's
- * street date by a week. Both games already have two independent origins and
- * publish under G2, so a fragile parser would be buying nothing. See
+ * Ravensburger (Lorcana) is still deliberately absent: it states dates only in
+ * marketing prose on ~28 individual product pages, with labels that disagree
+ * with the retailer's street date by a week, and the game already has two
+ * independent origins publishing under G2 -- a fragile parser would buy
+ * nothing. Riot (Riftbound) used to be absent for the same kind of reason
+ * (its site read as news and a "get started" page), but its
+ * `/en-us/news/announcements/` turned out to publish exactly the one thing no
+ * other Riftbound origin carries -- a "Pre-Rift" prerelease date -- in a
+ * genuinely consistent shape; see playriftbound.ts for why. See
  * tests/ingestProviderRegistry.test.ts, which asserts this table so a
  * regression in it is a test failure rather than a quiet loss of corroboration.
  */
@@ -86,6 +90,7 @@ export const PRODUCTION_PROVIDERS: readonly Provider[] = [
   bulbapediaProvider,
   bandaiOnePieceProvider,
   bandaiGundamProvider,
+  playriftboundProvider,
 ];
 
 for (const provider of PRODUCTION_PROVIDERS) {

@@ -7,6 +7,7 @@ import { PRODUCTION_PROVIDERS, registerProvider, unregisterProvider } from "@/li
 import { bandaiGundamProvider } from "@/lib/ingest/providers/bandaiGundam";
 import { bandaiOnePieceProvider } from "@/lib/ingest/providers/bandaiOnePiece";
 import { bulbapediaProvider } from "@/lib/ingest/providers/bulbapedia";
+import { playriftboundProvider } from "@/lib/ingest/providers/playriftbound";
 import { scryfallProvider } from "@/lib/ingest/providers/scryfall";
 import { tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv";
 import { wikipediaProvider } from "@/lib/ingest/providers/wikipedia";
@@ -23,6 +24,7 @@ const FIXTURES: ReadonlyArray<readonly [Provider, string]> = [
   [bandaiGundamProvider, "bandaiGundam.pages.json"],
   [bandaiOnePieceProvider, "bandaiOnePiece.pages.json"],
   [bulbapediaProvider, "bulbapedia.pages.json"],
+  [playriftboundProvider, "playriftbound.pages.json"],
   [scryfallProvider, "scryfall.sets.json"],
   [tcgcsvProvider, "tcgcsv.groups.json"],
   [wikipediaProvider, "wikipedia.pages.json"],

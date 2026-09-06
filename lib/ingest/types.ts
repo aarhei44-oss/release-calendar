@@ -71,6 +71,7 @@ export const ORIGINS = {
   "konami-official": { key: "konami-official", tier: "OFFICIAL", derivesFrom: null },
   "ravensburger-official": { key: "ravensburger-official", tier: "OFFICIAL", derivesFrom: null },
   "bandai-official": { key: "bandai-official", tier: "OFFICIAL", derivesFrom: null },
+  // Riftbound's own news site (lib/ingest/providers/playriftbound.ts).
   "riot-official": { key: "riot-official", tier: "OFFICIAL", derivesFrom: null },
 
   // Scryfall's set data is sourced from Wizards' own Gatherer/product pages;

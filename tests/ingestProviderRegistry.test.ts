@@ -90,34 +90,39 @@ describe("provider registry: per-game coverage", () => {
     // decision about how much evidence each game gets, and widening or
     // narrowing it should have to come through this test.
     //
-    // Riot (Riftbound) and Ravensburger (Lorcana) are absent on purpose. Neither
-    // publishes an index page carrying release dates -- Riot's site is news and
-    // a "get started" page, Ravensburger states dates only in per-product
-    // marketing prose -- and both games already reach G2 on tcgplayer plus
-    // Wikipedia, so a fragile parser would buy nothing.
+    // Ravensburger (Lorcana) is absent on purpose: it states dates only in
+    // per-product marketing prose, and the game already reaches G2 on
+    // tcgplayer plus Wikipedia, so a fragile parser would buy nothing. Riot
+    // (Riftbound) is no longer absent -- see playriftbound.ts.
     const coverage = Object.fromEntries(GAMES.map((game) => [game, originsFor(game).sort()]));
     expect(coverage).toEqual({
       "pokemon-tcg": ["bulbapedia", "tcgplayer", "wikipedia"],
       "magic-the-gathering": ["scryfall", "tcgplayer", "wikipedia"],
       "yugioh-tcg": ["tcgplayer", "ygoprodeck"],
       "disney-lorcana": ["tcgplayer", "wikipedia"],
-      "riftbound": ["tcgplayer", "wikipedia"],
+      "riftbound": ["riot-official", "tcgplayer", "wikipedia"],
       "one-piece-tcg": ["bandai-official", "tcgplayer"],
       "gundam-card-game": ["bandai-official", "tcgplayer"],
     });
   });
 
-  it("gives One Piece and Gundam an OFFICIAL origin, which is what rule G1 needs", () => {
-    // These were the two single-origin games, publishable only through G3's
-    // seven-run retailer streak. An OFFICIAL claim publishes on first sight --
-    // and until these providers existed, no origin in the registry was OFFICIAL
-    // at all, so G1 was a branch of the gate nothing could reach.
-    for (const game of ["one-piece-tcg", "gundam-card-game"] as const) {
+  it("gives One Piece, Gundam and Riftbound an OFFICIAL origin, which is what rule G1 needs", () => {
+    // One Piece and Gundam were the two single-origin games, publishable only
+    // through G3's seven-run retailer streak. An OFFICIAL claim publishes on
+    // first sight -- and until the Bandai providers existed, no origin in the
+    // registry was OFFICIAL at all, so G1 was a branch of the gate nothing
+    // could reach. Riftbound already had two origins, but neither carried a
+    // Pre-Rift date, which playriftbound.ts's OFFICIAL claim is the first to.
+    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound"] as const) {
       const tiers = providersForGames([game]).map((provider) => provider.tier);
       expect(tiers, `${game}`).toContain("OFFICIAL");
     }
     const officialProviders = PRODUCTION_PROVIDERS.filter((provider) => provider.tier === "OFFICIAL");
-    expect(officialProviders.map((provider) => provider.key).sort()).toEqual(["bandai-gundam", "bandai-onepiece"]);
+    expect(officialProviders.map((provider) => provider.key).sort()).toEqual([
+      "bandai-gundam",
+      "bandai-onepiece",
+      "playriftbound",
+    ]);
   });
 
   it("does not count a mirror as corroboration", () => {

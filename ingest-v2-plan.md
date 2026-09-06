@@ -98,8 +98,8 @@ copied TCGplayer are one source in four hats.
 
 ## Providers — `lib/ingest/providers/`
 
-All free, all structured except the two Bandai pages. Fixtures in
-`tests/fixtures/ingest/`; **tests never hit the network**.
+All free, all structured except the two Bandai pages and playriftbound.com.
+Fixtures in `tests/fixtures/ingest/`; **tests never hit the network**.
 
 | key | origin | tier | games |
 |---|---|---|---|
@@ -110,9 +110,10 @@ All free, all structured except the two Bandai pages. Fixtures in
 | `bulbapedia` | bulbapedia | COMMUNITY | Pokémon incl. JP list |
 | `bandaiOnePiece` | bandai-official | **OFFICIAL** | One Piece |
 | `bandaiGundam` | bandai-official | **OFFICIAL** | Gundam |
+| `playriftbound` | riot-official | **OFFICIAL** | Riftbound |
 
 **Per-game origins → publishing rule:** Pokémon/MTG (3 origins, G2), Yu-Gi-Oh /
-Lorcana / Riftbound (2, G2), One Piece / Gundam (2 incl. publisher, **G1**).
+Lorcana (2, G2), One Piece / Gundam / Riftbound (2-3 incl. a publisher, **G1**).
 No game is single-origin.
 
 Key facts: Scryfall carries `tcgplayer_id` = TCGCSV `groupId` — **372/372
@@ -121,11 +122,33 @@ primary mechanism. A **90-day forward-window filter** is applied by every
 provider at parse time (`FORWARD_WINDOW_DAYS`) — this is what makes hard-delete
 retention safe rather than a churn loop.
 
-Skipped deliberately: **Riftbound** (Riot's site is a news landing page; no
-product index exists) and **Lorcana** (dates only in per-product marketing prose
+Skipped deliberately: **Lorcana** (dates only in per-product marketing prose
 across ~28 pages, and its "Everywhere" date disagrees with TCGplayer's shelf date
-by a week — would put every Lorcana set in permanent G5 conflict). Both already
-have two origins and publish under G2, so skipping costs nothing.
+by a week — would put every Lorcana set in permanent G5 conflict). It already
+has two origins and publishes under G2, so a fragile parser would buy nothing.
+
+**Riftbound is no longer skipped, added 2026-09-05.** The original reasoning
+("Riot's site is a news landing page; no product index exists") was true of
+the page originally evaluated but not of `/en-us/news/announcements/`, which
+turned out to publish exactly the one thing neither tcgcsv nor Wikipedia carry
+for this game — a **Pre-Rift** date, Riftbound's own term for the week-early
+local-store event that precedes a set's worldwide release. Every set
+announcement on that page has a consistent `<h2>Set N: Name</h2>` heading
+followed by a plain info list (`3-Letter Code`, `Pre-Rift`, `Release`), which
+`lib/ingest/providers/playriftbound.ts` parses with a two-phase fetch (read the
+announcements index, then every article it links to) since the article URLs
+aren't known ahead of time the way a static page spec is. This also gives
+Riftbound its first OFFICIAL-tier origin, so a date it states now publishes
+under G1 rather than needing tcgcsv/Wikipedia agreement.
+
+A fan site, riftbound.gg, has the same information in cleaner HTML tables and
+was evaluated first — but its `robots.txt` explicitly disallows
+`anthropic-ai`/`Claude-Web`/`GPTBot`/`CCbot` by name (a Raptive ad-network
+requirement). Deliberately not worked around by presenting as a different
+user-agent: that is the site's stated policy, not an artifact of detection.
+playriftbound.com's `robots.txt` is wide open (`Allow: /`, no bot-specific
+rules), which is the other reason it was preferred once both were found to
+carry the same data.
 
 ## Status
 
