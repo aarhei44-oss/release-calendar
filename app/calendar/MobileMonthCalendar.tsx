@@ -11,12 +11,16 @@ import {
   isToday,
   format,
 } from "date-fns";
+import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import type { MappedCalendarEvent } from "./mapEvents";
 import { EventsList } from "./EventsList";
+import { RangeWindowSection } from "./RangeWindowSection";
 import { statusDotClass, type ReactionCounts } from "./eventDisplay";
 
 type Props = {
   events: MappedCalendarEvent[];
+  /** RANGE/WINDOW events for the month in view, absent from `events` -- see mapEventsForGrid. */
+  flexibleEvents: CalendarEvent[];
   month: string; // YYYY-MM
   onSelectEvent: (eventId: string) => void;
   /** Keyed by event id; events with no reactions are simply absent. */
@@ -41,7 +45,7 @@ function eventCoversDay(day: Date, event: MappedCalendarEvent): boolean {
  * horizontal scrolling on mobile. This trades inline event pills for a
  * status dot per day; tapping a day lists its releases below instead.
  */
-export function MobileMonthCalendar({ events, month, onSelectEvent, reactionSummaries }: Props) {
+export function MobileMonthCalendar({ events, flexibleEvents, month, onSelectEvent, reactionSummaries }: Props) {
   const [year, mon] = month.split("-").map(Number);
   const monthStart = new Date(year, mon - 1, 1);
 
@@ -130,7 +134,7 @@ export function MobileMonthCalendar({ events, month, onSelectEvent, reactionSumm
         })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
         {selectedDay ? (
           <EventsList
             events={selectedEvents.map((event) => event.resource)}
@@ -143,6 +147,7 @@ export function MobileMonthCalendar({ events, month, onSelectEvent, reactionSumm
             Tap a day to see its releases.
           </p>
         )}
+        <RangeWindowSection events={flexibleEvents} onSelectEvent={onSelectEvent} reactionSummaries={reactionSummaries} />
       </div>
     </div>
   );

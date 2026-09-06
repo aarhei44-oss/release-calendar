@@ -18,6 +18,7 @@ import { MobileMonthCalendar } from "./MobileMonthCalendar";
 import { EventsList } from "./EventsList";
 import { EventDrawer } from "./EventDrawer";
 import { mapEventsForGrid } from "./mapEvents";
+import { RangeWindowSection } from "./RangeWindowSection";
 import {
   buildCalendarHref,
   type CalendarTab,
@@ -70,6 +71,7 @@ export function CalendarShell({ parsed, events, installOptions, reactionSummarie
   }
 
   const mappedEvents = mapEventsForGrid(events);
+  const rangeWindowEvents = events.filter((event) => event.dateType === "RANGE" || event.dateType === "WINDOW");
 
   function handleFiltersChange(patch: {
     installIds?: string[];
@@ -134,16 +136,24 @@ export function CalendarShell({ parsed, events, installOptions, reactionSummarie
                 <div className="h-full md:hidden">
                   <MobileMonthCalendar
                     events={mappedEvents}
+                    flexibleEvents={rangeWindowEvents}
                     month={parsed.calMonth}
                     onSelectEvent={setEventIdShallow}
                     reactionSummaries={reactionSummaries}
                   />
                 </div>
-                <div className="hidden h-full md:block">
-                  <ClientCalendar
-                    events={mappedEvents}
-                    month={parsed.calMonth}
-                    onNavigateMonth={(calMonth) => navigate({ calMonth })}
+                <div className="hidden h-full flex-col gap-3 md:flex">
+                  <div className="min-h-0 flex-1">
+                    <ClientCalendar
+                      events={mappedEvents}
+                      month={parsed.calMonth}
+                      onNavigateMonth={(calMonth) => navigate({ calMonth })}
+                      onSelectEvent={setEventIdShallow}
+                      reactionSummaries={reactionSummaries}
+                    />
+                  </div>
+                  <RangeWindowSection
+                    events={rangeWindowEvents}
                     onSelectEvent={setEventIdShallow}
                     reactionSummaries={reactionSummaries}
                   />

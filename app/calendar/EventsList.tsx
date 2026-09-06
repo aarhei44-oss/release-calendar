@@ -75,6 +75,11 @@ export function EventsList({
                   Range
                 </span>
               )}
+              {event.dateType === "WINDOW" && (
+                <span title="An estimated window -- not shown on the calendar grid" className={NEUTRAL_BADGE_CLASS}>
+                  Window
+                </span>
+              )}
               <span
                 className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${statusBadgeClass(event.status)}`}
               >
