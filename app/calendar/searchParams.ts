@@ -16,6 +16,11 @@ export type ParsedCalendarSearchParams = {
 const RELEASE_EVENT_TYPES: ReleaseEventType[] = ["SHELF", "PRERELEASE", "PROMO", "SPECIAL"];
 const RELEASE_STATUSES: ReleaseStatus[] = ["RUMORED", "ANNOUNCED", "CONFIRMED", "RELEASED", "CANCELLED"];
 
+/** Applied on a completely bare /calendar visit -- promos are hidden by default but the type filter's "Promo" checkbox still opts back in. */
+export const DEFAULT_RELEASE_EVENT_TYPES: ReleaseEventType[] = RELEASE_EVENT_TYPES.filter(
+  (type) => type !== "PROMO",
+);
+
 function currentMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

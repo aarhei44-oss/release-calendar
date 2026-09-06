@@ -5,7 +5,12 @@ import { getFilteredEvents } from "./actions";
 import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
 import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { getReactionSummariesForEvents } from "@/data/events/eventPersonalizationRepo";
-import { parseCalendarSearchParams, monthRange, type RawSearchParams } from "./searchParams";
+import {
+  parseCalendarSearchParams,
+  monthRange,
+  DEFAULT_RELEASE_EVENT_TYPES,
+  type RawSearchParams,
+} from "./searchParams";
 import { CalendarShell } from "./CalendarShell";
 
 type Props = {
@@ -36,18 +41,23 @@ export default async function CalendarPage({ searchParams }: Props) {
   const defaultTab = MOBILE_USER_AGENT.test(userAgent) ? "list" : "calendar";
   const parsed = parseCalendarSearchParams(rawParams, defaultTab);
 
-  // A signed-in visitor landing on a completely bare /calendar (no query
-  // string at all) gets their subscribed games pre-selected instead of every
-  // install, so the page opens already relevant to them. Once any tab/month/
-  // filter interaction happens, CalendarShell's navigate() always carries
-  // those params forward explicitly, so this only ever fires on a fresh
-  // visit, never overriding a filter the user has touched (including
-  // clearing it back to "all games").
+  // A completely bare /calendar visit (no query string at all) gets a couple
+  // of defaults baked into `parsed` instead of the wide-open "everything"
+  // view: promos are hidden (DEFAULT_RELEASE_EVENT_TYPES), and a signed-in
+  // visitor's subscribed games are pre-selected instead of every install.
+  // Once any tab/month/filter interaction happens, CalendarShell's
+  // navigate() always carries those params forward explicitly, so this only
+  // ever fires on a fresh visit, never overriding a filter the user has
+  // touched (including clearing installs back to "all games" or checking
+  // "Promo" back on).
   const session = await getServerSession(authOptions);
-  if (session?.user && Object.keys(rawParams).length === 0) {
-    const subscriptions = await listSubscriptions(session.user.id);
-    if (subscriptions.length > 0) {
-      parsed.installIds = subscriptions.map((s) => s.tcgProfileInstallId);
+  if (Object.keys(rawParams).length === 0) {
+    parsed.types = DEFAULT_RELEASE_EVENT_TYPES;
+    if (session?.user) {
+      const subscriptions = await listSubscriptions(session.user.id);
+      if (subscriptions.length > 0) {
+        parsed.installIds = subscriptions.map((s) => s.tcgProfileInstallId);
+      }
     }
   }
 
