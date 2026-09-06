@@ -83,15 +83,17 @@ describe("mapEventsForGrid", () => {
     expect(mapEventsForGrid(events)).toHaveLength(0);
   });
 
-  it("places a WINDOW event spanning windowStart to windowEnd", () => {
-    const start = new Date("2026-04-01");
-    const end = new Date("2026-06-30");
+  it("excludes WINDOW events from the calendar grid", () => {
     const events = [
-      fakeEvent({ id: "window-1", dateType: "WINDOW", windowGranularity: "QUARTER", windowStart: start, windowEnd: end }),
+      fakeEvent({
+        id: "window-1",
+        dateType: "WINDOW",
+        windowGranularity: "QUARTER",
+        windowStart: new Date("2026-04-01"),
+        windowEnd: new Date("2026-06-30"),
+      }),
     ];
-    const [mapped] = mapEventsForGrid(events);
-    expect(mapped.start).toEqual(start);
-    expect(mapped.end).toEqual(end);
+    expect(mapEventsForGrid(events)).toHaveLength(0);
   });
 
   it("falls back to the product set code when name is missing", () => {
