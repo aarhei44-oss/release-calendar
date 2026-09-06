@@ -37,8 +37,8 @@ export function CommentsForEvent({ eventId, initialComments }: Props) {
         const comment = await addComment({ eventId, content });
         setComments((prev) => [comment, ...prev]);
         setDraft("");
-      } catch {
-        setError("Couldn't post your comment. Please try again.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't post your comment. Please try again.");
       }
     });
   }

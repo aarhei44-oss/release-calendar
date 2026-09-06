@@ -25,6 +25,7 @@ import {
 import { requireUser, requirePremium, ForbiddenError } from "@/lib/authGuards";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { withActionLogging } from "@/lib/logger";
+import { assertCommentContentAllowed } from "@/lib/moderation/contentFilter";
 
 const releaseEventType = z.enum(["SHELF", "PRERELEASE", "PROMO", "SPECIAL"]);
 const releaseStatus = z.enum(["RUMORED", "ANNOUNCED", "CONFIRMED", "RELEASED", "CANCELLED"]);
@@ -103,6 +104,7 @@ export async function addComment(input: z.infer<typeof addCommentSchema>) {
     const user = await requireUser();
     const { eventId, content } = addCommentSchema.parse(input);
     checkRateLimit(`addComment:${user.id}`, { max: 10, windowMs: 60_000 });
+    assertCommentContentAllowed(content);
     return createComment({ userId: user.id, releaseEventId: eventId, content });
   });
 }
