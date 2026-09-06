@@ -183,7 +183,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       )}
                     </div>
 
-                    <EventReactions key={detail.id} eventId={detail.id} />
+                    <EventReactions eventId={detail.id} />
 
                     <AddToCalendar detail={detail} isPremium={isPremium} />
 
@@ -223,11 +223,10 @@ export function EventDrawer({ eventId, onClose }: Props) {
                     </div>
 
                     {session?.user && (
-                      <EventPersonalization key={detail.id} eventId={detail.id} isPremium={isPremium} />
+                      <EventPersonalization eventId={detail.id} isPremium={isPremium} />
                     )}
 
                     <CommentsForEvent
-                      key={detail.id}
                       eventId={detail.id}
                       initialComments={detail.userNotes}
                     />
