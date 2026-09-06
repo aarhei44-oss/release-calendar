@@ -1681,6 +1681,328 @@
    }
   ]
  },
+ "81": {
+  "totalItems": 35,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24821,
+    "name": "UE26BT: GURREN LAGANN",
+    "abbreviation": "UE26BT",
+    "isSupplemental": false,
+    "publishedOn": "2027-01-22T00:00:00",
+    "modifiedOn": "2026-08-14T18:57:58.327",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24849,
+    "name": "UE25BT: My Hero Academia Special Booster",
+    "abbreviation": "UE25BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-12-11T00:00:00",
+    "modifiedOn": "2026-08-31T13:46:18.17",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24787,
+    "name": "UEX08BT: BLEACH: Thousand-Year Blood War Vol.3",
+    "abbreviation": "UEX08BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-07-28T15:51:08.433",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24786,
+    "name": "UE10DC: Bleach: Thousand Year Blood War Advanced Deck",
+    "abbreviation": "UE10DC",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-06T00:00:00",
+    "modifiedOn": "2026-07-28T14:47:51.56",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24743,
+    "name": "UP01BT: GODDESS OF VICTORY: NIKKE Precious Booster",
+    "abbreviation": "UP01BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-23T00:00:00",
+    "modifiedOn": "2026-07-02T13:40:30.133",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24718,
+    "name": "UE24BT: Re:ZERO -Starting Life in Another World-",
+    "abbreviation": "UE24BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-09-04T15:03:02.177",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24717,
+    "name": "UE24ST: Re:ZERO -Starting Life in Another World- Starter Deck",
+    "abbreviation": "UE24ST",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-09-04T12:03:03.953",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24719,
+    "name": "UEX07BT: Attack on Titan Vol. 2",
+    "abbreviation": "UEX07BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-09-04T13:33:41.183",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24687,
+    "name": "UE23BT: Inuyasha",
+    "abbreviation": "UE23BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-14T00:00:00",
+    "modifiedOn": "2026-08-19T12:39:40.463",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24816,
+    "name": "UE23BT: Inuyasha Release Event Cards",
+    "abbreviation": "UE23BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-14T00:00:00",
+    "modifiedOn": "2026-08-24T11:13:05.79",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24642,
+    "name": "UE22BT: CHAINSAW MAN",
+    "abbreviation": "UE22BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-31T00:00:00",
+    "modifiedOn": "2026-08-03T13:23:11.323",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24778,
+    "name": "UE22BT: CHAINSAW MAN Release Event",
+    "abbreviation": "UE22BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-24T00:00:00",
+    "modifiedOn": "2026-07-24T15:54:28.937",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24709,
+    "name": "UE21BT: The 100 Girlfriends Who Really, Really, Really, Really, REALLY Love You",
+    "abbreviation": "UE21BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-10T00:00:00",
+    "modifiedOn": "2026-08-18T11:10:06.943",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24543,
+    "name": "UE20BT: That Time I Got Reincarnated as a Slime",
+    "abbreviation": "UE20BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-26T00:00:00",
+    "modifiedOn": "2026-07-31T13:39:40.26",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24735,
+    "name": "UE20BT: That Time I Got Reincarnated as a Slime Release Event Cards",
+    "abbreviation": "UE20BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-19T00:00:00",
+    "modifiedOn": "2026-07-31T13:40:09.887",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24544,
+    "name": "UE19BT: SAKAMOTO DAYS",
+    "abbreviation": "UE19BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-29T00:00:00",
+    "modifiedOn": "2026-06-22T17:34:00.753",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24712,
+    "name": "UE19BT: SAKAMOTO DAYS Release Event Cards",
+    "abbreviation": "UE19BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-22T00:00:00",
+    "modifiedOn": "2026-06-26T17:02:06.077",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24512,
+    "name": "UE18BT: Tokyo Ghoul",
+    "abbreviation": "UE18BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-06-22T17:34:42.83",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24513,
+    "name": "UE18ST: Tokyo Ghoul Starter Deck",
+    "abbreviation": "UE18ST",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-24T00:00:00",
+    "modifiedOn": "2026-05-19T13:53:18.683",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24673,
+    "name": "UE18BT: Tokyo Ghoul Release Event Cards",
+    "abbreviation": "UE18BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-17T00:00:00",
+    "modifiedOn": "2026-05-26T12:53:18.877",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24511,
+    "name": "UE17BT: SOLO LEVELING",
+    "abbreviation": "UE17BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-20T00:00:00",
+    "modifiedOn": "2026-08-04T11:41:50.377",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24624,
+    "name": "UE17BT: SOLO LEVELING Release Event Cards",
+    "abbreviation": "UE17BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-20T00:00:00",
+    "modifiedOn": "2026-03-28T10:30:12.747",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24510,
+    "name": "UE16BT: KAGURABACHI",
+    "abbreviation": "UE16BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-27T00:00:00",
+    "modifiedOn": "2026-03-30T12:47:18.997",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24606,
+    "name": "UE16BT: KAGURABACHI Release Event Cards",
+    "abbreviation": "UE16BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-27T00:00:00",
+    "modifiedOn": "2026-03-30T12:47:24.44",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24507,
+    "name": "UE15BT: Evangelion: New Theatrical Edition",
+    "abbreviation": "UE15BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-30T00:00:00",
+    "modifiedOn": "2026-03-20T11:42:54.87",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24508,
+    "name": "UE15ST: Evangelion: New Theatrical Edition Starter Deck",
+    "abbreviation": "UE15ST",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-30T00:00:00",
+    "modifiedOn": "2026-01-30T14:56:29.35",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24509,
+    "name": "UEX06BT: Sword Art Online Vol.2",
+    "abbreviation": "UEX06BT",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-30T00:00:00",
+    "modifiedOn": "2026-03-20T11:32:04.683",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24563,
+    "name": "UE15BT: Evangelion: New Theatrical Edition Release Event Cards",
+    "abbreviation": "UE15BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-01-30T13:51:32.16",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24564,
+    "name": "UEX06BT: Sword Art Online Vol.2 Release Event Cards",
+    "abbreviation": "UEX06BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-02-02T15:00:59.79",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24329,
+    "name": "UEX05BT: Demon Slayer: Kimetsu no Yaiba Vol.2",
+    "abbreviation": "UEX05BT",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-12T00:00:00",
+    "modifiedOn": "2026-02-24T12:10:09.683",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24548,
+    "name": "UEX05BT: Demon Slayer: Kimetsu no Yaiba Vol.2 Release Event Cards",
+    "abbreviation": "UEX05BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-05T00:00:00",
+    "modifiedOn": "2026-02-24T12:04:49.88",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24328,
+    "name": "UE14BT: GODDESS OF VICTORY: NIKKE",
+    "abbreviation": "UE14BT",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-28T00:00:00",
+    "modifiedOn": "2025-12-01T17:10:10.21",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24534,
+    "name": "UE14BT: GODDESS OF VICTORY: NIKKE Release Event Cards",
+    "abbreviation": "UE14BT_RE",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-21T00:00:00",
+    "modifiedOn": "2025-12-31T21:10:12.22",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24316,
+    "name": "UE01NC: New Card Selection: BLEACH: Thousand-Year Blood War",
+    "abbreviation": "UE01NC",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2025-11-10T13:26:35.69",
+    "categoryId": 81
+   },
+   {
+    "groupId": 24261,
+    "name": "UE12BT: Kaiju No. 8",
+    "abbreviation": "UE12BT",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-02-04T15:18:43.057",
+    "categoryId": 81
+   }
+  ]
+ },
  "86": {
   "totalItems": 21,
   "success": true,

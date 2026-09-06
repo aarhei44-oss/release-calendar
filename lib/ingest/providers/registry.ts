@@ -1,5 +1,6 @@
 import { bandaiGundamProvider } from "./bandaiGundam";
 import { bandaiOnePieceProvider } from "./bandaiOnePiece";
+import { bandaiUnionArenaProvider } from "./bandaiUnionArena";
 import { bulbapediaProvider } from "./bulbapedia";
 import { playriftboundProvider } from "./playriftbound";
 import { scryfallProvider } from "./scryfall";
@@ -29,6 +30,7 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  *   riftbound           tcgplayer, wikipedia, riot-official (3, and G1)
  *   one-piece-tcg       tcgplayer, bandai-official         (2, and G1)
  *   gundam-card-game    tcgplayer, bandai-official         (2, and G1)
+ *   union-arena-tcg     tcgplayer, bandai-official         (2, and G1)
  *
  * The Bandai entries and playriftbound are the pipeline's OFFICIAL-tier
  * origins, which makes them the only providers whose claims satisfy gate rule
@@ -91,6 +93,7 @@ export const PRODUCTION_PROVIDERS: readonly Provider[] = [
   bandaiOnePieceProvider,
   bandaiGundamProvider,
   playriftboundProvider,
+  bandaiUnionArenaProvider,
 ];
 
 for (const provider of PRODUCTION_PROVIDERS) {

@@ -341,6 +341,23 @@ const LAUNCH_PACKAGES = [
       { code: "YGO-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
     ],
   },
+  {
+    slug: "union-arena-tcg",
+    name: "Union Arena",
+    version: "1.0.0",
+    description: "Booster and starter deck releases for the Union Arena Trading Card Game.",
+    discoveryConfig: { defaultStrategy: "html-table" },
+    // Union Arena launched straight onto the v2 ingest pipeline
+    // (lib/ingest/providers/bandaiUnionArena.ts + tcgcsv categoryId 81) --
+    // it never had a v1 crawler config, and v1 itself is disabled and
+    // slated for deletion (see ingest-v2-plan.md), so there is nothing
+    // real to put here.
+    sourceConfigs: [],
+    installedVersion: "1.0.0",
+    productSets: [
+      { code: "UA-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+    ],
+  },
 ] as const;
 
 async function main() {

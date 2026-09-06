@@ -24,6 +24,7 @@ const GAMES = [
   "one-piece-tcg",
   "gundam-card-game",
   "riftbound",
+  "union-arena-tcg",
 ] as const;
 
 function originsFor(game: string): Origin[] {
@@ -103,17 +104,20 @@ describe("provider registry: per-game coverage", () => {
       "riftbound": ["riot-official", "tcgplayer", "wikipedia"],
       "one-piece-tcg": ["bandai-official", "tcgplayer"],
       "gundam-card-game": ["bandai-official", "tcgplayer"],
+      "union-arena-tcg": ["bandai-official", "tcgplayer"],
     });
   });
 
-  it("gives One Piece, Gundam and Riftbound an OFFICIAL origin, which is what rule G1 needs", () => {
+  it("gives One Piece, Gundam, Riftbound and Union Arena an OFFICIAL origin, which is what rule G1 needs", () => {
     // One Piece and Gundam were the two single-origin games, publishable only
     // through G3's seven-run retailer streak. An OFFICIAL claim publishes on
     // first sight -- and until the Bandai providers existed, no origin in the
     // registry was OFFICIAL at all, so G1 was a branch of the gate nothing
     // could reach. Riftbound already had two origins, but neither carried a
     // Pre-Rift date, which playriftbound.ts's OFFICIAL claim is the first to.
-    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound"] as const) {
+    // Union Arena is new to the registry entirely and launches with both an
+    // OFFICIAL and a RETAILER origin from day one -- see bandaiUnionArena.ts.
+    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound", "union-arena-tcg"] as const) {
       const tiers = providersForGames([game]).map((provider) => provider.tier);
       expect(tiers, `${game}`).toContain("OFFICIAL");
     }
@@ -121,6 +125,7 @@ describe("provider registry: per-game coverage", () => {
     expect(officialProviders.map((provider) => provider.key).sort()).toEqual([
       "bandai-gundam",
       "bandai-onepiece",
+      "bandai-unionarena",
       "playriftbound",
     ]);
   });

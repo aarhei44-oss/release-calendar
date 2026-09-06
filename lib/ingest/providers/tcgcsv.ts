@@ -42,6 +42,7 @@ export const TCGCSV_CATEGORIES: ReadonlyArray<{ categoryId: number; game: string
   { categoryId: 71, game: "disney-lorcana" },
   { categoryId: 86, game: "gundam-card-game" },
   { categoryId: 89, game: "riftbound" },
+  { categoryId: 81, game: "union-arena-tcg" },
 ];
 
 const groupSchema = z.object({

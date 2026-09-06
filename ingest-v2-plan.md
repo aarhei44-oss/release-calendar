@@ -111,10 +111,25 @@ Fixtures in `tests/fixtures/ingest/`; **tests never hit the network**.
 | `bandaiOnePiece` | bandai-official | **OFFICIAL** | One Piece |
 | `bandaiGundam` | bandai-official | **OFFICIAL** | Gundam |
 | `playriftbound` | riot-official | **OFFICIAL** | Riftbound |
+| `bandaiUnionArena` | bandai-official | **OFFICIAL** | Union Arena |
 
 **Per-game origins → publishing rule:** Pokémon/MTG (3 origins, G2), Yu-Gi-Oh /
-Lorcana (2, G2), One Piece / Gundam / Riftbound (2-3 incl. a publisher, **G1**).
-No game is single-origin.
+Lorcana (2, G2), One Piece / Gundam / Riftbound / Union Arena (2-3 incl. a
+publisher, **G1**). No game is single-origin.
+
+**Union Arena, added 2026-09-05**, is the pipeline's eighth game and launched
+directly on this template rather than migrating off a v1 config: tcgcsv
+already carries it (categoryId 81, confirmed to publish the exact same code
+format Bandai's own site prints -- "UE24BT", "UE24ST", "UEX07BT", etc.), so it
+gets a RETAILER and an OFFICIAL origin from day one. Its product index
+(`unionarena-tcg.com/na/products/`) differs from the other two Bandai sites in
+one way that matters: the index lists every product's name, category and
+release date but never its set code, which only appears on that product's own
+detail page. `bandaiUnionArena.ts` is therefore a two-phase fetch like
+playriftbound.ts rather than a single-page read like bandaiOnePiece.ts /
+bandaiGundam.ts -- read the index, then fetch every upcoming (COMING SOON
+section only, not the AVAILABLE NOW archive) booster/deck's detail page for the
+one field the index doesn't carry.
 
 Key facts: Scryfall carries `tcgplayer_id` = TCGCSV `groupId` — **372/372
 non-digital sets joined exactly**, which is what replaced fuzzy matching as the

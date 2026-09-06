@@ -5,11 +5,12 @@ import { TCGCSV_CATEGORIES, tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv
 import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 
 /**
- * tcgcsv.groups.json is a recording of the seven live
+ * tcgcsv.groups.json is a recording of the eight live
  * `https://tcgcsv.com/tcgplayer/{categoryId}/groups` responses, captured on
- * 2026-09-04 and trimmed to every group published on or after 2026-01-01 plus
- * the six most recent older ones per category -- so both sides of the forward
- * window are real rows rather than hand-written ones.
+ * 2026-09-04 (categoryId 81, Union Arena, on 2026-09-05) and trimmed to every
+ * group published on or after 2026-01-01 plus the six most recent older ones
+ * per category -- so both sides of the forward window are real rows rather
+ * than hand-written ones.
  *
  * `FETCHED_AT` is the recording's own timestamp, which is what the forward
  * window is measured against.
@@ -22,7 +23,7 @@ function parse(value: unknown = FIXTURE, fetchedAt = FETCHED_AT) {
 }
 
 describe("tcgcsv provider: shape", () => {
-  it("declares all seven games", () => {
+  it("declares all eight games", () => {
     expect(tcgcsvProvider.games.sort()).toEqual(
       [
         "disney-lorcana",
@@ -31,6 +32,7 @@ describe("tcgcsv provider: shape", () => {
         "one-piece-tcg",
         "pokemon-tcg",
         "riftbound",
+        "union-arena-tcg",
         "yugioh-tcg",
       ].sort(),
     );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GUNDAM_PAGES, bandaiGundamProvider } from "@/lib/ingest/providers/bandaiGundam";
 import { ONE_PIECE_PAGES, bandaiOnePieceProvider } from "@/lib/ingest/providers/bandaiOnePiece";
+import { bandaiUnionArenaProvider } from "@/lib/ingest/providers/bandaiUnionArena";
 import { ParseError } from "@/lib/ingest/normalize";
 import { FORWARD_WINDOW_DAYS } from "@/lib/ingest/providers/shared";
 import { ORIGINS, originsAreIndependent, type Candidate } from "@/lib/ingest/types";
@@ -10,12 +11,17 @@ import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
  * bandaiOnePiece.pages.json and bandaiGundam.pages.json are verbatim recordings
  * of en.onepiece-cardgame.com/products/ (pages 1-3) and
  * www.gundam-gcg.com/en/products/, captured on 2026-09-04.
+ * bandaiUnionArena.pages.json is a trimmed recording of
+ * unionarena-tcg.com/na/products/ and its COMING SOON products' own detail
+ * pages, captured 2026-09-05.
  *
- * These two providers are the pipeline's first OFFICIAL-tier origins, so they
- * are also the first claims that can satisfy gate rule G1 -- one official source
- * publishing a date on its own. Before them, One Piece and Gundam had tcgcsv
- * alone and every date had to survive seven consecutive runs of G3's retailer
- * streak first.
+ * These three providers are the pipeline's OFFICIAL-tier origins, so they are
+ * also the claims that can satisfy gate rule G1 -- one official source
+ * publishing a date on its own. Before the first two, One Piece and Gundam had
+ * tcgcsv alone and every date had to survive seven consecutive runs of G3's
+ * retailer streak first; Union Arena is new to the registry entirely and never
+ * had that problem to begin with, launching with tcgcsv (RETAILER) and this
+ * provider (OFFICIAL) together.
  *
  * They are also the only providers that read an ordinary web page rather than an
  * API, which is why the drift tests below matter more here than anywhere else:
@@ -25,6 +31,10 @@ import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 const FETCHED_AT = new Date("2026-09-04T20:00:00.000Z");
 const ONE_PIECE_FIXTURE = loadFixture<Record<string, string>>("bandaiOnePiece.pages.json");
 const GUNDAM_FIXTURE = loadFixture<Record<string, string>>("bandaiGundam.pages.json");
+const UNION_ARENA_FETCHED_AT = new Date("2026-09-05T12:00:00.000Z");
+const UNION_ARENA_FIXTURE = loadFixture<{ index: string; products: Record<string, string> }>(
+  "bandaiUnionArena.pages.json",
+);
 
 function parseOnePiece(value: unknown = ONE_PIECE_FIXTURE, fetchedAt = FETCHED_AT): Candidate[] {
   return parseFixture(bandaiOnePieceProvider, value, fetchedAt);
@@ -32,6 +42,10 @@ function parseOnePiece(value: unknown = ONE_PIECE_FIXTURE, fetchedAt = FETCHED_A
 
 function parseGundam(value: unknown = GUNDAM_FIXTURE, fetchedAt = FETCHED_AT): Candidate[] {
   return parseFixture(bandaiGundamProvider, value, fetchedAt);
+}
+
+function parseUnionArena(value: unknown = UNION_ARENA_FIXTURE, fetchedAt = UNION_ARENA_FETCHED_AT): Candidate[] {
+  return parseFixture(bandaiUnionArenaProvider, value, fetchedAt);
 }
 
 function byName(candidates: Candidate[], fragment: string): Candidate | undefined {
@@ -44,7 +58,7 @@ function byName(candidates: Candidate[], fragment: string): Candidate | undefine
 
 describe("Bandai providers: shape", () => {
   it("speaks for the publisher, at OFFICIAL tier", () => {
-    for (const provider of [bandaiOnePieceProvider, bandaiGundamProvider]) {
+    for (const provider of [bandaiOnePieceProvider, bandaiGundamProvider, bandaiUnionArenaProvider]) {
       expect(provider.origin).toBe("bandai-official");
       expect(provider.tier).toBe("OFFICIAL");
       expect(ORIGINS["bandai-official"].tier).toBe("OFFICIAL");
@@ -61,6 +75,7 @@ describe("Bandai providers: shape", () => {
   it("covers one game each, and fetches only the English sites", () => {
     expect(bandaiOnePieceProvider.games).toEqual(["one-piece-tcg"]);
     expect(bandaiGundamProvider.games).toEqual(["gundam-card-game"]);
+    expect(bandaiUnionArenaProvider.games).toEqual(["union-arena-tcg"]);
     for (const page of ONE_PIECE_PAGES) expect(page.url).toContain("en.onepiece-cardgame.com");
     for (const page of GUNDAM_PAGES) expect(page.url).toContain("gundam-gcg.com/en/");
   });
@@ -247,6 +262,68 @@ describe("bandai-gundam provider: field mapping", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Union Arena
+// ---------------------------------------------------------------------------
+
+describe("bandai-unionarena provider: field mapping", () => {
+  it("reads a booster's name, code and release date from the index plus its own detail page", () => {
+    const booster = byName(parseUnionArena(), "D.Gray-man");
+    expect(booster).toMatchObject({
+      origin: "bandai-official",
+      game: "union-arena-tcg",
+      name: "D.Gray-man",
+      code: "UE28BT",
+      region: "GLOBAL",
+      type: "SHELF",
+      date: { kind: "EXACT", date: new Date("2026-11-20T00:00:00Z") },
+      externalIds: { "bandai-official": "unionarena:boosters/dgm-1" },
+      url: "https://www.unionarena-tcg.com/na/products/boosters/dgm-1.php",
+    });
+  });
+
+  it("disambiguates a booster and a starter deck that share one franchise slug", () => {
+    // Bandai reuses "upd-1" for both "boosters/upd-1.php" and "decks/upd-1.php"
+    // -- two different products with two different codes. The category has to
+    // be part of the identity key, or one would silently overwrite the other.
+    const candidates = parseUnionArena().filter((c) => c.name === "Umamusume: Pretty Derby");
+    expect(candidates).toHaveLength(2);
+    const booster = candidates.find((c) => c.code === "UE27BT");
+    const deck = candidates.find((c) => c.code === "UE27ST");
+    expect(booster?.externalIds).toEqual({ "bandai-official": "unionarena:boosters/upd-1" });
+    expect(deck?.externalIds).toEqual({ "bandai-official": "unionarena:decks/upd-1" });
+  });
+
+  it("ignores rows tagged as merchandise, which never carry a set code", () => {
+    expect(byName(parseUnionArena(), "Anniversary")).toBeUndefined();
+  });
+
+  it("ignores rows outside the COMING SOON section, even a dated, coded one", () => {
+    // "Already Out" sits under AVAILABLE NOW in the fixture; discovery is
+    // scoped to COMING SOON only, on purpose -- see bandaiUnionArena.ts.
+    expect(byName(parseUnionArena(), "Already Out")).toBeUndefined();
+  });
+
+  it("applies the forward window", () => {
+    // "Ancient History" is dated May 1, 2026 -- more than 90 days before the
+    // fixture's fetchedAt of September 5, 2026.
+    expect(byName(parseUnionArena(), "Ancient History")).toBeUndefined();
+  });
+
+  it("ignores a row whose detail page carries no bracketed code", () => {
+    expect(byName(parseUnionArena(), "Untitled Collaboration")).toBeUndefined();
+    expect(parseUnionArena().every((candidate) => candidate.code)).toBe(true);
+  });
+
+  it("tolerates a product missing from a replayed payload without inventing drift", () => {
+    // "Not Yet Fetched" is discoverable from the index but has no entry under
+    // `products` in the fixture -- the same situation a 304 on that one page
+    // would leave behind.
+    expect(byName(parseUnionArena(), "Not Yet Fetched")).toBeUndefined();
+    expect(parseUnionArena().length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Drift
 // ---------------------------------------------------------------------------
 
@@ -257,6 +334,9 @@ describe("Bandai providers: a page redesign fails loudly", () => {
     // it used to support age out through rule G7 as if cancelled.
     expect(() => parseOnePiece({ "op-products-1": "<html><body><p>hello</p></body></html>" })).toThrow(ParseError);
     expect(() => parseGundam({ "gundam-products": "<html><body><main></main></body></html>" })).toThrow(ParseError);
+    expect(() =>
+      parseUnionArena({ index: "<html><body><p>hello</p></body></html>", products: {} }),
+    ).toThrow(ParseError);
   });
 
   it("raises ParseError when rows survive but the dates move", () => {
@@ -284,5 +364,21 @@ describe("Bandai providers: a page redesign fails loudly", () => {
 
   it("rejects a payload that is not a page map at all", () => {
     expect(() => parseGundam({ "gundam-products": 42 })).toThrow(ParseError);
+  });
+
+  it("names the provider and the field on the Union Arena index-drift error", () => {
+    try {
+      parseUnionArena({ index: "<html></html>", products: {} });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ParseError);
+      expect((error as ParseError).providerKey).toBe("bandai-unionarena");
+      expect((error as ParseError).path).toBe("index");
+    }
+  });
+
+  it("rejects a Union Arena payload that is not the {index, products} shape", () => {
+    expect(() => parseUnionArena({ index: "<html></html>" })).toThrow(ParseError);
+    expect(() => parseUnionArena({ index: 42, products: {} })).toThrow(ParseError);
   });
 });
