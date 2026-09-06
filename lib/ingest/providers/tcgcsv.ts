@@ -143,10 +143,25 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
 
     for (const group of category.results) {
       const raw = group.publishedOn?.trim();
-      const parsed = raw ? parseIsoDateUtc(raw) : null;
+      // tcgcsv's genuine publishedOn is the naive local-form datetime described
+      // above -- no zone suffix. For groups it has no curated release date for
+      // (evergreen promo/box-set pools like "FNM Promos" or "Arena Promos",
+      // not an actual dated product), it instead stamps publishedOn with the
+      // instant its own crawler last touched the record: a real ISO instant,
+      // "Z"-suffixed and sub-second precise (e.g.
+      // "2026-09-05T20:00:07.1172096Z"). Verified live on 2026-09-06: 36 of
+      // 455 MTG groups shared one such timestamp down to the microsecond,
+      // while every genuine release date was a bare whole-day value. Reading
+      // that as an EXACT date makes an ageless promo pool look like a fresh
+      // imminent release every day the crawl runs -- which is what put
+      // "Arena Promos", "FNM Promos" et al. on the calendar dated to whatever
+      // day the pipeline last ran. A "Z" suffix never appears on a genuine
+      // value, so it's read as TBD instead.
+      const isCrawlTimestamp = raw?.endsWith("Z") ?? false;
+      const parsed = raw && !isCrawlTimestamp ? parseIsoDateUtc(raw) : null;
       // A publishedOn that is present but unreadable is drift worth failing on:
       // silently downgrading it to TBD would quietly blank real dates.
-      if (raw && !parsed) {
+      if (raw && !isCrawlTimestamp && !parsed) {
         throw parseErrorFor(
           PROVIDER_KEY,
           `${categoryId}.results.${group.groupId}.publishedOn`,

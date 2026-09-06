@@ -89,8 +89,10 @@ describe("tcgcsv provider: the forward window", () => {
     const candidates = parse();
     const cutoff = FETCHED_AT.getTime() - FORWARD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
+    // TBD candidates always pass the window (including the fixture's real
+    // crawl-timestamp-artifact rows, see the "crawl timestamp" describe block
+    // below) -- only EXACT ones are checked against the cutoff here.
     for (const candidate of candidates) {
-      expect(candidate.date.kind).toBe("EXACT");
       if (candidate.date.kind !== "EXACT") continue;
       expect(candidate.date.date.getTime()).toBeGreaterThanOrEqual(cutoff);
     }
@@ -102,12 +104,19 @@ describe("tcgcsv provider: the forward window", () => {
   });
 
   it("keeps a set that a later fetch time would have dropped", () => {
-    // Same bytes, read a year later: everything in the recording falls out of
-    // the window except the 2027 sets. Proves the filter reads the payload's
-    // fetchedAt rather than the wall clock.
+    // Same bytes, read a year later: every EXACT candidate in the recording
+    // falls out of the window except the 2027 sets, while the TBD ones
+    // (unannounced dates and crawl-timestamp artifacts alike) are unaffected
+    // by fetchedAt and still come through. Proves the filter reads the
+    // payload's fetchedAt rather than the wall clock.
     const later = parse(FIXTURE, new Date("2027-09-04T00:00:00Z"));
     expect(later.length).toBeLessThan(parse().length);
-    expect(later.every((candidate) => candidate.date.kind === "EXACT")).toBe(true);
+    for (const candidate of later) {
+      if (candidate.date.kind !== "EXACT") continue;
+      expect(candidate.date.date.getTime()).toBeGreaterThanOrEqual(
+        new Date("2027-09-04T00:00:00Z").getTime() - FORWARD_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+      );
+    }
   });
 
   it("keeps a group with no publishedOn as a TBD candidate", () => {
@@ -117,6 +126,32 @@ describe("tcgcsv provider: the forward window", () => {
     expect(parse(value)).toEqual([
       expect.objectContaining({ name: "Unannounced Set", date: { kind: "TBD" }, game: "riftbound" }),
     ]);
+  });
+});
+
+describe("tcgcsv provider: crawl-timestamp publishedOn", () => {
+  it("reads a Z-suffixed publishedOn as TBD instead of an EXACT date", () => {
+    // Real tcgcsv rows for evergreen promo/box-set pools (no genuine release
+    // date) carry the instant the crawler last touched the record rather
+    // than a curated date -- a real ISO instant, "Z"-suffixed and sub-second
+    // precise. Left as EXACT this makes an ageless pool look like a fresh
+    // imminent release every day the crawl runs, which is what actually put
+    // "Arena Promos" et al. on the live calendar dated to the pipeline's last
+    // run day. The fixture's own MTG category is full of these.
+    const arenaPromos = parse().find((candidate) => candidate.name === "Arena Promos");
+    expect(arenaPromos).toBeDefined();
+    expect(arenaPromos?.date).toEqual({ kind: "TBD" });
+  });
+
+  it("still reads a naive (non-Z) publishedOn as an EXACT date", () => {
+    const value = {
+      "1": {
+        success: true,
+        results: [{ groupId: 2, name: "Real Set", abbreviation: "RS", publishedOn: "2026-11-06T00:00:00" }],
+      },
+    };
+    const [candidate] = parse(value);
+    expect(candidate.date).toEqual({ kind: "EXACT", date: new Date("2026-11-06T00:00:00.000Z") });
   });
 });
 
