@@ -551,7 +551,12 @@ export async function getIdentityContext(tcgProfileInstallId: string) {
     // `codeIsSynthetic` rides along so identity.ts can tell a real published
     // code from one this pipeline invented to satisfy the NOT NULL column --
     // only the former is a fact worth matching on.
-    select: { id: true, name: true, code: true, codeIsSynthetic: true },
+    // `imageUrl`/`description` are not identity inputs at all -- they ride
+    // along so orchestrate.ts's enrichment step can tell an already-populated
+    // set from an empty one without a second query per candidate. Reading them
+    // here costs nothing (same row, same scan) and keeps the nightly run at
+    // zero extra writes once every set has been filled in.
+    select: { id: true, name: true, code: true, codeIsSynthetic: true, imageUrl: true, description: true },
     // Oldest first, so identity.ts's "ties keep the first" tiebreak resolves
     // to the longest-standing set rather than an arbitrary one.
     orderBy: { createdAt: "asc" },
@@ -588,10 +593,36 @@ export async function createProductSet(
     codeIsSynthetic?: boolean;
     name: string;
     description?: string;
+    imageUrl?: string;
   },
   db: Db = prisma,
 ) {
   return db.productSet.create({ data: params });
+}
+
+/**
+ * Fills in a set's presentational fields (the premium marketing image, the
+ * free set description) after the fact.
+ *
+ * This exists because creation is not enough. Every set in the catalogue was
+ * created by an earlier run, so threading a field through createProductSet
+ * alone reaches only sets discovered *after* the change -- which for a mature
+ * install is approximately none of them. `description` shipped with exactly
+ * that gap and has stayed empty on every row since.
+ *
+ * Deliberately narrow: only ever called with fields the stored row is missing
+ * (orchestrate.ts decides), so a populated value is never overwritten. There
+ * is no confidence model for images the way SourceClaim gives one for dates,
+ * so "first origin to supply one wins" is the only rule available that does
+ * not make the result depend on provider ordering within a run.
+ */
+export async function updateProductSetEnrichment(
+  productSetId: string,
+  fields: { imageUrl?: string; description?: string },
+  db: Db = prisma,
+) {
+  if (fields.imageUrl === undefined && fields.description === undefined) return null;
+  return db.productSet.update({ where: { id: productSetId }, data: fields });
 }
 
 // ---------------------------------------------------------------------------

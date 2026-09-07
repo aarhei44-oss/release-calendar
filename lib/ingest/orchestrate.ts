@@ -76,6 +76,13 @@ export type IngestTotals = {
   claimsWritten: number;
   reviewItemsOpened: number;
   productSetsCreated: number;
+  /**
+   * Sets whose image/description was filled in this run (see enrichProductSet).
+   * Expected to spike once on the first run after a new origin starts supplying
+   * one and sit at zero afterwards -- a number that stays high run after run
+   * means something is overwriting rather than filling.
+   */
+  productSetsEnriched: number;
   errors: number;
 };
 
@@ -96,6 +103,7 @@ export function emptyTotals(): IngestTotals {
     claimsWritten: 0,
     reviewItemsOpened: 0,
     productSetsCreated: 0,
+    productSetsEnriched: 0,
     errors: 0,
   };
 }
@@ -385,6 +393,7 @@ export async function runStagesFromPayloads(params: {
     claimsWritten: 0,
     reviewItemsOpened: 0,
     productSetsCreated: 0,
+    productSetsEnriched: 0,
     errors: 0,
   };
 
@@ -557,6 +566,7 @@ async function resolveInstallCandidates(
         codeIsSynthetic,
         name: candidate.name,
         description: candidate.description,
+        imageUrl: candidate.imageUrl,
       });
       totals.productSetsCreated += 1;
       // Extend the in-memory context so a second candidate for the same new
@@ -566,13 +576,22 @@ async function resolveInstallCandidates(
       // rather than falling back to the name heuristics -- unless it's
       // synthetic, in which case buildCodeIndex ignores it for the same
       // reason the database copy will on the next run.
-      context.sets.push({ id: created.id, name: created.name, code: created.code, codeIsSynthetic: created.codeIsSynthetic });
+      context.sets.push({
+        id: created.id,
+        name: created.name,
+        code: created.code,
+        codeIsSynthetic: created.codeIsSynthetic,
+        imageUrl: created.imageUrl,
+        description: created.description,
+      });
       resolution = { productSetId: created.id, matchedBy: "new" };
     }
 
     // Non-null past this point: either identity resolved it or the branch
     // above just created the set.
     const productSetId = resolution.productSetId as string;
+
+    await enrichProductSet(productSetId, candidate, context, totals);
 
     // Pin every id this candidate carries, so the next run resolves by id
     // rather than re-running the name heuristics -- including ids matched by
@@ -586,6 +605,49 @@ async function resolveInstallCandidates(
   }
 
   return resolved;
+}
+
+/**
+ * Fills in a set's presentational fields from a candidate that happens to
+ * carry them.
+ *
+ * Two fields, one rule: write only what the stored row is missing. Neither
+ * `imageUrl` nor `description` goes through the gate, because neither is a
+ * claim about a release -- there is nothing for two origins to *disagree*
+ * about, only one to be first. Refreshing on every run instead would make the
+ * stored value depend on provider ordering within the run, and would rewrite
+ * all 86 image-bearing rows nightly to no effect.
+ *
+ * The reason this is a separate step rather than an argument to
+ * createProductSet: creation only ever reaches sets discovered after the
+ * change. `description` was wired into createProductSet when it shipped and
+ * has been null on every row ever since, because every set in the catalogue
+ * predates any origin that could supply one. A create-time-only field in a
+ * pipeline that resolves far more often than it creates is a field that never
+ * gets populated.
+ */
+async function enrichProductSet(
+  productSetId: string,
+  candidate: Candidate,
+  context: { sets: { id: string; imageUrl?: string | null; description?: string | null }[] },
+  totals: StageTotals,
+): Promise<void> {
+  const stored = context.sets.find((set) => set.id === productSetId);
+  if (!stored) return;
+
+  const fields: { imageUrl?: string; description?: string } = {};
+  if (candidate.imageUrl && !stored.imageUrl) fields.imageUrl = candidate.imageUrl;
+  if (candidate.description && !stored.description) fields.description = candidate.description;
+  if (fields.imageUrl === undefined && fields.description === undefined) return;
+
+  await ingestRepo.updateProductSetEnrichment(productSetId, fields);
+  totals.productSetsEnriched += 1;
+
+  // Keep the in-memory context in step with the row just written, so a second
+  // candidate naming the same set later in this run reads it as populated
+  // instead of issuing an identical update.
+  if (fields.imageUrl !== undefined) stored.imageUrl = fields.imageUrl;
+  if (fields.description !== undefined) stored.description = fields.description;
 }
 
 /** One release event's worth of this run's candidates, as the gate wants to see them. */
