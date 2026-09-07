@@ -92,6 +92,11 @@ job.
 | `INGEST_TRIGGER_TOKEN` | no, but required for an external cron to drive ingest | Bearer token `POST /api/ingest/run` compares (constant-time) against the `Authorization` header. Unset means the route only accepts an admin session (e.g. from the System tab's own "Trigger manual rescan"), so an unauthenticated cron call is rejected -- generate with `openssl rand -hex 32`. |
 | `SITE_ADDRESS` | Docker Compose only | Domain Caddy serves and requests a TLS cert for, e.g. `calendar.example.com`. Defaults to `localhost` (no TLS). |
 | `SEED_ON_BOOT` | Docker Compose only | `true` runs `prisma db seed` on container boot (idempotent). |
+| `SMTP_HOST` | no | Enables outbound email (change alerts, Premium digests, lead-time reminders, admin freshness alarms) when set. Unset means every sender no-ops with a log line rather than throwing -- alerts are opt-in in the UI whether or not an operator has configured mail. |
+| `SMTP_PORT` / `SMTP_SECURE` | no | Default `587` / `false` (STARTTLS). Use `SMTP_SECURE=true` for implicit TLS on 465. Note that many cloud hosts block outbound 25/465/587 -- if connections hang, check whether your provider offers alternate submission ports. |
+| `SMTP_USER` / `SMTP_PASS` | no | Omit both for an unauthenticated relay; otherwise these are the submission credentials. |
+| `SMTP_FROM` | no | Envelope/header From, e.g. `Release Watcher <no-reply@example.com>`. Defaults to a `no-reply@releasewatcher.com` address. Must be a sender your provider has authorized for the domain (SPF/DKIM), or mail will be rejected or spam-foldered. |
+| `ADSENSE_CLIENT_ID` | no | Google AdSense publisher ID (`ca-pub-...`). Unset shows no ads at all; set loads Auto Ads and populates `/ads.txt`. |
 | `STRIPE_SECRET_KEY` | no | Enables Premium checkout when set. Unset means /premium's subscribe buttons no-op with an error instead of the app failing to boot. |
 | `STRIPE_WEBHOOK_SECRET` | no (required if `STRIPE_SECRET_KEY` is set) | Signing secret for `/api/stripe/webhook`, from the Stripe dashboard (or `stripe listen` in development). |
 | `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` | no (required if `STRIPE_SECRET_KEY` is set) | Stripe Price IDs for the two Premium recurring plans. |
