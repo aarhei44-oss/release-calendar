@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
-  startOfMonth,
   endOfMonth,
   startOfWeek,
   endOfWeek,
@@ -38,6 +37,28 @@ function eventCoversDay(day: Date, event: MappedCalendarEvent): boolean {
   return dayKey(event.start) <= key && key <= dayKey(event.end);
 }
 
+/** The day selected before anyone taps: today, when the month in view contains it. */
+function defaultSelection(monthStart: Date): string | null {
+  const today = new Date();
+  return isSameMonth(today, monthStart) ? dayKey(today) : null;
+}
+
+const subscribeToNothing = () => () => {};
+
+/**
+ * False on the server and through the first client render, true afterwards.
+ * `useSyncExternalStore` is how React wants a client-only value read during
+ * render; a `useState` + `useEffect` pair would say the same thing by way of
+ * a banned setState-in-effect.
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
+
 /**
  * A tappable day-number grid for narrow screens, in place of react-big-
  * calendar's month view -- that one lays out full event pills across a
@@ -47,14 +68,13 @@ function eventCoversDay(day: Date, event: MappedCalendarEvent): boolean {
  */
 export function MobileMonthCalendar({ events, flexibleEvents, month, onSelectEvent, reactionSummaries }: Props) {
   const [year, mon] = month.split("-").map(Number);
-  const monthStart = new Date(year, mon - 1, 1);
+  const monthStart = useMemo(() => new Date(year, mon - 1, 1), [year, mon]);
 
   const days = useMemo(() => {
     const start = startOfWeek(monthStart);
     const end = endOfWeek(endOfMonth(monthStart));
     return eachDayOfInterval({ start, end });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month]);
+  }, [monthStart]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, MappedCalendarEvent[]>();
@@ -65,15 +85,16 @@ export function MobileMonthCalendar({ events, flexibleEvents, month, onSelectEve
     return map;
   }, [days, events]);
 
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // A tap only speaks for the month it happened in, so moving to another month
+  // falls back to that month's default selection with no state to reset.
+  const [tapped, setTapped] = useState<{ month: string; day: string | null } | null>(null);
 
-  // Re-derive the default selection whenever the month changes: today's
-  // date if it falls in the month being viewed, otherwise nothing selected.
-  useEffect(() => {
-    const today = new Date();
-    setSelectedDay(isSameMonth(today, monthStart) ? dayKey(today) : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month]);
+  // Only the browser can be trusted to know what "today" is -- the server may
+  // sit in another timezone -- so the server and the hydrating render select
+  // nothing, and the default appears once hydration is done.
+  const hydrated = useHydrated();
+  const selectedDay =
+    tapped?.month === month ? tapped.day : hydrated ? defaultSelection(monthStart) : null;
 
   const selectedEvents = selectedDay ? (eventsByDay.get(selectedDay) ?? []) : [];
 
@@ -105,7 +126,7 @@ export function MobileMonthCalendar({ events, flexibleEvents, month, onSelectEve
               type="button"
               role="gridcell"
               aria-selected={selected}
-              onClick={() => setSelectedDay(selected ? null : key)}
+              onClick={() => setTapped({ month, day: selected ? null : key })}
               className={`flex min-h-14 flex-col items-center gap-1 bg-white py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900 dark:bg-gray-900 dark:focus-visible:ring-gray-100 ${
                 selected ? "ring-2 ring-inset ring-gray-900 dark:ring-gray-100" : ""
               }`}
