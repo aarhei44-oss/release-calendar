@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeConfidenceAndStatus } from "@/lib/crawler/confidence";
+import { computeConfidenceAndStatus } from "@/lib/ingest/confidence";
 
 describe("computeConfidenceAndStatus", () => {
   it("returns zero confidence and RUMORED for no claims", () => {

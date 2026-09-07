@@ -8,8 +8,6 @@ import { ReviewTab } from "./ReviewTab";
 import type {
   listPackagesWithInstalls,
   listUsers,
-  listContradictedEvents,
-  listRecentMerges,
   listIngestRunHealth,
   listProviderHealth,
   listReviewQueue,
@@ -27,8 +25,6 @@ const TABS: { value: AdminTab; label: string }[] = [
 type Props = {
   packages: Awaited<ReturnType<typeof listPackagesWithInstalls>>;
   users: Awaited<ReturnType<typeof listUsers>>;
-  contradictedEvents: Awaited<ReturnType<typeof listContradictedEvents>>;
-  recentMerges: Awaited<ReturnType<typeof listRecentMerges>>;
   ingestRuns: Awaited<ReturnType<typeof listIngestRunHealth>>;
   providerHealth: Awaited<ReturnType<typeof listProviderHealth>>;
   providerStaleHours: number;
@@ -38,8 +34,6 @@ type Props = {
 export function AdminTabs({
   packages,
   users,
-  contradictedEvents,
-  recentMerges,
   ingestRuns,
   providerHealth,
   providerStaleHours,
@@ -47,12 +41,7 @@ export function AdminTabs({
 }: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
 
-  // Everything waiting on a human, in one number on the tab itself. The
-  // ingest queue (ReviewItem rows the gate opened) and v1's derived
-  // contradiction list are separate lists inside the tab -- see ReviewTab --
-  // but a curator's question at the nav is only ever "is there anything for
-  // me", so they are summed here rather than shown as two badges.
-  const openReviewCount = contradictedEvents.length + reviewQueue.length;
+  const openReviewCount = reviewQueue.length;
   const staleProviderCount = providerHealth.filter((provider) => provider.stale).length;
 
   const installOptions = packages.flatMap((pkg) =>
@@ -107,7 +96,7 @@ export function AdminTabs({
               {tab.value === "review" && openReviewCount > 0 && (
                 <span
                   className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800"
-                  title={`${reviewQueue.length} ingest review item(s) + ${contradictedEvents.length} contradicted event(s)`}
+                  title={`${reviewQueue.length} ingest review item(s)`}
                 >
                   {openReviewCount}
                   <span className="sr-only"> items awaiting review</span>
@@ -159,7 +148,6 @@ export function AdminTabs({
             ingestRuns={ingestRuns}
             providerHealth={providerHealth}
             providerStaleHours={providerStaleHours}
-            recentMerges={recentMerges}
           />
         </div>
       )}
@@ -170,7 +158,7 @@ export function AdminTabs({
           aria-labelledby="admin-tab-review"
           tabIndex={0}
         >
-          <ReviewTab events={contradictedEvents} reviewQueue={reviewQueue} />
+          <ReviewTab reviewQueue={reviewQueue} />
         </div>
       )}
     </div>

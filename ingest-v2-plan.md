@@ -23,6 +23,51 @@ reverting `CRAWLER_SCHEDULE`. The golden-set fixture (Phase 6 item 1) and a
 retroactive audit of what actually published were **not** done; do that
 before trusting the calendar's current contents blindly.
 
+**Update 2026-09-07: Phase 6 cutover complete.** `lib/crawler/` and
+`data/crawler/crawlerRepo.ts` are deleted -- not just disabled -- so rolling
+back to v1 is no longer possible (the golden-set/shadow-run validation this
+plan originally wanted before doing that was, per the 2026-09-05 update
+above, never done; the site owner accepted v2's live track record instead).
+Four things v1's code was still quietly load-bearing for were extracted into
+`lib/ingest/` first, since deleting them outright would have broken v2 too:
+- `acquireJobLock`/`releaseJobLock`/`getInstallsForScan` and a new
+  `getChangeContextForEvents` -> `data/ingest/ingestRepo.ts` (job locking and
+  install lookup `orchestrate.ts`/`replay.ts` already depended on).
+- `computeConfidenceAndStatus` -> `lib/ingest/confidence.ts` (`gate.ts`'s
+  scoring).
+- The ProductSet name-similarity half of `dedup.ts` (the date-proximity half,
+  `findMatchingEvent`/`dispositionFor`, was genuinely v1-only and did not
+  move) -> `lib/ingest/nameMatching.ts` (`identity.ts`'s name tier).
+- `parseFlexibleDate` -> `lib/ingest/dateParsing.ts` (every provider in
+  `lib/ingest/providers/*` delegates to it).
+- `retention.ts`, wholesale -> `lib/ingest/retention.ts` (its cutoff logic is
+  built around v2's own `FORWARD_WINDOW_DAYS`; despite living under
+  `lib/crawler`, it was already v2's only purge mechanism, not v1's).
+
+Also fixed as part of the same change: v1's `runScan` was the only caller of
+`dispatchScanChangeNotifications` (the subscriber/event-follower "new
+release"/"status changed" email+Discord alert) -- v2's orchestrator had no
+equivalent call, so deleting v1 outright would have silently turned that
+feature off. `lib/ingest/notifications.ts`'s `toScanChanges` now maps v2's
+own per-run diff (`RunDiffChange`) onto the alert's `ScanChange` shape, and
+`executeIngest` dispatches it after every live run (never from
+`replayRun`/`retryRun` -- a replay must not re-fire alerts for a run that
+already happened).
+
+Admin surface changes: SystemTab's dedup-pass/release-lifecycle-pass buttons
+and the merge/undo-merge feature are gone (v2's identity resolution doesn't
+produce mergeable duplicates the way v1's dedup pass did, and there's
+nothing left to act on since the code-migration wipe). ReviewTab's "v1
+crawler" high-tier-contradiction list is gone too, leaving only the v2
+review queue. "Trigger retention cleanup" and "Trigger manual rescan"
+survive -- rescan now calls `lib/ingest/orchestrate.ts`'s `startIngest`
+instead of v1's `runScan`.
+
+The golden-set fixture and a retroactive audit of what v2 has actually
+published are still not done -- that gap from the 2026-09-05 update is
+unchanged by this cutover, just no longer has a v1 fallback if it turns up
+something wrong.
+
 Design doc (options analysis + full architecture, with the measured v1
 diagnosis): https://claude.ai/code/artifact/eb5f4531-8d53-4683-946a-6ea917a7329b
 
@@ -175,8 +220,14 @@ carry the same data.
 | 3 | `0ae1039` | Bandai publisher providers — first OFFICIAL-tier origins |
 | 4 | `6fa0d36` | Region in event key, region badge, placeholder-name fix, retention alignment |
 | 5 | (pending) | Cron trigger route, provider health/replay/retry UI, freshness alarms, review queue UI |
+| 6 | (pending) | Cutover: v1 deleted, shared dependencies extracted into lib/ingest, subscriber notifications ported, admin surface updated |
 
-**742 tests passing**, typecheck, lint, and a production build all clean.
+**670 tests passing** (net down from 742: the v1 test surface deleted --
+crawler orchestrate/dedup/dedupPass/lifecycle/retention/mergeUndo/
+mergeEventPersonalization/htmlTableAdapter/scheduler -- was larger than the
+handful of tests the extracted modules (nameMatching, dateParsing,
+confidence, notifications) needed on their new path), typecheck, lint, and a
+production build all clean.
 Nothing pushed. One **pre-existing** lint error in
 `app/calendar/MobileMonthCalendar.tsx` (`react-hooks/set-state-in-effect`) is
 unrelated to this work.
@@ -250,36 +301,37 @@ admin session, fail-closed-when-unset, malformed body, already-running), and
 the review-resolution paths (accept/keep/dismiss, already-resolved,
 out-of-range claim index) plus the System tab's health classification.
 
-## Then — cutover (Phase 6)
+## Cutover (Phase 6) — done 2026-09-07
 
 1. **Golden set**: hand-verify every upcoming release across the seven games
    against publisher announcements (~40 events, an afternoon). Commit as a
-   fixture the gate is tested against forever.
+   fixture the gate is tested against forever. **Not done** -- explicitly
+   declined for this cutover; see the 2026-09-07 update above.
 2. **Shadow run**: v2 nightly to a shadow table for two weeks, diffed daily
-   against the golden set. Cut over when the diff is empty twice running — not
-   when the code is finished.
-3. Then delete `lib/crawler/`, `data/crawler/`, `tests/crawler*.test.ts`, the
-   dead source configs in `prisma/seed.ts`, and the in-process scheduler.
-4. **Done, ahead of cutover, commit `f9b7cfb`.** `ProductSet.code` is now
-   `NOT NULL` with a `codeIsSynthetic` companion flag
-   (`prisma/schema.prisma`). Done before v1 was decommissioned, so the
-   migration (`prisma/migrations/20260905065243_require_product_set_code`)
-   deletes every existing `ProductSet` row (cascading to `ReleaseEvent` and
+   against the golden set. **Not done**, same reason -- v2's live track
+   record was accepted in its place.
+3. **Done.** Deleted `lib/crawler/`, `data/crawler/crawlerRepo.ts`,
+   `tests/crawler*.test.ts`, the dead source configs in `prisma/seed.ts`, and
+   the in-process scheduler -- see the 2026-09-07 update above for what had
+   to be extracted first so v2 kept working.
+4. **Done, commit `f9b7cfb`.** `ProductSet.code` is now `NOT NULL` with a
+   `codeIsSynthetic` companion flag (`prisma/schema.prisma`). The migration
+   (`prisma/migrations/20260905065243_require_product_set_code`) deleted
+   every existing `ProductSet` row (cascading to `ReleaseEvent` and
    everything hanging off it -- claims, review items, and **all
    user-generated data**: follows, personal notes, dismissals, reactions,
    comments) rather than backfilling a code for rows already live, per the
    site owner's explicit instruction to wipe production rather than
-   reconcile it. **Not applied to production yet** -- it runs the moment
-   this is deployed (`prisma migrate deploy` on push to `main`, since the
-   pipeline auto-deploys). `lib/ingest/orchestrate.ts`'s
-   `synthesizeProductSetCode` invents a code for any future candidate from a
-   code-less origin (a wiki) so new-product creation never blocks on a code
-   nobody's published yet; `codeIsSynthetic` keeps that invention out of
-   `identity.ts`'s code-tier matching (`buildCodeIndex` skips it) so it can
-   never masquerade as a fact a source printed. Covered by
-   `tests/ingestIdentity.test.ts` (matching-side exclusion) and
-   `tests/ingestSyntheticCode.test.ts` (creation + idempotency on replay).
-   745 tests passing, typecheck/lint/build clean.
+   reconcile it. Applied to production via the normal auto-deploy
+   (`prisma migrate deploy` on push to `main`) once this commit reached
+   `main`. `lib/ingest/orchestrate.ts`'s `synthesizeProductSetCode` invents a
+   code for any future candidate from a code-less origin (a wiki) so
+   new-product creation never blocks on a code nobody's published yet;
+   `codeIsSynthetic` keeps that invention out of `identity.ts`'s code-tier
+   matching (`buildCodeIndex` skips it) so it can never masquerade as a fact
+   a source printed. Covered by `tests/ingestIdentity.test.ts`
+   (matching-side exclusion) and `tests/ingestSyntheticCode.test.ts`
+   (creation + idempotency on replay).
 
 ## Known risks / deferred
 

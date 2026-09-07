@@ -1,26 +1,20 @@
-import type { DateType, SourceDisposition, WindowGranularity } from "@/app/generated/prisma/client";
+/**
+ * ProductSet name-similarity primitives for lib/ingest/identity.ts's name tier
+ * (external id -> code -> name -> new). Moved here from lib/crawler/dedup.ts at
+ * the v1 cutover -- this half of that file was always v2's real dependency;
+ * the other half (findMatchingEvent/dispositionFor, v1's own date-proximity
+ * event dedup) retired along with the rest of lib/crawler.
+ */
 
-export type EventDateInfo = {
-  dateType: DateType;
-  dateExact?: Date | null;
-  dateStart?: Date | null;
-  dateEnd?: Date | null;
-  windowGranularity?: WindowGranularity | null;
-  windowStart?: Date | null;
-  windowEnd?: Date | null;
-  isManualOverride?: boolean;
-};
-
-const PROXIMITY_DAYS = 14;
 const MIN_NORMALIZED_NAME_LENGTH = 3;
 
 /**
  * Normalizes a ProductSet name for cross-source identity matching: lowercase,
  * strip parenthetical annotations (e.g. a trailing set-code like "(EB-05)"),
  * strip all non-alphanumeric characters. Deliberately more aggressive/lossy
- * than the crawler adapters' own `slugify()` (which preserves structure for
- * a stable id) -- this only ever answers "do these two scraped names mean
- * the same real product," never used as an id itself.
+ * than a provider's own slug (which preserves structure for a stable id) --
+ * this only ever answers "do these two scraped names mean the same real
+ * product," never used as an id itself.
  *
  * Returns "" for names that are entirely punctuation/parenthetical content
  * (e.g. "(2026)") -- callers must treat an empty (or otherwise too-short)
@@ -66,11 +60,11 @@ const SEQUENCE_LABEL_PREFIX = /^(set|series|volume|vol|chapter|part)\s*#?(\d+)\s
 
 // A trailing short alphanumeric token containing at least one letter (e.g.
 // "Reality Fracture FRA", "The Hobbit HOB", "Fourth Edition 4ED") is a
-// source formatting artifact, not a real word -- some sources (e.g.
-// Scryfall, per seed.ts's comments) append the set's own code to the
-// display name. Deliberately excludes an ALL-DIGIT trailing token (e.g.
-// "Magic 2010" ending in "2010"): that's a real year/sequence number the
-// `numbers` veto below must still be able to catch, not a code to discard.
+// source formatting artifact, not a real word -- some sources append the
+// set's own code to the display name. Deliberately excludes an ALL-DIGIT
+// trailing token (e.g. "Magic 2010" ending in "2010"): that's a real
+// year/sequence number the `numbers` veto below must still be able to
+// catch, not a code to discard.
 const TRAILING_SOURCE_CODE = /\s+(?=[A-Z0-9]*[A-Z])[A-Z0-9]{2,5}$/;
 
 function stripTrailingSourceCode(name: string): string {
@@ -96,13 +90,13 @@ function significantTokens(name: string): { tokens: Set<string>; numbers: Set<st
 /**
  * The same significant (stopword-filtered) tokens productSetNameSimilarity
  * scores on, exposed for bucketing candidates before a pairwise fuzzy-match
- * scan (see dedupPass.ts): two names with zero tokens in common always
- * score 0 (Dice's numerator is literally the shared-token count, and the
- * exact-match-after-code-strip path requires a nonempty, equal token set,
- * which also implies overlap), so grouping by shared token first -- instead
- * of comparing every pair in an install -- drops zero true matches while
- * turning an O(n^2) scan into one bounded by how many *other* sets share a
- * word with each set, which stopword-filtering already keeps small.
+ * scan: two names with zero tokens in common always score 0 (Dice's
+ * numerator is literally the shared-token count, and the exact-match-after-
+ * code-strip path requires a nonempty, equal token set, which also implies
+ * overlap), so grouping by shared token first -- instead of comparing every
+ * pair in an install -- drops zero true matches while turning an O(n^2) scan
+ * into one bounded by how many *other* sets share a word with each set,
+ * which stopword-filtering already keeps small.
  */
 export function significantTokenSet(name: string): Set<string> {
   return significantTokens(name).tokens;
@@ -174,69 +168,4 @@ export function productSetNameSimilarity(a: string, b: string): number {
 
 export function isFuzzyProductSetNameMatch(a: string, b: string): boolean {
   return productSetNameSimilarity(a, b) >= FUZZY_SIMILARITY_THRESHOLD;
-}
-
-function primaryDate(info: EventDateInfo): Date | null {
-  return info.dateExact ?? info.dateStart ?? info.windowStart ?? null;
-}
-
-/**
- * Business rule 6.4: within an install, release events are deduped by
- * product set + event type + date proximity. Callers pre-filter `existing`
- * to the candidate's (productSetId, type) before calling this.
- */
-export function findMatchingEvent<T extends EventDateInfo>(candidate: EventDateInfo, existing: T[]): T | null {
-  // A manually-overridden event always wins the match for its
-  // (productSet, type), regardless of date proximity -- that's the whole
-  // point of an override: the crawler's discovered date may legitimately
-  // disagree with it, and new claims should still land on it "for
-  // visibility" (technical-spec.md §6.3 step 5) rather than spawn a
-  // duplicate event.
-  const overridden = existing.find((e) => e.isManualOverride);
-  if (overridden) return overridden;
-
-  if (candidate.dateType === "TBD") {
-    return existing.find((e) => e.dateType === "TBD") ?? null;
-  }
-
-  const candidateDate = primaryDate(candidate);
-  if (!candidateDate) return null;
-
-  let best: T | null = null;
-  let bestDiffDays = Infinity;
-
-  for (const event of existing) {
-    const eventDate = primaryDate(event);
-    if (!eventDate) continue;
-    const diffDays = Math.abs(candidateDate.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24);
-    if (diffDays <= PROXIMITY_DAYS && diffDays < bestDiffDays) {
-      best = event;
-      bestDiffDays = diffDays;
-    }
-  }
-
-  return best;
-}
-
-/**
- * Whether a newly discovered candidate date agrees with an event's
- * current best-known date, for tagging the resulting SourceClaim's
- * disposition. Claims are immutable (business rule 6.3) -- this only
- * decides how the new claim describes itself relative to what's already
- * on record, it never changes past claims.
- */
-export function dispositionFor(
-  candidate: EventDateInfo,
-  currentEvent: EventDateInfo | null,
-): SourceDisposition {
-  if (!currentEvent || currentEvent.dateType === "TBD" || candidate.dateType === "TBD") {
-    return "SUPPORTS";
-  }
-
-  const candidateDate = primaryDate(candidate);
-  const currentDate = primaryDate(currentEvent);
-  if (!candidateDate || !currentDate) return "SUPPORTS";
-
-  const diffDays = Math.abs(candidateDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= PROXIMITY_DAYS ? "SUPPORTS" : "CONTRADICTS";
 }

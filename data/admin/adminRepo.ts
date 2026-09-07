@@ -1,10 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/app/generated/prisma/client";
-import { runScan } from "@/lib/crawler/orchestrate";
-import { runDedupPass } from "@/lib/crawler/dedupPass";
-import { runReleaseLifecyclePass } from "@/lib/crawler/lifecycle";
-import { runRetentionCleanupPass } from "@/lib/crawler/retention";
-import { undoProductSetMergeAndRecompute, undoReleaseEventMergeAndRecompute } from "@/lib/crawler/mergeUndo";
+import { startIngest } from "@/lib/ingest/orchestrate";
+import { runRetentionCleanupPass } from "@/lib/ingest/retention";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { evaluateFreshness, PROVIDER_STALE_AFTER_HOURS, runProviderFreshnessAlarmPass } from "@/lib/ingest/freshness";
 import { replayRun, retryRun } from "@/lib/ingest/replay";
@@ -28,9 +25,9 @@ export async function toggleInstallEnabled(installId: string, enabled: boolean) 
 /**
  * Enables the install and, if it has no product sets yet, creates one
  * placeholder set so the install isn't empty in the UI while the admin
- * waits on real data. The crawler (Phase 6) supersedes this placeholder
- * with real discovered product sets on its first scan; it is never
- * overwritten automatically before that.
+ * waits on real data. The next ingest run supersedes this placeholder with
+ * real discovered product sets; it is never overwritten automatically
+ * before that.
  */
 export async function enableAndSeedInstall(installId: string) {
   const install = await prisma.tcgProfileInstall.update({
@@ -86,22 +83,27 @@ export async function listScanRuns(installId?: string) {
 }
 
 /**
- * Fire-and-forget, same pattern as the daily scheduled scan in
- * scheduler.ts: a full rescan can take upwards of 20-60+ seconds for a
- * large install, and this is called directly from a Server Action awaited
- * by the browser (SystemTab.tsx) -- awaiting it here risks the request
- * outliving the reverse proxy's read timeout even though the scan itself
- * would have succeeded. runScan logs its own outcome and writes a ScanRun
- * row the admin System tab already polls, so there's nothing this loses
- * except the immediate "already running" skip reason, which only matters
- * for the rare case of a double-click or two admins racing the same
- * install.
+ * Fire-and-forget, mirroring app/api/ingest/run/route.ts's own trigger: a
+ * full rescan can take tens of seconds, and this is called directly from a
+ * Server Action awaited by the browser (SystemTab.tsx) -- awaiting it here
+ * risks the request outliving the reverse proxy's read timeout even though
+ * the scan itself would have succeeded. startIngest's ScanRun row is what
+ * the admin System tab already polls, so there's nothing this loses except
+ * the immediate result, which the return value below still reports (a
+ * double-click or two admins racing the same install now surfaces as
+ * `started: false` rather than a silent no-op).
  */
-export async function triggerRescan(installId: string): Promise<{ started: true }> {
-  runScan({ scopeType: "INSTALL", scopeId: installId, trigger: "MANUAL" }).catch((error) => {
+export async function triggerRescan(installId: string): Promise<{ started: boolean; reason?: string }> {
+  const result = await startIngest({ scope: { scopeType: "INSTALL", scopeId: installId }, trigger: "MANUAL" });
+  if (!result.started) {
+    return { started: false, reason: result.reason };
+  }
+
+  result.completed.catch((error) => {
     logEvent({
       action: "admin.triggerRescan.background",
       tcgProfileInstallId: installId,
+      scanRunId: result.scanRunId,
       outcome: "error",
       error: error instanceof Error ? error.message : String(error),
     });
@@ -109,91 +111,8 @@ export async function triggerRescan(installId: string): Promise<{ started: true 
   return { started: true };
 }
 
-export async function triggerDedup() {
-  return runDedupPass();
-}
-
-export async function triggerReleaseLifecycle() {
-  return runReleaseLifecyclePass();
-}
-
-/**
- * Events with at least one high-tier (OFFICIAL/RETAILER) claim that
- * CONTRADICTS the event's current best-known date -- business rule 6.5
- * already discounts confidence for a contradiction, but that's a silent
- * number going down, not something an admin would ever notice on its own.
- * This surfaces it explicitly instead. Excludes events already resolved by
- * a human (isManualOverride) or no longer actionable (RELEASED/CANCELLED).
- */
-export async function getEventsWithHighTierContradiction() {
-  return prisma.releaseEvent.findMany({
-    where: {
-      isManualOverride: false,
-      status: { notIn: ["RELEASED", "CANCELLED"] },
-      archivedAt: null,
-      sourceClaims: { some: { disposition: "CONTRADICTS", tier: { in: ["OFFICIAL", "RETAILER"] } } },
-    },
-    include: {
-      productSet: { include: { install: { include: { package: true } } } },
-      sourceClaims: { orderBy: { lastVerifiedAt: "desc" } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-}
-
 export async function triggerRetentionCleanup() {
   return runRetentionCleanupPass();
-}
-
-/**
- * Most-recently-merged ProductSets/ReleaseEvents (undoable from the System
- * tab), with the survivor each one is currently merged into resolved to a
- * display name -- a plain mergedIntoId isn't a relation (see schema.prisma),
- * so that's a small follow-up query rather than an include.
- */
-export async function listRecentMerges() {
-  const [productSets, releaseEvents] = await Promise.all([
-    prisma.productSet.findMany({
-      where: { archivedAt: { not: null }, mergedIntoId: { not: null } },
-      orderBy: { archivedAt: "desc" },
-      take: 20,
-    }),
-    prisma.releaseEvent.findMany({
-      where: { archivedAt: { not: null }, mergedIntoId: { not: null } },
-      orderBy: { archivedAt: "desc" },
-      take: 20,
-      include: { productSet: { select: { name: true } } },
-    }),
-  ]);
-
-  const survivorProductSetIds = [...new Set(productSets.map((p) => p.mergedIntoId!))];
-  const survivorEventIds = [...new Set(releaseEvents.map((e) => e.mergedIntoId!))];
-
-  const [survivorProductSets, survivorEvents] = await Promise.all([
-    prisma.productSet.findMany({ where: { id: { in: survivorProductSetIds } }, select: { id: true, name: true } }),
-    prisma.releaseEvent.findMany({
-      where: { id: { in: survivorEventIds } },
-      select: { id: true, productSet: { select: { name: true } } },
-    }),
-  ]);
-  const survivorProductSetNames = new Map(survivorProductSets.map((p) => [p.id, p.name]));
-  const survivorEventNames = new Map(survivorEvents.map((e) => [e.id, e.productSet.name]));
-
-  return {
-    productSets: productSets.map((p) => ({ ...p, mergedIntoName: survivorProductSetNames.get(p.mergedIntoId!) ?? null })),
-    releaseEvents: releaseEvents.map((e) => ({
-      ...e,
-      mergedIntoName: survivorEventNames.get(e.mergedIntoId!) ?? null,
-    })),
-  };
-}
-
-export async function undoProductSetMerge(productSetId: string) {
-  return undoProductSetMergeAndRecompute(productSetId);
-}
-
-export async function undoReleaseEventMerge(releaseEventId: string) {
-  return undoReleaseEventMergeAndRecompute(releaseEventId);
 }
 
 // ---------------------------------------------------------------------------

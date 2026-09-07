@@ -1,6 +1,16 @@
-import * as crawlerRepo from "@/data/crawler/crawlerRepo";
+import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { FORWARD_WINDOW_DAYS } from "@/lib/ingest/providers/shared";
 import { withActionLogging } from "@/lib/logger";
+
+/**
+ * v2's retention/purge pass. Moved here from lib/crawler/retention.ts at the
+ * v1 cutover -- despite living under lib/crawler, this was never v1-specific:
+ * its cutoff logic is built directly around v2's FORWARD_WINDOW_DAYS, and
+ * nothing in lib/ingest/orchestrate.ts's executeIngest calls it
+ * automatically, so the admin System tab's "Trigger retention cleanup"
+ * button (data/admin/adminRepo.ts's triggerRescan-adjacent wiring) is the
+ * only way this ever runs.
+ */
 
 export type RetentionCleanupResult = { eventsDeleted: number; productSetsPurged: number };
 
@@ -35,20 +45,15 @@ export function retentionCutoffDays(olderThanDays: number = RETENTION_DAYS): num
 
 /**
  * Permanently deletes ReleaseEvents more than `olderThanDays` past their
- * date (merged-away duplicates included -- see deleteOldEvents) and
- * ProductSets that have sat archived that long, to keep the live dataset
- * lean. Real deletes, not an archive: once an event ages out here it's
- * gone for good, unlike the merge-undo archival elsewhere in this module.
- * Runs at the end of every scan (see orchestrate.ts) and is also
- * admin-triggerable, same as dedupPass.ts's runDedupPass.
+ * date and ProductSets that have sat archived that long, to keep the live
+ * dataset lean. Real deletes, not an archive: once an event ages out here
+ * it's gone for good. Admin-triggerable from the System tab; nothing calls
+ * it automatically today.
  *
- * `excludeEventIds` (orchestrate.ts only) skips a same-scan set of ids
- * outright, regardless of how far past their date they are -- specifically
- * events whose dateless TBD placeholder was just resolved to a real date
- * moments earlier in this same scan. Without it, a decades-old product
- * whose date only just became known (e.g. a bare-year historical date, see
- * dateParsing.ts) would be purged in the very same scan that discovered
- * it, before ever being visible.
+ * `excludeEventIds` skips a same-run set of ids outright, regardless of how
+ * far past their date they are -- for a caller that just resolved some
+ * dateless placeholder to a real (possibly decades-old) date and doesn't
+ * want retention to purge it in the same breath it was discovered.
  *
  * `olderThanDays` is a request, not the last word, for the *event* purge: see
  * retentionCutoffDays, which floors it at the ingest forward window so a purged
@@ -59,13 +64,13 @@ export function retentionCutoffDays(olderThanDays: number = RETENTION_DAYS): num
 export async function runRetentionCleanupPass(
   params: { installIds?: string[]; olderThanDays?: number; excludeEventIds?: string[] } = {},
 ): Promise<RetentionCleanupResult> {
-  return withActionLogging("crawler.runRetentionCleanupPass", async () => {
-    const eventsDeleted = await crawlerRepo.deleteOldEvents(
+  return withActionLogging("ingest.runRetentionCleanupPass", async () => {
+    const eventsDeleted = await ingestRepo.deleteOldEvents(
       params.installIds,
       retentionCutoffDays(params.olderThanDays),
       params.excludeEventIds,
     );
-    const productSetsPurged = await crawlerRepo.deleteStaleArchivedProductSets(
+    const productSetsPurged = await ingestRepo.deleteStaleArchivedProductSets(
       params.installIds,
       params.olderThanDays,
     );

@@ -4,15 +4,15 @@ import { gzipSync } from "node:zlib";
 /**
  * The Fetch stage's HTTP policy, in one place.
  *
- * lib/crawler/httpFetch.ts already does timeout + single-retry, and the first
- * plan here was to reuse it. It does not fit: it hardcodes the v1 User-Agent,
- * it cannot send conditional-request headers, and it throws away the response
- * headers a conditional GET depends on (ETag/Last-Modified) because its only
- * caller wants the body. Rather than widen v1's helper -- which is live and
- * must keep behaving exactly as it does -- the v2 policy lives here, and v1 is
- * left alone.
+ * v1's now-retired lib/crawler/httpFetch.ts already did timeout + single-
+ * retry, and the first plan here was to reuse it. It didn't fit: it
+ * hardcoded v1's own User-Agent, it couldn't send conditional-request
+ * headers, and it threw away the response headers a conditional GET depends
+ * on (ETag/Last-Modified) because its only caller wanted just the body.
+ * Rather than widen a helper that had to keep behaving exactly as v1's live
+ * pipeline needed at the time, the v2 policy got its own module here.
  *
- * What this adds over v1's helper:
+ * What this adds over that helper:
  *
  *  - Conditional GET. Every provider sends If-None-Match / If-Modified-Since
  *    from the validators Phase 1's ProviderEtag stored, and a 304 comes back as

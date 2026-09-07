@@ -7,20 +7,17 @@ import { logEvent } from "@/lib/logger";
 /**
  * `POST /api/ingest/run` -- the production trigger for the v2 ingest pipeline.
  *
- * This exists to replace the failure mode of the in-process scheduler
- * (lib/crawler/scheduler.ts): a `setTimeout` living inside the Next.js process
- * means a deploy or a crash near midnight silently skips the night, and nobody
- * finds out until the calendar is a day stale. An external cron calling an
- * HTTP endpoint has the opposite property -- the scheduler outlives the app,
- * and a failed call is a non-2xx an operator's cron mailer can shout about.
+ * This exists to replace the failure mode of v1's in-process scheduler
+ * (lib/crawler/scheduler.ts, deleted at the v1 cutover): a `setTimeout` living
+ * inside the Next.js process means a deploy or a crash near midnight silently
+ * skips the night, and nobody finds out until the calendar is a day stale. An
+ * external cron calling an HTTP endpoint has the opposite property -- the
+ * scheduler outlives the app, and a failed call is a non-2xx an operator's
+ * cron mailer can shout about.
  *
- * It also replaces the current way of running a scan against production by
- * hand, which is tarring the source tree, scp-ing it to the host and starting
- * a one-off container.
- *
- * Note what this is *not*: it does not touch v1. lib/crawler's scheduler is
- * still the live pipeline and still runs on its own timer; this endpoint drives
- * lib/ingest only. See the comment on startCrawlerScheduler.
+ * It also replaces the earlier way of running a scan against production by
+ * hand, which was tarring the source tree, scp-ing it to the host and
+ * starting a one-off container.
  */
 
 // Node runtime, not edge: node:crypto's timingSafeEqual, Prisma and the

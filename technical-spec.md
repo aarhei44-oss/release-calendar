@@ -98,6 +98,14 @@ A single generic "DB CRUD console" (present in the prototype) is **not** carried
 
 ## 6. Crawler / Scraper Subsystem (New for MVP)
 
+> **Superseded.** This section describes the original ("v1") crawler design,
+> which was retired at the v1-to-v2 cutover -- `lib/crawler/` no longer
+> exists. The live ingest pipeline is `lib/ingest/`, a six-stage
+> Fetch→Normalize→Identity→Gate→Apply→Diff design with a replayable substrate
+> and a deterministic publish gate; **`ingest-v2-plan.md` is the current,
+> authoritative description**, not this section. Left below for historical
+> context on what v1 was and why it was replaced (see that doc's "Why").
+
 ### 6.1 Goals
 Reduce manual data entry by periodically discovering candidate release information for each enabled `TcgProfileInstall` from its configured external sources, recording evidence, and safely upserting `ReleaseEvent`/`SourceClaim` data.
 

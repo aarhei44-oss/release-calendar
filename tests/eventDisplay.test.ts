@@ -25,7 +25,7 @@ function fakeDateFields(overrides: Partial<CalendarEvent>): CalendarEvent {
 
 describe("formatEventDate", () => {
   // Regression test: dateExact/dateStart/dateEnd/windowStart/windowEnd are
-  // always built as UTC midnight (see lib/crawler/dateParsing.ts) since
+  // always built as UTC midnight (see lib/ingest/dateParsing.ts) since
   // they're calendar days, not real instants. formatEventDate used to
   // reinterpret them through a viewer's IANA profile timezone, which rolled
   // a UTC-midnight date back to the previous day/month for anyone behind

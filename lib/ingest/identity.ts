@@ -4,7 +4,7 @@ import {
   normalizeProductSetName,
   productSetNameSimilarity,
   significantTokenSet,
-} from "@/lib/crawler/dedup";
+} from "./nameMatching";
 import type { Candidate, IdentityResolution, Origin } from "./types";
 
 /**

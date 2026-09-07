@@ -37,6 +37,127 @@ import {
 type Db = typeof prisma | Prisma.TransactionClient;
 
 // ---------------------------------------------------------------------------
+// Job lock / install scoping
+//
+// Moved here from data/crawler/crawlerRepo.ts at the v1 cutover (both
+// orchestrate.ts's startIngest and replay.ts's replayRun/retryRun need
+// these; they were never v1-specific, just historically defined alongside
+// it). The "crawler" job name is shared, not renamed, so a lock taken by
+// one caller is still visible to the other -- see orchestrate.ts's
+// JOB_NAME for why that still matters even with v1 gone: nothing about
+// the name implies which pipeline holds it.
+// ---------------------------------------------------------------------------
+
+export async function acquireJobLock(jobName: string, scopeKey: string, ttlMs: number) {
+  // Wrapped in a transaction so the check-then-write is atomic: two
+  // concurrent acquisition attempts for the same (jobName, scopeKey) must
+  // not both observe "unlocked" and both proceed (UC-19).
+  return prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlMs);
+
+    const existing = await tx.jobLock.findUnique({
+      where: { jobName_scopeKey: { jobName, scopeKey } },
+    });
+
+    if (existing && existing.expiresAt && existing.expiresAt > now) {
+      return null;
+    }
+
+    return tx.jobLock.upsert({
+      where: { jobName_scopeKey: { jobName, scopeKey } },
+      update: { acquiredAt: now, expiresAt },
+      create: { jobName, scopeKey, acquiredAt: now, expiresAt },
+    });
+  });
+}
+
+export async function releaseJobLock(jobName: string, scopeKey: string) {
+  await prisma.jobLock.deleteMany({ where: { jobName, scopeKey } });
+}
+
+/** Enabled installs in scope for a scan, with the package config providers read discoveryConfig from. */
+export async function getInstallsForScan(scopeType: ScanScopeType, scopeId?: string) {
+  return prisma.tcgProfileInstall.findMany({
+    where: {
+      enabled: true,
+      ...(scopeType === "INSTALL" && scopeId ? { id: scopeId } : {}),
+    },
+    include: { package: true },
+  });
+}
+
+/**
+ * Permanently deletes ReleaseEvents whose date is more than `olderThanDays`
+ * old, for lib/ingest/retention.ts's runRetentionCleanupPass.
+ */
+export async function deleteOldEvents(
+  installIds?: string[],
+  olderThanDays = 30,
+  excludeEventIds?: string[],
+): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.releaseEvent.deleteMany({
+    where: {
+      ...(installIds ? { productSet: { tcgProfileInstallId: { in: installIds } } } : {}),
+      ...(excludeEventIds && excludeEventIds.length > 0 ? { id: { notIn: excludeEventIds } } : {}),
+      OR: [
+        { dateType: "EXACT", dateExact: { lt: cutoff } },
+        { dateType: "RANGE", dateEnd: { lt: cutoff } },
+        { dateType: "WINDOW", windowEnd: { lt: cutoff } },
+      ],
+    },
+  });
+  return result.count;
+}
+
+/**
+ * Permanently deletes ProductSets that have sat archived (merged away) for
+ * more than `olderThanDays`. ProductSet has no date field of its own, so
+ * this uses time-since-merge as its clock, independent of deleteOldEvents
+ * (which already handles the events themselves by their own dates).
+ */
+export async function deleteStaleArchivedProductSets(installIds?: string[], olderThanDays = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.productSet.deleteMany({
+    where: {
+      archivedAt: { not: null, lt: cutoff },
+      ...(installIds ? { tcgProfileInstallId: { in: installIds } } : {}),
+    },
+  });
+  return result.count;
+}
+
+/**
+ * Resolves event ids to enough context to name them in a subscriber/follower
+ * notification (lib/ingest/notifications.ts's toScanChanges): which install,
+ * and a human-readable game/product-set name.
+ */
+export async function getChangeContextForEvents(eventIds: string[]) {
+  if (eventIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: { id: { in: eventIds } },
+    select: {
+      id: true,
+      productSet: {
+        select: {
+          name: true,
+          code: true,
+          tcgProfileInstallId: true,
+          install: { select: { package: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+  return events.map((event) => ({
+    eventId: event.id,
+    installId: event.productSet.tcgProfileInstallId,
+    productSetName: event.productSet.name ?? event.productSet.code ?? "Untitled release",
+    gameName: event.productSet.install.package.name,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Run lifecycle
 // ---------------------------------------------------------------------------
 
@@ -339,10 +460,8 @@ export async function getReviewItem(id: string) {
  *
  * `isManualOverride` is the load-bearing part. Without it the next scan's
  * verdict would write straight over the date a human just chose, and the queue
- * would hand the same conflict back tomorrow, forever. It is the same flag v1
- * respects (data/crawler/crawlerRepo.ts's updateEventConfidence) and that v2's
- * applyVerdictToEvent already honours, so setting it here is enough for both
- * pipelines to leave the decision alone.
+ * would hand the same conflict back tomorrow, forever. applyVerdictToEvent
+ * already honours it, so setting it here is enough to make the decision stick.
  *
  * Done in one transaction so an event can never end up pinned to a date whose
  * review item still reads as open, or vice versa.
@@ -511,11 +630,12 @@ export async function getPublishedState(releaseEventId: string): Promise<Publish
  * both Bandai sites' JP catalogues.
  *
  * Note the *absence* of a matching database constraint: ReleaseEvent carries an
- * `@@index([productSetId, type, region])` and deliberately no `@@unique`. The v1
- * crawler still creates several events per (productSet, type) on purpose, for
- * dates far enough apart to be different printings (lib/crawler/dedup.ts's
- * findMatchingEvent, +/-14 days), and it is still the live pipeline. Scoping
- * happens here, in v2's resolution logic, so v1 is untouched.
+ * `@@index([productSetId, type, region])` and deliberately no `@@unique`. That
+ * was originally so the now-retired v1 crawler (which could create several
+ * events per (productSet, type) for dates far enough apart to be different
+ * printings) stayed unaffected; v1 is gone, but tightening this to a real
+ * uniqueness constraint is a separate schema decision, not required for v2 to
+ * work correctly -- scoping happens here, in v2's resolution logic, regardless.
  */
 export async function findOrCreateReleaseEvent(
   params: { productSetId: string; type: ReleaseEventType; region: Region; date: CandidateDate },

@@ -1,5 +1,5 @@
 import type { ReleaseStatus, SourceDisposition } from "@/app/generated/prisma/client";
-import { computeConfidenceAndStatus, type ClaimForConfidence } from "@/lib/crawler/confidence";
+import { computeConfidenceAndStatus, type ClaimForConfidence } from "./confidence";
 import {
   ORIGINS,
   dateGapDays,
@@ -443,15 +443,14 @@ function widestGapDays(claims: ClaimRecord[]): number | null {
 }
 
 /**
- * Confidence and the CONFIRMED/ANNOUNCED/RUMORED label, reusing v1's
- * noisy-OR scoring (lib/crawler/confidence.ts) unchanged so the number means
- * the same thing on both pipelines while they coexist.
+ * Confidence and the CONFIRMED/ANNOUNCED/RUMORED label, via ./confidence's
+ * noisy-OR scoring.
  *
  * Dispositions are derived here rather than stored, against whichever date the
- * verdict settled on, and using the *gate's* agreement window (3 days) rather
- * than v1's dedup proximity window (14 days) -- inside the gate, "agrees with
- * the published date" has to mean the same thing everywhere or the score would
- * quietly disagree with the rule that produced it.
+ * verdict settled on, and using the gate's own agreement window (3 days) --
+ * inside the gate, "agrees with the published date" has to mean the same thing
+ * everywhere or the score would quietly disagree with the rule that produced
+ * it.
  *
  * The returned status is only ever used for a PUBLISH verdict; every other
  * verdict holds the status the event already had. This is the boundary that

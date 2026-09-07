@@ -35,7 +35,7 @@ export function stripDescriptionForAnonymous(events: CalendarEvent[], isLoggedIn
 }
 
 // dateExact/dateStart/dateEnd/windowStart/windowEnd are calendar days, not
-// real instants -- lib/crawler/dateParsing.ts always builds them as
+// real instants -- lib/ingest/dateParsing.ts always builds them as
 // Date.UTC(year, month, day) at midnight, deliberately, since "release day
 // is March 15" has no time-of-day component to begin with. Formatting them
 // through a viewer's IANA timeZone (as this used to, via a per-user profile

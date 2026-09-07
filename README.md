@@ -14,9 +14,10 @@ See the design docs for the full picture:
 ## Stack
 
 Next.js (App Router) + TypeScript (strict) + Tailwind CSS, Prisma + SQLite,
-NextAuth (Google sign-in), Zod validation, an in-app crawler subsystem for
-automated release discovery. Deployed as a Docker Compose stack (app + Caddy
-reverse proxy).
+NextAuth (Google sign-in), Zod validation, an in-app ingest pipeline
+(`lib/ingest/`) for automated release discovery, driven by an external cron
+hitting `POST /api/ingest/run` (see `INGEST_TRIGGER_TOKEN` below). Deployed
+as a Docker Compose stack (app + Caddy reverse proxy).
 
 ## Local development
 
@@ -88,7 +89,7 @@ job.
 | `NEXTAUTH_SECRET` | yes | Random secret for session encryption -- generate with `openssl rand -base64 32`. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | OAuth credentials from the Google Cloud Console (Google sign-in is the only auth method). |
 | `ADMIN_EMAILS` | yes | Comma-separated emails granted the `ADMIN` role on first sign-in. |
-| `CRAWLER_SCHEDULE` | no | Enables the scheduled crawler scan when set to any positive number (its value isn't otherwise used). Runs once a day at midnight America/Los_Angeles. Unset or `0` disables the schedule (manual rescan from the admin System tab still works). |
+| `INGEST_TRIGGER_TOKEN` | no, but required for an external cron to drive ingest | Bearer token `POST /api/ingest/run` compares (constant-time) against the `Authorization` header. Unset means the route only accepts an admin session (e.g. from the System tab's own "Trigger manual rescan"), so an unauthenticated cron call is rejected -- generate with `openssl rand -hex 32`. |
 | `SITE_ADDRESS` | Docker Compose only | Domain Caddy serves and requests a TLS cert for, e.g. `calendar.example.com`. Defaults to `localhost` (no TLS). |
 | `SEED_ON_BOOT` | Docker Compose only | `true` runs `prisma db seed` on container boot (idempotent). |
 | `STRIPE_SECRET_KEY` | no | Enables Premium checkout when set. Unset means /premium's subscribe buttons no-op with an error instead of the app failing to boot. |

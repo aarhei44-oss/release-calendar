@@ -16,13 +16,7 @@ import {
   setUserActive,
   listScanRuns,
   triggerRescan,
-  triggerDedup,
-  triggerReleaseLifecycle,
-  listContradictedEvents,
   triggerRetentionCleanup,
-  listRecentMerges,
-  undoProductSetMerge,
-  undoReleaseEventMerge,
   listIngestRunHealth,
   listProviderHealth,
   replayIngestRun,
@@ -65,7 +59,7 @@ beforeAll(async () => {
   plainUser = await prisma.user.create({ data: { email: "admin-actions-user@example.com" } });
 
   const pkg = await prisma.tcgProfilePackage.create({
-    data: { slug: "admin-actions-test", name: "Admin Actions Test", version: "1.0.0", discoveryConfig: {}, sourceConfigs: {} },
+    data: { slug: "admin-actions-test", name: "Admin Actions Test", version: "1.0.0", discoveryConfig: {}, sourceConfigs: [] },
   });
   const install = await prisma.tcgProfileInstall.create({
     data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: false },
@@ -87,13 +81,7 @@ describe("admin Server Actions -- authorization", () => {
     ["setUserActive", () => setUserActive(plainUser.id, false)],
     ["listScanRuns", () => listScanRuns()],
     ["triggerRescan", () => triggerRescan(installId)],
-    ["triggerDedup", () => triggerDedup()],
-    ["triggerReleaseLifecycle", () => triggerReleaseLifecycle()],
-    ["listContradictedEvents", () => listContradictedEvents()],
     ["triggerRetentionCleanup", () => triggerRetentionCleanup()],
-    ["listRecentMerges", () => listRecentMerges()],
-    ["undoProductSetMerge", () => undoProductSetMerge(installId)],
-    ["undoReleaseEventMerge", () => undoReleaseEventMerge(installId)],
     ["listIngestRunHealth", () => listIngestRunHealth()],
     ["listProviderHealth", () => listProviderHealth()],
     ["replayIngestRun", () => replayIngestRun("no-such-run")],
@@ -142,197 +130,26 @@ describe("enableAndSeedInstall", () => {
   });
 });
 
-describe("triggerRescan / triggerDedup (System tab)", () => {
-  it("lets an admin start a rescan (this test install has no sourceConfigs, so it's network-free)", async () => {
+describe("triggerRescan (System tab)", () => {
+  it("lets an admin start a rescan (this test install has no providers configured, so it's network-free)", async () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
     const result = await triggerRescan(installId);
     expect(result).toEqual({ started: true });
 
     // triggerRescan fires the scan in the background rather than awaiting
     // it (a real scan can take too long for the Server Action's caller to
-    // wait on) -- poll for the ScanRun it writes instead of a fixed sleep,
-    // since this install's empty sourceConfigs mean the background scan is
-    // network-free and finishes within a handful of event-loop turns.
+    // wait on) -- poll for the ScanRun it writes instead of a fixed sleep.
     const scanRun = await waitForScanRun(installId);
     expect(scanRun.status).toBe("SUCCEEDED");
-    expect((scanRun.totals as { sourcesFetched?: number } | null)?.sourcesFetched).toBe(0);
-  });
-
-  it("lets an admin run a dedup pass", async () => {
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const result = await triggerDedup();
-    expect(result.groupsChecked).toBeGreaterThanOrEqual(0);
-  });
-
-  it("lets an admin run a release lifecycle pass", async () => {
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const result = await triggerReleaseLifecycle();
-    expect(result.eventsReleased).toBeGreaterThanOrEqual(0);
   });
 });
 
-describe("listContradictedEvents (Review tab)", () => {
-  let productSetId: string;
-
-  beforeAll(async () => {
-    const productSet = await prisma.productSet.create({
-      data: { tcgProfileInstallId: installId, code: "REVIEW-1", name: "Review Test Set" },
-    });
-    productSetId = productSet.id;
-  });
-
-  async function createEvent(overrides: { status?: "ANNOUNCED" | "RELEASED" | "CANCELLED"; isManualOverride?: boolean } = {}) {
-    return prisma.releaseEvent.create({
-      data: {
-        productSetId,
-        type: "SHELF",
-        dateType: "EXACT",
-        dateExact: new Date("2026-05-01"),
-        status: "ANNOUNCED",
-        confidence: 0.4,
-        ...overrides,
-      },
-    });
-  }
-
-  it("surfaces an event with a high-tier CONTRADICTS claim", async () => {
-    const event = await createEvent();
-    await prisma.sourceClaim.create({
-      data: {
-        releaseEventId: event.id,
-        tier: "OFFICIAL",
-        disposition: "CONTRADICTS",
-        confidenceWeight: 0.6,
-        url: "https://official.example.com",
-      },
-    });
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const results = await listContradictedEvents();
-
-    expect(results.map((e) => e.id)).toContain(event.id);
-  });
-
-  it("does not surface an event whose only contradiction is low-tier", async () => {
-    const event = await createEvent();
-    await prisma.sourceClaim.create({
-      data: {
-        releaseEventId: event.id,
-        tier: "SPECULATIVE",
-        disposition: "CONTRADICTS",
-        confidenceWeight: 0.3,
-        url: "https://speculative.example.com",
-      },
-    });
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const results = await listContradictedEvents();
-
-    expect(results.map((e) => e.id)).not.toContain(event.id);
-  });
-
-  it("does not surface an already manually-overridden event", async () => {
-    const event = await createEvent({ isManualOverride: true });
-    await prisma.sourceClaim.create({
-      data: {
-        releaseEventId: event.id,
-        tier: "RETAILER",
-        disposition: "CONTRADICTS",
-        confidenceWeight: 0.6,
-        url: "https://retailer.example.com",
-      },
-    });
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const results = await listContradictedEvents();
-
-    expect(results.map((e) => e.id)).not.toContain(event.id);
-  });
-
-  it("does not surface a RELEASED or CANCELLED event", async () => {
-    const released = await createEvent({ status: "RELEASED" });
-    const cancelled = await createEvent({ status: "CANCELLED" });
-    for (const event of [released, cancelled]) {
-      await prisma.sourceClaim.create({
-        data: {
-          releaseEventId: event.id,
-          tier: "OFFICIAL",
-          disposition: "CONTRADICTS",
-          confidenceWeight: 0.6,
-          url: "https://official.example.com",
-        },
-      });
-    }
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const results = await listContradictedEvents();
-
-    expect(results.map((e) => e.id)).not.toContain(released.id);
-    expect(results.map((e) => e.id)).not.toContain(cancelled.id);
-  });
-});
-
-describe("triggerRetentionCleanup / listRecentMerges / undo*Merge (System tab)", () => {
+describe("triggerRetentionCleanup (System tab)", () => {
   it("lets an admin run a retention cleanup pass", async () => {
     mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
     const result = await triggerRetentionCleanup();
     expect(result.eventsDeleted).toBeGreaterThanOrEqual(0);
     expect(result.productSetsPurged).toBeGreaterThanOrEqual(0);
-  });
-
-  it("lets an admin list and undo a recent ProductSet merge", async () => {
-    const primary = await prisma.productSet.create({
-      data: { tcgProfileInstallId: installId, code: "MERGE-P", name: "Merge Primary" },
-    });
-    const duplicate = await prisma.productSet.create({
-      data: { tcgProfileInstallId: installId, code: "MERGE-D", name: "Merge Duplicate" },
-    });
-    await prisma.productSet.update({
-      where: { id: duplicate.id },
-      data: { archivedAt: new Date(), mergedIntoId: primary.id },
-    });
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const merges = await listRecentMerges();
-    expect(merges.productSets.map((p) => p.id)).toContain(duplicate.id);
-    expect(merges.productSets.find((p) => p.id === duplicate.id)?.mergedIntoName).toBe("Merge Primary");
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    await undoProductSetMerge(duplicate.id);
-
-    const restored = await prisma.productSet.findUniqueOrThrow({ where: { id: duplicate.id } });
-    expect(restored.archivedAt).toBeNull();
-  });
-
-  it("lets an admin list and undo a recent ReleaseEvent merge", async () => {
-    const productSet = await prisma.productSet.create({
-      data: { tcgProfileInstallId: installId, code: "MERGE-EVENT-SET", name: "Merge Event Set" },
-    });
-    const primary = await prisma.releaseEvent.create({
-      data: { productSetId: productSet.id, type: "SHELF", dateType: "EXACT", dateExact: new Date("2026-05-01"), status: "ANNOUNCED", confidence: 0.3 },
-    });
-    const duplicate = await prisma.releaseEvent.create({
-      data: {
-        productSetId: productSet.id,
-        type: "SHELF",
-        dateType: "EXACT",
-        dateExact: new Date("2026-05-01"),
-        status: "ANNOUNCED",
-        confidence: 0.3,
-        archivedAt: new Date(),
-        mergedIntoId: primary.id,
-      },
-    });
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    const merges = await listRecentMerges();
-    expect(merges.releaseEvents.map((e) => e.id)).toContain(duplicate.id);
-
-    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
-    await undoReleaseEventMerge(duplicate.id);
-
-    const restored = await prisma.releaseEvent.findUniqueOrThrow({ where: { id: duplicate.id } });
-    expect(restored.archivedAt).toBeNull();
   });
 });
 

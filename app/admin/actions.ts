@@ -85,52 +85,10 @@ export async function triggerRescan(installId: string) {
   });
 }
 
-export async function triggerDedup() {
-  return withActionLogging("admin.triggerDedup", async () => {
-    await requireAdmin();
-    return adminRepo.triggerDedup();
-  });
-}
-
-export async function triggerReleaseLifecycle() {
-  return withActionLogging("admin.triggerReleaseLifecycle", async () => {
-    await requireAdmin();
-    return adminRepo.triggerReleaseLifecycle();
-  });
-}
-
-export async function listContradictedEvents() {
-  return withActionLogging("admin.listContradictedEvents", async () => {
-    await requireAdmin();
-    return adminRepo.getEventsWithHighTierContradiction();
-  });
-}
-
 export async function triggerRetentionCleanup() {
   return withActionLogging("admin.triggerRetentionCleanup", async () => {
     await requireAdmin();
     return adminRepo.triggerRetentionCleanup();
-  });
-}
-
-export async function listRecentMerges() {
-  return withActionLogging("admin.listRecentMerges", async () => {
-    await requireAdmin();
-    return adminRepo.listRecentMerges();
-  });
-}
-
-export async function undoProductSetMerge(productSetId: string) {
-  return withActionLogging("admin.undoProductSetMerge", async () => {
-    await requireAdmin();
-    return adminRepo.undoProductSetMerge(idSchema.parse(productSetId));
-  });
-}
-
-export async function undoReleaseEventMerge(releaseEventId: string) {
-  return withActionLogging("admin.undoReleaseEventMerge", async () => {
-    await requireAdmin();
-    return adminRepo.undoReleaseEventMerge(idSchema.parse(releaseEventId));
   });
 }
 

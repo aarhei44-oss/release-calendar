@@ -4,11 +4,11 @@
 # Calls the app's own POST /api/ingest/run (app/api/ingest/run/route.ts)
 # rather than running any crawl logic itself -- see that route's doc comment
 # for why an external cron hitting an HTTP endpoint replaced v1's in-process
-# scheduler (lib/crawler/scheduler.ts, disabled via CRAWLER_SCHEDULE=0 once
-# this took over): a `setTimeout` living inside the app process means a
-# deploy or a crash near the scheduled time silently skips the run, and
-# nobody finds out until the calendar goes stale. This outlives the app and
-# a non-2xx here is something cron's own mailer can shout about.
+# scheduler (lib/crawler/scheduler.ts, deleted at the v1 cutover): a
+# `setTimeout` living inside the app process means a deploy or a crash near
+# the scheduled time silently skips the run, and nobody finds out until the
+# calendar goes stale. This outlives the app and a non-2xx here is something
+# cron's own mailer can shout about.
 set -e
 
 ENV_FILE="/root/release-calendar/.env"

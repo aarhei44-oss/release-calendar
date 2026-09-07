@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { RETENTION_DAYS, retentionCutoffDays, runRetentionCleanupPass } from "@/lib/crawler/retention";
+import { RETENTION_DAYS, retentionCutoffDays, runRetentionCleanupPass } from "@/lib/ingest/retention";
 import { decodePayloadBody } from "@/lib/ingest/normalize";
 import { packPayloadBody, runStagesFromPayloads } from "@/lib/ingest/orchestrate";
 import { FORWARD_WINDOW_DAYS } from "@/lib/ingest/providers/shared";

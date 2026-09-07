@@ -1,5 +1,4 @@
 import type { Prisma } from "@/app/generated/prisma/client";
-import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
 import { emptyTotals, runStagesFromPayloads, type IngestTotals } from "./orchestrate";
@@ -67,7 +66,7 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
   if (!run) throw new Error(`No such run: ${runId}`);
 
   const lockScopeKey = run.scopeType === "INSTALL" && run.scopeId ? run.scopeId : "global";
-  const lock = await crawlerRepo.acquireJobLock(JOB_NAME, lockScopeKey, LOCK_TTL_MS);
+  const lock = await ingestRepo.acquireJobLock(JOB_NAME, lockScopeKey, LOCK_TTL_MS);
   if (!lock) throw new Error("a scan is already running for this scope");
 
   try {
@@ -75,9 +74,15 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     // replay must reproduce the run, and widening its scope after the fact
     // would let it pass judgement (in particular G7's absence sweep) over
     // installs the original run never looked at.
-    const installs = await crawlerRepo.getInstallsForScan(run.scopeType, run.scopeId ?? undefined);
+    const installs = await ingestRepo.getInstallsForScan(run.scopeType, run.scopeId ?? undefined);
 
-    const stageTotals = await runStagesFromPayloads({
+    // diffChanges is discarded here on purpose: replaying a run re-derives its
+    // conclusions from stored bytes, but must never re-fire the subscriber/
+    // follower "new release" notifications that a live run sends for the same
+    // diff (see orchestrate.ts's executeIngest, the only caller that dispatches
+    // them) -- a replay can happen any number of times, days or weeks later.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured purely to drop it, see comment above
+    const { diffChanges: _diffChanges, ...stageTotals } = await runStagesFromPayloads({
       scanRunId: runId,
       now,
       installs,
@@ -96,7 +101,7 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     });
     return { scanRunId: runId, totals };
   } finally {
-    await crawlerRepo.releaseJobLock(JOB_NAME, lockScopeKey);
+    await ingestRepo.releaseJobLock(JOB_NAME, lockScopeKey);
   }
 }
 

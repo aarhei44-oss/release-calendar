@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseFlexibleDate } from "@/lib/crawler/dateParsing";
+import { parseFlexibleDate } from "@/lib/ingest/dateParsing";
 
 describe("parseFlexibleDate", () => {
   it("parses 'Month Day, Year' as EXACT", () => {

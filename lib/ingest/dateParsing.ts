@@ -1,3 +1,9 @@
+/**
+ * Free-text date parsing shared by every v2 provider (lib/ingest/providers/
+ * shared.ts). Moved here from lib/crawler/dateParsing.ts at the v1 cutover --
+ * this was always v2's real dependency, not something v1-specific.
+ */
+
 export type ParsedDate =
   | { dateType: "EXACT"; dateExact: Date }
   | { dateType: "WINDOW"; windowGranularity: "MONTH"; windowStart: Date; windowEnd: Date }

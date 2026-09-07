@@ -4,21 +4,15 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   triggerRescan,
-  triggerDedup,
-  triggerReleaseLifecycle,
   triggerRetentionCleanup,
-  undoProductSetMerge,
-  undoReleaseEventMerge,
   replayIngestRun,
   retryIngestRun,
   triggerFreshnessCheck,
-  type listRecentMerges,
   type listIngestRunHealth,
   type listProviderHealth,
 } from "./actions";
 
 type InstallOption = { id: string; label: string };
-type RecentMerges = Awaited<ReturnType<typeof listRecentMerges>>;
 type IngestRuns = Awaited<ReturnType<typeof listIngestRunHealth>>;
 type ProviderHealth = Awaited<ReturnType<typeof listProviderHealth>>;
 
@@ -52,7 +46,7 @@ const RUN_HEALTH_LABELS: Record<string, { label: string; className: string; hint
   NO_PROVIDERS: {
     label: "No provider detail",
     className: "bg-gray-100 text-gray-600",
-    hint: "A v1 crawler run, or a v2 run that recorded no ProviderRun rows.",
+    hint: "An older run from before provider-level tracking existed, or one that otherwise recorded no ProviderRun rows.",
   },
 };
 
@@ -78,13 +72,11 @@ export function SystemTab({
   ingestRuns,
   providerHealth,
   providerStaleHours,
-  recentMerges,
 }: {
   installs: InstallOption[];
   ingestRuns: IngestRuns;
   providerHealth: ProviderHealth;
   providerStaleHours: number;
-  recentMerges: RecentMerges;
 }) {
   const router = useRouter();
   const [selectedInstall, setSelectedInstall] = useState(installs[0]?.id ?? "");
@@ -120,9 +112,15 @@ export function SystemTab({
     // A full rescan can take a while for a large install, so this only starts
     // it in the background rather than waiting for it to finish -- the runs
     // table below polls while a run is in progress (see the effect above) and
-    // shows the final totals once it lands.
+    // shows the final totals once it lands. triggerRescan reports whether it
+    // actually acquired the lock (startIngest's return, not a guess), so a
+    // double-click or a scan already running for this install surfaces here
+    // rather than silently claiming success.
     run("Rescan", async () => {
-      await triggerRescan(selectedInstall);
+      const result = await triggerRescan(selectedInstall);
+      if (!result.started) {
+        return `Rescan not started: ${result.reason ?? "already running for this install"}.`;
+      }
       return "Rescan started -- see the ingest runs table below for progress.";
     });
   }
@@ -151,32 +149,6 @@ export function SystemTab({
           className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
         >
           Trigger manual rescan
-        </button>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() =>
-            run("Dedup pass", async () => {
-              const result = await triggerDedup();
-              return `Dedup complete: checked ${result.groupsChecked} group(s), merged ${result.eventsMerged} duplicate event(s) and ${result.productSetsMerged} duplicate product set(s).`;
-            })
-          }
-          className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
-        >
-          Trigger dedup pass
-        </button>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() =>
-            run("Release lifecycle pass", async () => {
-              const result = await triggerReleaseLifecycle();
-              return `Release lifecycle pass complete: ${result.eventsReleased} event(s) transitioned to RELEASED.`;
-            })
-          }
-          className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
-        >
-          Trigger release lifecycle pass
         </button>
         <button
           type="button"
@@ -402,100 +374,6 @@ export function SystemTab({
                 <tr>
                   <td colSpan={7} className="py-4 text-center text-gray-500">
                     No runs yet — trigger a manual rescan above, or wait for the next scheduled scan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-sm font-medium text-gray-700">Recently merged product sets</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
-                <th className="py-2">Name</th>
-                <th>Merged into</th>
-                <th>Archived</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentMerges.productSets.map((ps) => (
-                <tr key={ps.id} className="border-b border-gray-100">
-                  <td className="py-2">{ps.name ?? "(unnamed)"}</td>
-                  <td>{ps.mergedIntoName ?? "(unknown)"}</td>
-                  <td>{formatWhen(ps.archivedAt)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() =>
-                        run("Undo", async () => {
-                          await undoProductSetMerge(ps.id);
-                          return "Product set merge undone.";
-                        })
-                      }
-                      className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      Undo
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {recentMerges.productSets.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-4 text-center text-gray-500">
-                    No product set merges yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-sm font-medium text-gray-700">Recently merged events</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
-                <th className="py-2">Product set</th>
-                <th>Merged into</th>
-                <th>Archived</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentMerges.releaseEvents.map((event) => (
-                <tr key={event.id} className="border-b border-gray-100">
-                  <td className="py-2">{event.productSet.name ?? "(unnamed)"}</td>
-                  <td>{event.mergedIntoName ?? "(unknown)"}</td>
-                  <td>{formatWhen(event.archivedAt)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() =>
-                        run("Undo", async () => {
-                          await undoReleaseEventMerge(event.id);
-                          return "Event merge undone.";
-                        })
-                      }
-                      className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      Undo
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {recentMerges.releaseEvents.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-4 text-center text-gray-500">
-                    No event merges yet.
                   </td>
                 </tr>
               )}

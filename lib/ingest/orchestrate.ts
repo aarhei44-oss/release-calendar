@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
-import * as crawlerRepo from "@/data/crawler/crawlerRepo";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
+import { dispatchScanChangeNotifications } from "@/lib/notifications/dispatch";
 import { applyVerdicts, type ApplyItem, type ClaimWrite } from "./apply";
 import { buildClaimRecords } from "./claims";
 import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
 import { collectAmbiguousCodes, normalizeSetCode, resolveSetIdentity } from "./identity";
 import { normalizeRun } from "./normalize";
+import { toScanChanges } from "./notifications";
 import { getProvider, providersForGames } from "./providers/registry";
 import type { FetchContext, Provider } from "./providers/types";
 import {
@@ -18,6 +19,7 @@ import {
   type Origin,
   type RawPayloadRecord,
   type ResolvedCandidate,
+  type RunDiffChange,
 } from "./types";
 
 /**
@@ -33,13 +35,14 @@ import {
 const LOCK_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Deliberately the *same* job name the v1 crawler uses
- * (lib/crawler/orchestrate.ts's JOB_NAME), so v1 and v2 contend for one lock
- * per scope and can never run against the same install at once. They write
- * overlapping rows -- ProductSet, ReleaseEvent, SourceClaim -- and a
- * concurrent v1 scan recomputing confidence from a half-written v2 claim set
- * would produce a state neither pipeline's rules describe. A shared lock is
- * the cheapest way to make that unrepresentable while both exist.
+ * Historically the *same* job name the now-retired v1 crawler used, so the
+ * two pipelines contended for one lock per scope and could never run against
+ * the same install at once while both existed -- they wrote overlapping rows
+ * (ProductSet, ReleaseEvent, SourceClaim), and a concurrent v1 scan
+ * recomputing confidence from a half-written v2 claim set would have produced
+ * a state neither pipeline's rules describe. Kept as "crawler" rather than
+ * renamed post-cutover: it's just a string key into JobLock, and renaming it
+ * would only risk a stale lock row under the old name outliving a deploy.
  */
 const JOB_NAME = "crawler";
 
@@ -137,7 +140,7 @@ export async function startIngest(params: RunIngestParams): Promise<StartIngestR
   const { scopeType, scopeId } = params.scope;
   const lockScopeKey = scopeType === "INSTALL" && scopeId ? scopeId : "global";
 
-  const lock = await crawlerRepo.acquireJobLock(JOB_NAME, lockScopeKey, LOCK_TTL_MS);
+  const lock = await ingestRepo.acquireJobLock(JOB_NAME, lockScopeKey, LOCK_TTL_MS);
   if (!lock) {
     logEvent({
       action: "ingest.runIngest",
@@ -176,7 +179,7 @@ async function executeIngest(
   const totals = emptyTotals();
 
   try {
-    const installs = await crawlerRepo.getInstallsForScan(scopeType, scopeId);
+    const installs = await ingestRepo.getInstallsForScan(scopeType, scopeId);
     const games = installs.map((install) => install.package.slug);
     const providers = providersForGames(games);
 
@@ -188,7 +191,7 @@ async function executeIngest(
     });
 
     // ---- Stages 2-6, from what Fetch wrote down. ----
-    const stageTotals = await runStagesFromPayloads({ scanRunId, now, installs });
+    const { diffChanges, ...stageTotals } = await runStagesFromPayloads({ scanRunId, now, installs });
     Object.assign(totals, stageTotals, {
       providersFetched: totals.providersFetched,
       providersFailed: totals.providersFailed,
@@ -212,6 +215,22 @@ async function executeIngest(
     await runProviderFreshnessAlarmPass({ now }).catch((error) => {
       logEvent({
         action: "ingest.freshnessAlarmPass",
+        scanRunId,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    // ---- Subscriber/follower change notifications. ----
+    // Same placement and reasoning as the freshness pass above: runs after
+    // finalize, swallows its own errors, and must never turn a run that
+    // produced good data into a FAILED one just because a mail transport
+    // hiccupped. Deliberately *not* inside runStagesFromPayloads (shared with
+    // replay.ts's replayRun/retryRun) -- replaying a past run must never
+    // re-fire "new release" emails for something that already happened.
+    await notifyOfIngestChanges(scanRunId, diffChanges).catch((error) => {
+      logEvent({
+        action: "ingest.dispatchNotifications",
         scanRunId,
         outcome: "error",
         error: error instanceof Error ? error.message : String(error),
@@ -246,7 +265,7 @@ async function executeIngest(
     });
     throw error;
   } finally {
-    await crawlerRepo.releaseJobLock(JOB_NAME, lockScopeKey);
+    await ingestRepo.releaseJobLock(JOB_NAME, lockScopeKey);
   }
 }
 
@@ -354,7 +373,7 @@ export async function runStagesFromPayloads(params: {
   installs: InstallForScan[];
   /** Narrows which providers' payloads are read (replayRun's `providers` option). */
   providerKeys?: string[];
-}): Promise<StageTotals> {
+}): Promise<StageTotals & { diffChanges: RunDiffChange[] }> {
   const { scanRunId, now, installs } = params;
   const totals: StageTotals = {
     candidates: 0,
@@ -473,7 +492,20 @@ export async function runStagesFromPayloads(params: {
   totals.reviewItemsOpened = applied.reviewItemsOpened;
   totals.errors += applied.errors;
 
-  return totals;
+  return { ...totals, diffChanges: applied.diff.changes };
+}
+
+/**
+ * Resolves this run's diff into the subscriber/follower alert shape and
+ * dispatches it. A thin wrapper around ./notifications' toScanChanges purely
+ * so the DB lookup (which event belongs to which install/game) and the pure
+ * mapping stay separately testable.
+ */
+async function notifyOfIngestChanges(scanRunId: string, diffChanges: RunDiffChange[]): Promise<void> {
+  if (diffChanges.length === 0) return;
+  const context = await ingestRepo.getChangeContextForEvents(diffChanges.map((c) => c.releaseEventId));
+  const scanChanges = toScanChanges(diffChanges, new Map(context.map((c) => [c.eventId, c])));
+  await dispatchScanChangeNotifications(scanChanges);
 }
 
 /** Stage 3 for one install: resolve every candidate, creating and pinning sets that are genuinely new. */

@@ -1,5 +1,5 @@
 import type { ProviderStatus } from "@/app/generated/prisma/client";
-import { parseFlexibleDate } from "@/lib/crawler/dateParsing";
+import { parseFlexibleDate } from "@/lib/ingest/dateParsing";
 import { emptyBody, packPayloadBody } from "../fetch";
 import { ParseError } from "../normalize";
 import { primaryDate, type CandidateDate, type RawPayloadRecord } from "../types";
@@ -68,9 +68,9 @@ const RANGE_SPLIT = /\s*(?:–|—|\s-\s|\sto\s)\s*/;
 /**
  * Turns a provider's date text into a CandidateDate.
  *
- * Delegates the common formats to v1's parseFlexibleDate (so "May 9, 2012",
- * "2026-07-25" and "December 1993" mean the same thing on both pipelines) and
- * adds two forms v1 never needed:
+ * Delegates the common formats to ./dateParsing's parseFlexibleDate ("May 9,
+ * 2012", "2026-07-25", "December 1993") and adds two forms that parser never
+ * needed:
  *
  *  - Quarters ("Q4 2026", "Q3 2027"), which is how Lorcana's and Riftbound's
  *    Wikipedia tables state a set that has a slot but not a date yet.
