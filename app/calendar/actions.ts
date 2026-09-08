@@ -29,6 +29,7 @@ import { assertCommentContentAllowed } from "@/lib/moderation/contentFilter";
 
 const releaseEventType = z.enum(["SHELF", "PRERELEASE", "PROMO", "SPECIAL"]);
 const releaseStatus = z.enum(["RUMORED", "ANNOUNCED", "CONFIRMED", "RELEASED", "CANCELLED"]);
+const dateType = z.enum(["EXACT", "RANGE", "WINDOW", "TBD"]);
 
 const filtersSchema = z.object({
   installIds: z.array(z.string()).optional(),
@@ -37,6 +38,7 @@ const filtersSchema = z.object({
   search: z.string().max(200).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  dateTypes: z.array(dateType).optional(),
 });
 
 export async function getFilteredEvents(input: z.infer<typeof filtersSchema>) {

@@ -1,6 +1,8 @@
 import type { ReleaseEventType, ReleaseStatus } from "@/app/generated/prisma/client";
 
-export type CalendarTab = "calendar" | "list" | "upcoming";
+export const CALENDAR_TABS = ["calendar", "list", "upcoming", "unconfirmed"] as const;
+
+export type CalendarTab = (typeof CALENDAR_TABS)[number];
 
 export type ParsedCalendarSearchParams = {
   tab: CalendarTab;
@@ -49,6 +51,10 @@ function parseIdCsv(value: string | undefined): string[] {
     .filter((v) => v.length > 0);
 }
 
+function isCalendarTab(value: string | undefined): value is CalendarTab {
+  return value !== undefined && (CALENDAR_TABS as readonly string[]).includes(value);
+}
+
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -66,8 +72,7 @@ export function parseCalendarSearchParams(
   defaultTab: CalendarTab = "calendar",
 ): ParsedCalendarSearchParams {
   const tabRaw = first(raw.tab);
-  const tab: CalendarTab =
-    tabRaw === "list" || tabRaw === "upcoming" || tabRaw === "calendar" ? tabRaw : defaultTab;
+  const tab: CalendarTab = isCalendarTab(tabRaw) ? tabRaw : defaultTab;
 
   return {
     tab,

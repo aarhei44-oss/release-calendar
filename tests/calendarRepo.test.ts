@@ -165,11 +165,10 @@ describe("getFilteredEvents", () => {
     expect(events.map((e) => e.id)).not.toContain(archivedEvent.id);
   });
 
-  it("includes EXACT/RANGE/WINDOW events overlapping a date range, and excludes TBD from a range that doesn't span today", async () => {
-    // 2026-03 is fixed in the past relative to whenever this suite actually
-    // runs -- a TBD event (no date of its own) must not appear on a range
-    // that doesn't include "now", or a years-old undated crawl artifact
-    // would resurface on every past/future month a visitor navigates to.
+  it("includes EXACT/RANGE/WINDOW events overlapping a date range, and excludes TBD", async () => {
+    // A TBD event has no date of its own, so it can't overlap a range -- it
+    // belongs to the Unconfirmed tab's dateTypes query below, not to whatever
+    // month a visitor happens to be looking at.
     const events = await getFilteredEvents({
       installIds: [pokemonInstallId, mtgInstallId],
       from: new Date("2026-03-01"),
@@ -181,13 +180,26 @@ describe("getFilteredEvents", () => {
     expect(ids).not.toContain(tbdEventId);
   });
 
-  it("includes a TBD event only when the queried range spans today", async () => {
+  it("excludes a TBD event even from a range spanning today (the current month no longer collects the undated pile)", async () => {
     const now = new Date();
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const events = await getFilteredEvents({ installIds: [mtgInstallId], from, to });
-    expect(events.map((e) => e.id)).toContain(tbdEventId);
+    expect(events.map((e) => e.id)).not.toContain(tbdEventId);
+  });
+
+  it("returns only undated events for dateTypes: [TBD], with no date range at all", async () => {
+    const events = await getFilteredEvents({
+      installIds: [pokemonInstallId, mtgInstallId],
+      dateTypes: ["TBD"],
+    });
+    expect(events.map((e) => e.id)).toEqual([tbdEventId]);
+  });
+
+  it("still applies the other filters alongside dateTypes", async () => {
+    const events = await getFilteredEvents({ installIds: [pokemonInstallId], dateTypes: ["TBD"] });
+    expect(events).toEqual([]);
   });
 });
 

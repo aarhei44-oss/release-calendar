@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getFilteredEvents } from "./actions";
-import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
+import { listEnabledInstallsForFilters, type CalendarFilters } from "@/data/calendar/calendarRepo";
 import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { getReactionSummariesForEvents } from "@/data/events/eventPersonalizationRepo";
 import {
@@ -17,7 +17,14 @@ type Props = {
   searchParams: Promise<RawSearchParams>;
 };
 
-function dateRangeFor(parsed: ReturnType<typeof parseCalendarSearchParams>) {
+/**
+ * The date half of each tab's query. The Unconfirmed tab is the one with no
+ * range at all: it asks for TBD events, which have no date to bound a range
+ * with -- see calendarRepo's buildWhere, where TBD is excluded from every
+ * from/to query precisely so those events surface here and nowhere else.
+ */
+function dateQueryFor(parsed: ReturnType<typeof parseCalendarSearchParams>): Pick<CalendarFilters, "from" | "to" | "dateTypes"> {
+  if (parsed.tab === "unconfirmed") return { dateTypes: ["TBD"] };
   if (parsed.tab === "list") return monthRange(parsed.listMonth);
   if (parsed.tab === "upcoming") {
     const from = new Date();
@@ -61,16 +68,13 @@ export default async function CalendarPage({ searchParams }: Props) {
     }
   }
 
-  const { from, to } = dateRangeFor(parsed);
-
   const [events, installs] = await Promise.all([
     getFilteredEvents({
       installIds: parsed.installIds,
       types: parsed.types,
       statuses: parsed.statuses,
       search: parsed.search || undefined,
-      from,
-      to,
+      ...dateQueryFor(parsed),
     }),
     listEnabledInstallsForFilters(),
   ]);

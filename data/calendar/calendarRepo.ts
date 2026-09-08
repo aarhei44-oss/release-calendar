@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma, ReleaseEventType, ReleaseStatus } from "@/app/generated/prisma/client";
+import type { DateType, Prisma, ReleaseEventType, ReleaseStatus } from "@/app/generated/prisma/client";
 
 export type CalendarFilters = {
   installIds?: string[];
@@ -8,6 +8,8 @@ export type CalendarFilters = {
   search?: string;
   from?: Date;
   to?: Date;
+  /** Restricts to events whose date is recorded a particular way -- the Unconfirmed tab passes ["TBD"] (with no from/to) to ask for exactly the undated pile. */
+  dateTypes?: DateType[];
 };
 
 const eventWithRelations = {
@@ -40,6 +42,10 @@ function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
     where.status = { in: filters.statuses };
   }
 
+  if (filters.dateTypes?.length) {
+    where.dateType = { in: filters.dateTypes };
+  }
+
   if (filters.search) {
     productSetWhere.OR = [
       { name: { contains: filters.search } },
@@ -69,20 +75,14 @@ function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
     if (filters.from) windowOverlap.windowEnd = { gte: filters.from };
     dateConditions.push(windowOverlap);
 
-    // A TBD event has no date to range-check, so without this guard it
-    // matched every from/to window unconditionally -- a years-old,
-    // never-dated crawl artifact (e.g. a discontinued 1997 MTG product) would
-    // then appear on every single month a visitor navigated to, forever.
-    // Only surface it on windows that actually span "now" (the current
-    // month, and the Upcoming tab's today..+90d range) -- an item that's
-    // still undated belongs with "what's currently unconfirmed," not pinned
-    // to every arbitrary past or future month.
-    const now = new Date();
-    const rangeIncludesNow = (!filters.from || filters.from <= now) && (!filters.to || filters.to >= now);
-    if (rangeIncludesNow) {
-      dateConditions.push({ dateType: "TBD" });
-    }
-
+    // TBD events are deliberately absent from every one of these conditions:
+    // an undated event has no date to range-check, so it can only ever match
+    // a window arbitrarily. It used to be admitted to any range spanning
+    // "now", which meant a years-old never-dated crawl artifact (e.g. a
+    // discontinued 1997 MTG product) piled into whichever month happened to
+    // contain today, as if it were releasing then. They're reachable on their
+    // own terms instead, via dateTypes: ["TBD"] with no from/to -- what the
+    // calendar's Unconfirmed tab queries.
     where.AND = [...(Array.isArray(where.AND) ? where.AND : []), { OR: dateConditions }];
   }
 
@@ -92,7 +92,10 @@ function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
 export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<CalendarEvent[]> {
   return prisma.releaseEvent.findMany({
     where: buildWhere(filters),
-    orderBy: [{ dateExact: "asc" }, { dateStart: "asc" }, { windowStart: "asc" }],
+    // Name last as a tiebreaker: every TBD event has all three date columns
+    // null, so the Unconfirmed tab's result would otherwise come back in
+    // whatever order the database felt like -- and shuffle between requests.
+    orderBy: [{ dateExact: "asc" }, { dateStart: "asc" }, { windowStart: "asc" }, { productSet: { name: "asc" } }],
     ...eventWithRelations,
   });
 }

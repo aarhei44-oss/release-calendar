@@ -195,12 +195,12 @@ export function DashboardShell({
 }: Props) {
   const router = useRouter();
   const newlyConfirmed = recentActivity.filter((e) => e.status === "CONFIRMED");
-  // getFilteredEvents (shared with /calendar and /subscriptions) deliberately
-  // includes TBD events in any date-range query, since a TBD event has no
-  // date to exclude it by -- that's the right call for a general calendar
-  // view, but "Next 7 days" specifically promises near-term dates, so it
-  // would be misleading to list undated events here (real example: decades
-  // of TBD MTG reprints flooding a "next 7 days" list).
+  // Belt and braces: getFilteredEvents (shared with /calendar and
+  // /subscriptions) already drops TBD events from every date-range query, so
+  // this should be a no-op -- but "Next 7 days" specifically promises
+  // near-term dates, and listing undated events under that heading was a real
+  // regression once (decades of TBD MTG reprints flooding the card), so the
+  // guard stays local to the promise it protects.
   const upcomingWithDates = upcoming.filter((e) => e.dateType !== "TBD");
 
   function openEvent(eventId: string) {

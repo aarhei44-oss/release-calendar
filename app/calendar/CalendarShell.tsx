@@ -198,6 +198,34 @@ export function CalendarShell({ parsed, events, installOptions, reactionSummarie
               </div>
             </div>
           )}
+
+          {parsed.tab === "unconfirmed" && (
+            <div
+              id={tabPanelId("unconfirmed")}
+              role="tabpanel"
+              aria-labelledby="calendar-tab-unconfirmed"
+              tabIndex={0}
+              className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4"
+            >
+              <p className="shrink-0 text-sm text-gray-500 dark:text-gray-400">
+                Announced products with no release date yet. They have no month to sit in, so they only appear here --
+                they&rsquo;ll move onto the calendar once a date is confirmed. Most recently updated first.
+              </p>
+              <div data-testid="tabpanel-scroll" className="min-h-0 flex-1 overflow-y-auto">
+                {/* Every row here is undated by definition, so a per-row "Date
+                    unconfirmed" would just repeat the note above on every
+                    line. How recently each one was touched is the signal that
+                    actually varies -- and it puts the freshest rumors on top. */}
+                <EventsList
+                  events={events}
+                  onSelectEvent={setEventIdShallow}
+                  emptyMessage="No undated releases match the current filters."
+                  sortBy="recentlyUpdated"
+                  reactionSummaries={reactionSummaries}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

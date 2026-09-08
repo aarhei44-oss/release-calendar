@@ -7,6 +7,7 @@ const TABS: { value: CalendarTab; label: string }[] = [
   { value: "calendar", label: "Calendar" },
   { value: "list", label: "Events List" },
   { value: "upcoming", label: "Upcoming" },
+  { value: "unconfirmed", label: "Unconfirmed" },
 ];
 
 type Props = {
