@@ -63,10 +63,16 @@ review queue. "Trigger retention cleanup" and "Trigger manual rescan"
 survive -- rescan now calls `lib/ingest/orchestrate.ts`'s `startIngest`
 instead of v1's `runScan`.
 
-The golden-set fixture and a retroactive audit of what v2 has actually
-published are still not done -- that gap from the 2026-09-05 update is
-unchanged by this cutover, just no longer has a v1 fallback if it turns up
-something wrong.
+**Update 2026-09-07: the golden set is abandoned, not deferred.** The site
+owner's call: there is no golden set and there is not going to be one --
+hand-verifying every upcoming release against publisher announcements is not
+work this project can source, so a fixture built on it was never achievable.
+Phase 6 items 1 and 2 below are struck for that reason, not skipped pending a
+better moment; don't propose either again, and don't treat their absence as
+an open risk to be raised each time this file is read. What replaces them is
+what has actually been validating v2 all along: the gate's own rules, the
+provider fixture tests in `tests/ingestProvider*.test.ts`, and the review
+queue for what the gate can't decide.
 
 Design doc (options analysis + full architecture, with the measured v1
 diagnosis): https://claude.ai/code/artifact/eb5f4531-8d53-4683-946a-6ea917a7329b
@@ -303,13 +309,15 @@ out-of-range claim index) plus the System tab's health classification.
 
 ## Cutover (Phase 6) — done 2026-09-07
 
-1. **Golden set**: hand-verify every upcoming release across the seven games
-   against publisher announcements (~40 events, an afternoon). Commit as a
-   fixture the gate is tested against forever. **Not done** -- explicitly
-   declined for this cutover; see the 2026-09-07 update above.
-2. **Shadow run**: v2 nightly to a shadow table for two weeks, diffed daily
-   against the golden set. **Not done**, same reason -- v2's live track
-   record was accepted in its place.
+1. ~~**Golden set**: hand-verify every upcoming release across the seven games
+   against publisher announcements, commit as a fixture the gate is tested
+   against forever.~~ **STRUCK 2026-09-07 as unachievable** -- the hand
+   verification this depends on isn't work this project can source, so the
+   fixture can't exist. Not deferred; don't raise it again. See the
+   2026-09-07 update at the top of this file.
+2. ~~**Shadow run**: v2 nightly to a shadow table for two weeks, diffed daily
+   against the golden set.~~ **STRUCK** -- it was only ever a way to exercise
+   item 1's fixture, so it goes with it.
 3. **Done.** Deleted `lib/crawler/`, `data/crawler/crawlerRepo.ts`,
    `tests/crawler*.test.ts`, the dead source configs in `prisma/seed.ts`, and
    the in-process scheduler -- see the 2026-09-07 update above for what had
