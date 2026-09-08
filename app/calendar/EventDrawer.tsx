@@ -37,6 +37,9 @@ export function EventDrawer({ eventId, onClose }: Props) {
   // (and getEventDetail below, called fresh every time this drawer opens)
   // already agrees the viewer is premium. See actions.ts's viewerIsPremium.
   const isPremium = detail?.viewerIsPremium ?? false;
+  // Sent to every caller, premium or not: it says what kind of image the set
+  // has, never where to find it, so the locked state can name the right thing.
+  const isSymbol = detail?.productSet.imageKind === "SYMBOL";
 
   useEffect(() => {
     if (!eventId) return;
@@ -119,14 +122,38 @@ export function EventDrawer({ eventId, onClose }: Props) {
 
                     {detail.productSet.hasMarketingImage &&
                       (isPremium && detail.productSet.imageUrl ? (
-                        // Arbitrary external per-TCG source host, unknown ahead of time, so
-                        // next/image's remotePatterns allowlist isn't workable here.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={detail.productSet.imageUrl}
-                          alt={`${eventTitle(detail)} official marketing image`}
-                          className="w-full rounded-lg object-cover"
-                        />
+                        isSymbol ? (
+                          // A set glyph gets its own treatment, not the art
+                          // slot. Two reasons it can't share one: these are
+                          // monochrome black vectors (Scryfall's whole MTG
+                          // catalogue, some drawn as negative space in a filled
+                          // square), so on the drawer's dark panel they render
+                          // as an invisible black rectangle -- hence the white
+                          // plate, which is part of reading the image, not
+                          // decoration. And a 500x500 badge stretched to panel
+                          // width isn't marketing art, so it's labelled for
+                          // what it is and sized like a badge.
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Set symbol</h3>
+                            <div className="mt-1 flex h-24 w-full items-center justify-center rounded-lg bg-white p-3 ring-1 ring-gray-200 dark:ring-gray-700">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={detail.productSet.imageUrl}
+                                alt={`${eventTitle(detail)} set symbol`}
+                                className="h-full w-auto max-w-full object-contain"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          // Arbitrary external per-TCG source host, unknown ahead of time, so
+                          // next/image's remotePatterns allowlist isn't workable here.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={detail.productSet.imageUrl}
+                            alt={`${eventTitle(detail)} official marketing image`}
+                            className="w-full rounded-lg object-cover"
+                          />
+                        )
                       ) : (
                         // No blurred preview of the real image here: the server
                         // (app/calendar/actions.ts) never sends imageUrl to a
@@ -138,7 +165,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
                             <Link href="/premium" className="text-blue-600 hover:underline dark:text-blue-400">
                               Upgrade to Premium
                             </Link>{" "}
-                            to view official marketing images
+                            to view {isSymbol ? "set symbols" : "official marketing images"}
                           </span>
                         </div>
                       ))}

@@ -53,6 +53,15 @@ enum ReleaseStatus {
   CANCELLED
 }
 
+/// What a ProductSet.imageUrl depicts. ART is product photography or key art --
+/// something worth the drawer's full width. SYMBOL is a set glyph or logo,
+/// typically a monochrome vector sized for a badge, which needs its own small
+/// treatment on a light plate to be legible at all in a dark theme.
+enum ProductImageKind {
+  ART
+  SYMBOL
+}
+
 enum SourceTier {
   OFFICIAL
   RETAILER
@@ -179,6 +188,15 @@ model ProductSet {
   releaseQuarter      String?
   meta                Json?
   imageUrl            String?
+  // What `imageUrl` actually depicts, because the origins that publish one do
+  // not agree on the kind. YGOPRODeck publishes box photography; Scryfall
+  // publishes `icon_svg_uri`, a monochrome black set glyph meant to be
+  // recolored by the host page. Rendering the second one through the first
+  // one's full-width slot is how every MTG set came to show as a black
+  // rectangle in dark mode. Null means the row predates this column and no
+  // run has reclassified it yet -- the drawer renders nothing for it rather
+  // than guessing (app/calendar/EventDrawer.tsx).
+  imageKind           ProductImageKind?
   description         String?
   archivedAt          DateTime?
   mergedIntoId        String?

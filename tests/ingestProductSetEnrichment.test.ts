@@ -5,6 +5,7 @@ import { registerProvider, unregisterProvider } from "@/lib/ingest/providers/reg
 import type { Provider } from "@/lib/ingest/providers/types";
 import { prisma } from "@/lib/prisma";
 import type { Candidate } from "@/lib/ingest/types";
+import type { ProductImageKind } from "@/app/generated/prisma/client";
 
 /**
  * ProductSet.imageUrl (premium marketing image) and ProductSet.description
@@ -30,7 +31,14 @@ const DESCRIPTION = "A 254-card expansion set.";
 let installId: string;
 let runCounter = 0;
 
-type WireRow = { id: string; name: string; date: string; imageUrl?: string; description?: string };
+type WireRow = {
+  id: string;
+  name: string;
+  date: string;
+  imageUrl?: string;
+  imageKind?: ProductImageKind;
+  description?: string;
+};
 
 const provider: Provider = {
   key: "enrichment-test-provider",
@@ -53,7 +61,9 @@ const provider: Provider = {
         region: "GLOBAL",
         type: "SHELF",
         url: `https://bulbapedia.example/${row.id}`,
-        ...(row.imageUrl ? { imageUrl: row.imageUrl } : {}),
+        // normalize.ts rejects a candidate carrying one without the other, so
+        // a row that supplies a URL always gets a kind here too.
+        ...(row.imageUrl ? { imageUrl: row.imageUrl, imageKind: row.imageKind ?? "SYMBOL" } : {}),
         ...(row.description ? { description: row.description } : {}),
       }),
     );
@@ -154,6 +164,9 @@ describe("ProductSet image/description enrichment", () => {
     const enriched = await setNamed("Backfilled Set");
     expect(enriched.id).toBe(created.id);
     expect(enriched.imageUrl).toBe(IMAGE);
+    // The kind rides along with the URL it describes: a URL stored without one
+    // is an image the drawer declines to render at all.
+    expect(enriched.imageKind).toBe("SYMBOL");
     expect(enriched.description).toBe(DESCRIPTION);
   });
 
@@ -231,5 +244,63 @@ describe("ProductSet image/description enrichment", () => {
     const filled = await setNamed("Half Filled Set");
     expect(filled.description).toBe(DESCRIPTION);
     expect(filled.imageUrl).toBe(IMAGE); // not the "IGNORED" one
+  });
+
+  /**
+   * imageKind arrived after imageUrl, so a row can carry a URL that nothing
+   * has classified. The migration backfilled the ones it could see; a set
+   * enriched between that migration and this deploy is the gap, and it would
+   * otherwise stay unclassified forever -- imageUrl is already populated, so
+   * the "write only what's missing" rule above would never look at it again.
+   * Exactly the shape of the create-time-only bug this whole module exists to
+   * undo, which is why it gets a test rather than a shrug.
+   */
+  it("classifies a row that already carries a URL but no kind", async () => {
+    await runWith([
+      { id: "w-4", name: "Unclassified Set", date: "2027-02-05T00:00:00.000Z", imageUrl: IMAGE, imageKind: "ART" },
+    ]);
+    // Reproduce the pre-migration row: URL present, kind never written.
+    await prisma.productSet.update({
+      where: { id: (await setNamed("Unclassified Set")).id },
+      data: { imageKind: null },
+    });
+
+    const totals = await runWith([
+      { id: "w-4", name: "Unclassified Set", date: "2027-02-05T00:00:00.000Z", imageUrl: IMAGE, imageKind: "ART" },
+    ]);
+
+    expect(totals.productSetsEnriched).toBe(1);
+    const classified = await setNamed("Unclassified Set");
+    expect(classified.imageKind).toBe("ART");
+    expect(classified.imageUrl).toBe(IMAGE);
+  });
+
+  it("refuses to classify a stored image using a different origin's URL", async () => {
+    await runWith([
+      { id: "w-5", name: "Contested Set", date: "2027-03-05T00:00:00.000Z", imageUrl: IMAGE, imageKind: "SYMBOL" },
+    ]);
+    await prisma.productSet.update({
+      where: { id: (await setNamed("Contested Set")).id },
+      data: { imageKind: null },
+    });
+
+    // A second origin publishing its own image of a different kind. Its ART
+    // describes *its* URL, not the one already stored -- labelling the stored
+    // symbol as art would put a 500x500 glyph back in the full-width slot,
+    // which is the bug this column was added to fix.
+    const totals = await runWith([
+      {
+        id: "w-5",
+        name: "Contested Set",
+        date: "2027-03-05T00:00:00.000Z",
+        imageUrl: "https://images.example/sets/box-art.jpg",
+        imageKind: "ART",
+      },
+    ]);
+
+    expect(totals.productSetsEnriched).toBe(0);
+    const untouched = await setNamed("Contested Set");
+    expect(untouched.imageUrl).toBe(IMAGE);
+    expect(untouched.imageKind).toBeNull();
   });
 });

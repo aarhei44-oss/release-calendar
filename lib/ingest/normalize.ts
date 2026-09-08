@@ -63,7 +63,16 @@ const candidateSchema = z.strictObject({
   url: z.string().optional(),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
-});
+  imageKind: z.enum(["ART", "SYMBOL"]).optional(),
+})
+  // The two travel together or not at all. A URL with no kind would store a
+  // set image the drawer has no way to lay out and so renders as nothing,
+  // which is the silent-blank failure this column exists to end; a kind with
+  // no URL describes an image that isn't there.
+  .refine((c) => (c.imageUrl === undefined) === (c.imageKind === undefined), {
+    message: "imageUrl and imageKind must be supplied together",
+    path: ["imageKind"],
+  });
 
 /**
  * Un-gzips a stored payload and parses it as JSON. Providers whose `parse`

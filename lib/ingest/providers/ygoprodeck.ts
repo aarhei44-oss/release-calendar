@@ -133,7 +133,9 @@ function parseYgoprodeck(payload: RawPayloadRecord): Candidate[] {
       region: "GLOBAL",
       type: "SHELF",
       url: SETS_URL,
-      ...(set.set_image ? { imageUrl: set.set_image } : {}),
+      // Real product photography (a .jpg of the box/pack), so this one earns
+      // the drawer's full-width image slot.
+      ...(set.set_image ? { imageUrl: set.set_image, imageKind: "ART" as const } : {}),
     });
   }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Prisma, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
+import type { Prisma, ProductImageKind, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
 import { dispatchScanChangeNotifications } from "@/lib/notifications/dispatch";
@@ -567,6 +567,7 @@ async function resolveInstallCandidates(
         name: candidate.name,
         description: candidate.description,
         imageUrl: candidate.imageUrl,
+        imageKind: candidate.imageKind,
       });
       totals.productSetsCreated += 1;
       // Extend the in-memory context so a second candidate for the same new
@@ -582,6 +583,7 @@ async function resolveInstallCandidates(
         code: created.code,
         codeIsSynthetic: created.codeIsSynthetic,
         imageUrl: created.imageUrl,
+        imageKind: created.imageKind,
         description: created.description,
       });
       resolution = { productSetId: created.id, matchedBy: "new" };
@@ -611,12 +613,12 @@ async function resolveInstallCandidates(
  * Fills in a set's presentational fields from a candidate that happens to
  * carry them.
  *
- * Two fields, one rule: write only what the stored row is missing. Neither
- * `imageUrl` nor `description` goes through the gate, because neither is a
- * claim about a release -- there is nothing for two origins to *disagree*
- * about, only one to be first. Refreshing on every run instead would make the
- * stored value depend on provider ordering within the run, and would rewrite
- * all 86 image-bearing rows nightly to no effect.
+ * One rule: write only what the stored row is missing. Nothing here goes
+ * through the gate, because none of it is a claim about a release -- there is
+ * nothing for two origins to *disagree* about, only one to be first.
+ * Refreshing on every run instead would make the stored value depend on
+ * provider ordering within the run, and would rewrite all 86 image-bearing
+ * rows nightly to no effect.
  *
  * The reason this is a separate step rather than an argument to
  * createProductSet: creation only ever reaches sets discovered after the
@@ -625,20 +627,41 @@ async function resolveInstallCandidates(
  * predates any origin that could supply one. A create-time-only field in a
  * pipeline that resolves far more often than it creates is a field that never
  * gets populated.
+ *
+ * `imageKind` is the one field that can be written to an already-populated
+ * row, and only from null. It was added after `imageUrl`, so a row can carry
+ * a URL classified by nothing; the migration backfilled every such row it
+ * could see, and this covers whatever it could not (a set enriched between
+ * the migration and this deploy). The URL has to still match for that, or a
+ * second origin's kind could end up describing the first origin's image.
  */
 async function enrichProductSet(
   productSetId: string,
   candidate: Candidate,
-  context: { sets: { id: string; imageUrl?: string | null; description?: string | null }[] },
+  context: {
+    sets: {
+      id: string;
+      imageUrl?: string | null;
+      imageKind?: ProductImageKind | null;
+      description?: string | null;
+    }[];
+  },
   totals: StageTotals,
 ): Promise<void> {
   const stored = context.sets.find((set) => set.id === productSetId);
   if (!stored) return;
 
-  const fields: { imageUrl?: string; description?: string } = {};
-  if (candidate.imageUrl && !stored.imageUrl) fields.imageUrl = candidate.imageUrl;
+  const fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string } = {};
+  if (candidate.imageUrl && !stored.imageUrl) {
+    fields.imageUrl = candidate.imageUrl;
+    fields.imageKind = candidate.imageKind;
+  } else if (candidate.imageKind && !stored.imageKind && candidate.imageUrl === stored.imageUrl) {
+    fields.imageKind = candidate.imageKind;
+  }
   if (candidate.description && !stored.description) fields.description = candidate.description;
-  if (fields.imageUrl === undefined && fields.description === undefined) return;
+  if (fields.imageUrl === undefined && fields.imageKind === undefined && fields.description === undefined) {
+    return;
+  }
 
   await ingestRepo.updateProductSetEnrichment(productSetId, fields);
   totals.productSetsEnriched += 1;
@@ -647,6 +670,7 @@ async function enrichProductSet(
   // candidate naming the same set later in this run reads it as populated
   // instead of issuing an identical update.
   if (fields.imageUrl !== undefined) stored.imageUrl = fields.imageUrl;
+  if (fields.imageKind !== undefined) stored.imageKind = fields.imageKind;
   if (fields.description !== undefined) stored.description = fields.description;
 }
 

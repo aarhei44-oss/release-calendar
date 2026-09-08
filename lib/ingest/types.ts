@@ -1,5 +1,6 @@
 import type {
   DateType,
+  ProductImageKind,
   ProviderStatus,
   Region,
   ReleaseEventType,
@@ -222,6 +223,14 @@ export type Candidate = {
    * nothing in the gate or identity stages reads it.
    */
   imageUrl?: string;
+  /**
+   * What `imageUrl` depicts. Required alongside it, because the difference is
+   * not cosmetic: a provider publishing a monochrome set glyph and one
+   * publishing box art are supplying different things, and only the provider
+   * knows which. Declare it from what the upstream field *is* (Scryfall's
+   * `icon_svg_uri` is a glyph however pretty it looks), never from the URL.
+   */
+  imageKind?: ProductImageKind;
 };
 
 // ---------------------------------------------------------------------------

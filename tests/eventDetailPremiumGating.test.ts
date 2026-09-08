@@ -20,6 +20,7 @@ function sessionFor(overrides: { isPremium?: boolean } = {}) {
 
 let eventWithImageId: string;
 let eventWithoutImageId: string;
+let eventUnclassifiedImageId: string;
 
 beforeAll(async () => {
   const pkg = await prisma.tcgProfilePackage.create({
@@ -29,10 +30,14 @@ beforeAll(async () => {
     data: { packageId: pkg.id, installedVersion: "1.0.0", enabled: true },
   });
   const setWithImage = await prisma.productSet.create({
-    data: { tcgProfileInstallId: install.id, code: "EDG-1", name: "Set With Image", imageUrl: "https://example.com/secret-marketing-image.png" },
+    data: { tcgProfileInstallId: install.id, code: "EDG-1", name: "Set With Image", imageUrl: "https://example.com/secret-marketing-image.png", imageKind: "ART" },
   });
   const setWithoutImage = await prisma.productSet.create({
     data: { tcgProfileInstallId: install.id, code: "EDG-2", name: "Set Without Image" },
+  });
+  // A URL no run has classified yet -- see the imageKind test below.
+  const setUnclassified = await prisma.productSet.create({
+    data: { tcgProfileInstallId: install.id, code: "EDG-3", name: "Set With Unclassified Image", imageUrl: "https://example.com/unclassified.png" },
   });
   const eventWithImage = await prisma.releaseEvent.create({
     data: { productSetId: setWithImage.id, type: "SHELF", dateType: "TBD", status: "RUMORED" },
@@ -40,8 +45,12 @@ beforeAll(async () => {
   const eventWithoutImage = await prisma.releaseEvent.create({
     data: { productSetId: setWithoutImage.id, type: "SHELF", dateType: "TBD", status: "RUMORED" },
   });
+  const eventUnclassified = await prisma.releaseEvent.create({
+    data: { productSetId: setUnclassified.id, type: "SHELF", dateType: "TBD", status: "RUMORED" },
+  });
   eventWithImageId = eventWithImage.id;
   eventWithoutImageId = eventWithoutImage.id;
+  eventUnclassifiedImageId = eventUnclassified.id;
 });
 
 afterAll(async () => {
@@ -75,6 +84,17 @@ describe("getEventDetail premium gating on productSet.imageUrl", () => {
     const detail = await getEventDetail(eventWithoutImageId);
     expect(detail?.productSet.hasMarketingImage).toBe(false);
     expect(detail?.productSet.imageUrl).toBeNull();
+  });
+
+  it("reports hasMarketingImage: false for a stored image no run has classified", async () => {
+    // imageKind decides which of two very different layouts the drawer uses
+    // (box art gets the full-width slot, a set glyph gets a small plate), so
+    // with it null there is no honest way to draw the image -- and promising
+    // one in the payload would render an empty block, or worse, tell a
+    // non-premium visitor to pay for something they then can't be shown.
+    mockGetServerSession.mockResolvedValueOnce(sessionFor({ isPremium: true }));
+    const detail = await getEventDetail(eventUnclassifiedImageId);
+    expect(detail?.productSet.hasMarketingImage).toBe(false);
   });
 
   it("reports viewerIsPremium fresh on every call, for the client to gate on instead of its own cached session", async () => {

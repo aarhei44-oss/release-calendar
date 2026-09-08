@@ -163,7 +163,11 @@ function parseScryfall(payload: RawPayloadRecord): Candidate[] {
       region: "GLOBAL",
       type: "SHELF",
       url: set.scryfall_uri ?? SETS_URL,
-      ...(set.icon_svg_uri ? { imageUrl: set.icon_svg_uri } : {}),
+      // A set glyph, not key art: a monochrome black SVG Scryfall's own site
+      // recolors in CSS, and several (SLZ, say) are drawn as negative space
+      // inside a filled square. It gets the symbol treatment in the drawer --
+      // Scryfall publishes no set-level marketing image to use instead.
+      ...(set.icon_svg_uri ? { imageUrl: set.icon_svg_uri, imageKind: "SYMBOL" as const } : {}),
     });
   }
 

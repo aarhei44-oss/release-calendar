@@ -1,5 +1,6 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import type {
+  ProductImageKind,
   ProviderStatus,
   Region,
   ReleaseEventType,
@@ -556,7 +557,15 @@ export async function getIdentityContext(tcgProfileInstallId: string) {
     // set from an empty one without a second query per candidate. Reading them
     // here costs nothing (same row, same scan) and keeps the nightly run at
     // zero extra writes once every set has been filled in.
-    select: { id: true, name: true, code: true, codeIsSynthetic: true, imageUrl: true, description: true },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      codeIsSynthetic: true,
+      imageUrl: true,
+      imageKind: true,
+      description: true,
+    },
     // Oldest first, so identity.ts's "ties keep the first" tiebreak resolves
     // to the longest-standing set rather than an arbitrary one.
     orderBy: { createdAt: "asc" },
@@ -594,6 +603,7 @@ export async function createProductSet(
     name: string;
     description?: string;
     imageUrl?: string;
+    imageKind?: ProductImageKind;
   },
   db: Db = prisma,
 ) {
@@ -618,10 +628,12 @@ export async function createProductSet(
  */
 export async function updateProductSetEnrichment(
   productSetId: string,
-  fields: { imageUrl?: string; description?: string },
+  fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string },
   db: Db = prisma,
 ) {
-  if (fields.imageUrl === undefined && fields.description === undefined) return null;
+  if (fields.imageUrl === undefined && fields.imageKind === undefined && fields.description === undefined) {
+    return null;
+  }
   return db.productSet.update({ where: { id: productSetId }, data: fields });
 }
 
