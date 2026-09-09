@@ -222,6 +222,20 @@ describe("a Wikipedia-only prerelease date", () => {
     // on the claim, where it is auditable, and off the calendar.
     expect(prerelease.dateType).toBe("TBD");
     expect(prerelease.dateExact).toBeNull();
+
+    // Derivation then fills the gap the failed check left, because
+    // getSourcedPrereleaseDates only counts a *dated* sourced event as covering
+    // a slot. So the set ends up with two rows: the unplaceable claim, dateless
+    // in the undated tab, and the scheduled date on the calendar.
+    const all = await prisma.releaseEvent.findMany({
+      where: { productSetId: set.id, type: "PRERELEASE", archivedAt: null },
+    });
+    expect(
+      all.map((event) => ({ derived: event.derivedFromEventId !== null, date: event.dateExact?.toISOString() ?? null })),
+    ).toEqual([
+      { derived: false, date: null },
+      { derived: true, date: PRERELEASE_DATE },
+    ]);
   });
 
   it("derives one instead when no source states a prerelease date at all", async () => {
