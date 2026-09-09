@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getFilteredEvents } from "@/data/calendar/calendarRepo";
 import { decodePayloadBody } from "@/lib/ingest/normalize";
 import { packPayloadBody, runStagesFromPayloads } from "@/lib/ingest/orchestrate";
 import { registerProvider, unregisterProvider } from "@/lib/ingest/providers/registry";
@@ -225,8 +226,8 @@ describe("a Wikipedia-only prerelease date", () => {
 
     // Derivation then fills the gap the failed check left, because
     // getSourcedPrereleaseDates only counts a *dated* sourced event as covering
-    // a slot. So the set ends up with two rows: the unplaceable claim, dateless
-    // in the undated tab, and the scheduled date on the calendar.
+    // a slot. So the set ends up with two rows: the unplaceable claim, and the
+    // scheduled date.
     const all = await prisma.releaseEvent.findMany({
       where: { productSetId: set.id, type: "PRERELEASE", archivedAt: null },
     });
@@ -236,6 +237,14 @@ describe("a Wikipedia-only prerelease date", () => {
       { derived: false, date: null },
       { derived: true, date: PRERELEASE_DATE },
     ]);
+
+    // Two rows in the database, one prerelease on the calendar: the dateless
+    // claim is suppressed at display time by calendarRepo, so a reader never
+    // sees the same prerelease twice across two tabs.
+    const shown = (await getFilteredEvents({ installIds: [installId] })).filter(
+      (event) => event.productSetId === set.id && event.type === "PRERELEASE",
+    );
+    expect(shown.map((event) => event.dateExact?.toISOString() ?? null)).toEqual([PRERELEASE_DATE]);
   });
 
   it("derives one instead when no source states a prerelease date at all", async () => {

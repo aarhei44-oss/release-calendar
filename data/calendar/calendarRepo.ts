@@ -89,8 +89,68 @@ function buildWhere(filters: CalendarFilters): Prisma.ReleaseEventWhereInput {
   return where;
 }
 
+/**
+ * Hides a dateless prerelease when a dated one already covers the same product
+ * and region.
+ *
+ * A set can end up with two PRERELEASE rows, and legitimately so. One comes
+ * from a source -- Wikipedia's "Pre-release date" column is the only origin
+ * that states Magic's -- and stays undated when gate rule G8 declines to
+ * endorse it, which happens when the stated date is nowhere near the one the
+ * game's schedule implies (a mis-parsed cell, usually). The other is written by
+ * the derivation pass, which fills exactly the slot that refusal left open
+ * (lib/ingest/derivePrereleases.ts). Both rows are correct: the first records
+ * that we hold an unplaceable claim, the second carries the scheduled date.
+ *
+ * To a reader they are one prerelease listed twice, in two different tabs. So
+ * the dateless one is dropped here, at the point of display, rather than in
+ * ingest -- suppressing it there would mean the derivation pass reaching into a
+ * row the gate owns, and the whole reason those two populations are disjoint is
+ * that neither writes the other's rows.
+ *
+ * Scoped to (productSet, region) because that is what makes two prerelease rows
+ * the same event: a dated JP prerelease says nothing about an undated global
+ * one, and hiding the second on the strength of the first would lose a real
+ * fact. And scoped to PRERELEASE, because it is the only type this pipeline
+ * ever writes a parallel derived row for.
+ *
+ * Note this deliberately ignores the caller's own filters: a dateless
+ * prerelease stays hidden even when the dated row that supersedes it is
+ * filtered out of the same result (different status, say). Suppression that
+ * depended on filter state would make a duplicate wink into existence when
+ * somebody toggled a status chip, which is a stranger thing to explain than a
+ * row that is consistently absent.
+ */
+async function dropSupersededDatelessPrereleases(events: CalendarEvent[]): Promise<CalendarEvent[]> {
+  const dateless = events.filter((event) => event.type === "PRERELEASE" && event.dateType === "TBD");
+  if (dateless.length === 0) return events;
+
+  const dated = await prisma.releaseEvent.findMany({
+    where: {
+      type: "PRERELEASE",
+      archivedAt: null,
+      dateType: { not: "TBD" },
+      productSetId: { in: [...new Set(dateless.map((event) => event.productSetId))] },
+    },
+    select: { productSetId: true, region: true },
+  });
+  if (dated.length === 0) return events;
+
+  // NUL-separated for the same reason the ingest pipeline's keys are: no
+  // component can forge a collision by containing the separator.
+  const covered = new Set(dated.map((row) => `${row.productSetId}\0${row.region}`));
+  return events.filter(
+    (event) =>
+      !(
+        event.type === "PRERELEASE" &&
+        event.dateType === "TBD" &&
+        covered.has(`${event.productSetId}\0${event.region}`)
+      ),
+  );
+}
+
 export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<CalendarEvent[]> {
-  return prisma.releaseEvent.findMany({
+  const events = await prisma.releaseEvent.findMany({
     where: buildWhere(filters),
     // Name last as a tiebreaker: every TBD event has all three date columns
     // null, so the Unconfirmed tab's result would otherwise come back in
@@ -98,6 +158,7 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
     orderBy: [{ dateExact: "asc" }, { dateStart: "asc" }, { windowStart: "asc" }, { productSet: { name: "asc" } }],
     ...eventWithRelations,
   });
+  return dropSupersededDatelessPrereleases(events);
 }
 
 /**
@@ -107,10 +168,12 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
  * it is *now*, not what it changed from (a brand-new discovery and a
  * RUMORED->CONFIRMED jump look the same here: both just bump updatedAt).
  * Capped at 20 so a very active subscription set doesn't return unbounded
- * rows for a dashboard "what's new" feed.
+ * rows for a dashboard "what's new" feed. The superseded-prerelease filter
+ * runs after that cap, so a feed carrying one can come back with 19 -- worth
+ * less than a second query per request to top back up, on a list nobody counts.
  */
 export async function getRecentlyUpdatedEvents(filters: { installIds?: string[]; updatedSince: Date }): Promise<CalendarEvent[]> {
-  return prisma.releaseEvent.findMany({
+  const events = await prisma.releaseEvent.findMany({
     where: {
       archivedAt: null,
       updatedAt: { gte: filters.updatedSince },
@@ -120,6 +183,7 @@ export async function getRecentlyUpdatedEvents(filters: { installIds?: string[];
     take: 20,
     ...eventWithRelations,
   });
+  return dropSupersededDatelessPrereleases(events);
 }
 
 /**
