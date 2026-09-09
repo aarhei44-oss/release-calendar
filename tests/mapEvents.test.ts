@@ -114,3 +114,65 @@ describe("mapEventsForGrid", () => {
     expect(mapEventsForGrid(events)).toHaveLength(0);
   });
 });
+
+/**
+ * A pill is the only place an event appears with no badges beside it, so
+ * anything the list views say with a chip has to be said in the title here or
+ * not at all.
+ */
+describe("gridPillTitle", () => {
+  function pillFor(overrides: Partial<CalendarEvent>): string {
+    const [mapped] = mapEventsForGrid([
+      fakeEvent({ dateType: "EXACT", dateExact: new Date("2026-03-15"), ...overrides }),
+    ]);
+    return mapped.title;
+  }
+
+  it("marks a prerelease", () => {
+    // Without this, a set's prerelease weekend and its street date are two
+    // pills a week apart reading identically.
+    expect(pillFor({ type: "PRERELEASE" })).toBe("Test Set — Pre-release");
+  });
+
+  it("leaves a shelf date unmarked", () => {
+    // Labelling the common case is how a reader learns to stop reading it.
+    expect(pillFor({ type: "SHELF" })).toBe("Test Set");
+  });
+
+  it("marks the other non-shelf types too", () => {
+    expect(pillFor({ type: "PROMO" })).toBe("Test Set");
+  });
+});
+
+describe("eventTitle: Union Arena product types", () => {
+  function titleFor(code: string, name: string): string {
+    const [mapped] = mapEventsForGrid([
+      fakeEvent({
+        dateType: "EXACT",
+        dateExact: new Date("2026-09-18"),
+        productSet: { ...fakeEvent({}).productSet, code, name },
+      }),
+    ]);
+    return mapped.title;
+  }
+
+  it("tells a Union Arena booster from its starter deck", () => {
+    // Bandai publishes both under the identical franchise title, on the same
+    // day; the last two letters of the code are the only difference there is.
+    const franchise = "Re:ZERO -Starting Life in Another World-";
+    expect(titleFor("UE24BT", franchise)).toBe(`${franchise} (Booster)`);
+    expect(titleFor("UE24ST", franchise)).toBe(`${franchise} (Starter Deck)`);
+  });
+
+  it("stays quiet when the name already says it", () => {
+    expect(titleFor("UE10DC", "Bleach: Thousand Year Blood War Advanced Deck")).toBe(
+      "Bleach: Thousand Year Blood War Advanced Deck",
+    );
+  });
+
+  it("leaves every other game's codes alone", () => {
+    expect(titleFor("ST-31", "STARTER DECK -RED Monkey.D.Luffy-")).toBe("STARTER DECK -RED Monkey.D.Luffy-");
+    expect(titleFor("HOB", "The Hobbit")).toBe("The Hobbit");
+    expect(titleFor("GD05", "Freedom Ascension")).toBe("Freedom Ascension");
+  });
+});

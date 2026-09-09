@@ -188,6 +188,50 @@ export function typeBadgeLabel(type: CalendarEvent["type"]): string | null {
 }
 
 /**
+ * What a Union Arena set code's trailing letters say the product actually is.
+ *
+ * Union Arena is the one game in the catalogue whose set *names* do not
+ * distinguish its products: Bandai publishes the booster and the starter deck
+ * for a franchise under the identical title, and the only thing separating
+ * UE24BT from UE24ST is those last two letters. Both are called "Re:ZERO
+ * -Starting Life in Another World-", both released on 18 September 2026, and on
+ * the calendar they were two cards with the same words on the same day.
+ *
+ * Scoped to this code family on purpose. Every other game either says the
+ * product type in the name already (One Piece's "STARTER DECK -BLUE Kuzan-") or
+ * has no two sets whose names collide, and stamping a type on those would be
+ * noise bought with nothing.
+ */
+const UNION_ARENA_PRODUCT_TYPES: Record<string, string> = {
+  BT: "Booster",
+  ST: "Starter Deck",
+  DC: "Deck",
+};
+
+const UNION_ARENA_CODE = /^(?:UE|UEX|UP)\d{1,3}(BT|ST|DC)\b/i;
+
+/**
+ * A product-type label for a set whose name does not carry one, or null.
+ *
+ * Null whenever the name already says it, so a set that gained a clearer name
+ * from a second origin later doesn't end up reading "STARTER DECK -BLUE Kuzan-
+ * (Starter Deck)".
+ */
+export function productTypeLabel(code: string | null | undefined, name: string): string | null {
+  if (!code) return null;
+  const match = UNION_ARENA_CODE.exec(code.trim());
+  if (!match) return null;
+
+  const label = UNION_ARENA_PRODUCT_TYPES[match[1].toUpperCase()];
+  if (!label) return null;
+
+  const spoken = name.toLowerCase();
+  if (spoken.includes("booster") || spoken.includes("starter") || spoken.includes("deck")) return null;
+
+  return label;
+}
+
+/**
  * The neutral pill the "Range" marker already uses.
  *
  * Shared rather than restated so the two read as one family, and deliberately

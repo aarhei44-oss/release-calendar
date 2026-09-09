@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import { productTypeLabel } from "./eventDisplay";
 
 export type MappedCalendarEvent = {
   id: string;
@@ -28,7 +29,7 @@ export function mapEventsForGrid(events: CalendarEvent[]): MappedCalendarEvent[]
 
     mapped.push({
       id: event.id,
-      title: eventTitle(event),
+      title: gridPillTitle(event),
       start: span.start,
       end: span.end,
       allDay: true,
@@ -53,5 +54,26 @@ function dateSpanFor(event: CalendarEvent): { start: Date; end: Date } | null {
 }
 
 export function eventTitle(event: CalendarEvent): string {
-  return event.productSet.name ?? event.productSet.code ?? "Untitled release";
+  const name = event.productSet.name ?? event.productSet.code ?? "Untitled release";
+  const productType = productTypeLabel(event.productSet.code, name);
+  return productType ? `${name} (${productType})` : name;
+}
+
+/**
+ * The text a month-grid pill carries.
+ *
+ * A pill is the one place an event shows with no badges beside it -- the grid
+ * has room for a line of text and nothing else -- so the distinctions the list
+ * views draw with a "Prerelease" chip have to be spoken in the title or not at
+ * all. Without this, a set's prerelease weekend and its street date were two
+ * pills a week apart reading identically, and telling them apart meant opening
+ * the drawer.
+ *
+ * SHELF stays unmarked, for the same reason regionBadgeLabel returns null for
+ * GLOBAL: it is what almost every pill is, and labelling the common case is how
+ * a reader learns to stop reading that part of the pill.
+ */
+export function gridPillTitle(event: CalendarEvent): string {
+  const title = eventTitle(event);
+  return event.type === "PRERELEASE" ? `${title} — Pre-release` : title;
 }
