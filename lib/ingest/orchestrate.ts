@@ -15,7 +15,7 @@ import { derivePrereleaseEvents } from "./derivePrereleases";
 import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
 import { collectAmbiguousCodes, normalizeSetCode, resolveSetIdentity } from "./identity";
-import { normalizeRun } from "./normalize";
+import { normalizePayload, normalizeRun } from "./normalize";
 import { toScanChanges } from "./notifications";
 import { expectedPrereleaseDates } from "./prerelease";
 import { getProvider, providersForGames } from "./providers/registry";
@@ -467,6 +467,16 @@ export async function runStagesFromPayloads(params: {
     });
   }
 
+  // ---- Stage 2b: presentational backfill from providers that didn't change. ----
+  // Deliberately before Identity, and deliberately not part of it: this fills
+  // image/description columns only, from providers this run had nothing new
+  // from. See enrichFromUnchangedProviders for why that is a stage at all.
+  await enrichFromUnchangedProviders({
+    installs,
+    parsed: new Set(candidatesByProvider.keys()),
+    totals,
+  });
+
   const items: ApplyItem[] = [];
   const touchedEventIds = new Set<string>();
   const installIds = installs.map((install) => install.id);
@@ -630,6 +640,82 @@ async function notifyOfIngestChanges(scanRunId: string, diffChanges: RunDiffChan
   const context = await ingestRepo.getChangeContextForEvents(diffChanges.map((c) => c.releaseEventId));
   const scanChanges = toScanChanges(diffChanges, new Map(context.map((c) => [c.eventId, c])));
   await dispatchScanChangeNotifications(scanChanges);
+}
+
+/**
+ * Fills in image/description columns from providers whose payload did not
+ * change this run.
+ *
+ * This exists because enrichment was, until now, a passenger on the claim
+ * pipeline, and the two have completely different needs. A conditional GET that
+ * comes back NOT_MODIFIED correctly skips Normalize onwards -- last run's
+ * *claims* still stand, so re-asserting them would be noise, and re-counting
+ * them would let a provider build a G3 streak by sitting still. But a set's
+ * artwork is not a claim. Nobody disagrees about it, nothing expires, and
+ * "unchanged upstream" says nothing at all about whether our own column is
+ * still null.
+ *
+ * The cost of conflating them was measurable: YGOPRODeck publishes box art for
+ * every Yu-Gi-Oh! set we track, and ygoprodeck.ts has emitted it as an ART
+ * candidate since the providers shipped -- but its index has not changed since
+ * before enrichment was written, so its parse has never once run in a world
+ * where enrichment existed. The result was 154 of 165 sets with no image, and
+ * not one ART image anywhere in the catalogue, which made the drawer's
+ * full-width art slot dead code.
+ *
+ * Three deliberate limits keep this from becoming a second ingest path:
+ *
+ *  - it never creates a ProductSet. A candidate that resolves to "new" is
+ *    dropped, so a stale payload can neither resurrect a set a sweep archived
+ *    nor invent one from data no current run has corroborated;
+ *  - it never writes a claim, a date or a verdict. enrichProductSet is the only
+ *    thing it calls, and that only ever fills a column that is null;
+ *  - a payload that will not parse is skipped in silence rather than degrading
+ *    the run. The live path already records that provider's parse failures; a
+ *    backfill re-reading an old payload must not raise the same alarm twice.
+ */
+async function enrichFromUnchangedProviders(params: {
+  installs: InstallForScan[];
+  /** Providers that already yielded candidates this run -- they enriched inline, via resolveInstallCandidates. */
+  parsed: Set<string>;
+  totals: StageTotals;
+}): Promise<void> {
+  const { installs, parsed, totals } = params;
+  const games = installs.map((install) => install.package.slug);
+  const stale = providersForGames(games).filter((provider) => !parsed.has(provider.key));
+  if (stale.length === 0) return;
+
+  const candidatesByGame = new Map<string, Candidate[]>();
+  for (const provider of stale) {
+    const row = await ingestRepo.getLatestStoredPayload(provider.key);
+    if (!row) continue;
+
+    let candidates: Candidate[];
+    try {
+      candidates = normalizePayload({ ...row, status: "OK" }, provider);
+    } catch {
+      continue;
+    }
+
+    for (const candidate of candidates) {
+      if (!candidate.imageUrl && !candidate.description) continue;
+      const forGame = candidatesByGame.get(candidate.game) ?? [];
+      forGame.push(candidate);
+      candidatesByGame.set(candidate.game, forGame);
+    }
+  }
+
+  for (const install of installs) {
+    const forInstall = candidatesByGame.get(install.package.slug);
+    if (!forInstall || forInstall.length === 0) continue;
+
+    const context = await ingestRepo.getIdentityContext(install.id);
+    for (const candidate of forInstall) {
+      const resolution = resolveSetIdentity(candidate, context);
+      if (!resolution.productSetId) continue;
+      await enrichProductSet(resolution.productSetId, candidate, context, totals);
+    }
+  }
 }
 
 /** Stage 3 for one install: resolve every candidate, creating and pinning sets that are genuinely new. */

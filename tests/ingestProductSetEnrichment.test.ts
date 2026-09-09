@@ -304,3 +304,119 @@ describe("ProductSet image/description enrichment", () => {
     expect(untouched.imageKind).toBeNull();
   });
 });
+
+/**
+ * The gap that made the whole feature invisible in production.
+ *
+ * Enrichment used to ride on the claim pipeline, so it only ever saw providers
+ * whose payload had *changed*. A conditional GET coming back NOT_MODIFIED is
+ * right to skip Normalize -- last run's claims still stand -- but a set's
+ * artwork is not a claim, and "unchanged upstream" says nothing about whether
+ * our own column is still null. YGOPRODeck publishes box art for every
+ * Yu-Gi-Oh! set on the calendar and has emitted it since the providers shipped;
+ * its index simply had not changed since before enrichment existed, so the art
+ * had never once been offered to a run that could store it.
+ */
+describe("enrichment from providers that did not change", () => {
+  /** A run in which this provider returned 304: a payload row with no body, exactly as notModifiedPayload writes it. */
+  async function runNotModified() {
+    runCounter += 1;
+    const at = new Date(NOW.getTime() + runCounter * 1000);
+
+    const run = await prisma.scanRun.create({
+      data: {
+        scopeType: "INSTALL",
+        scopeId: installId,
+        trigger: "SCHEDULED",
+        status: "SUCCEEDED",
+        startedAt: at,
+        finishedAt: at,
+      },
+    });
+    await prisma.rawPayload.create({
+      data: {
+        scanRunId: run.id,
+        providerKey: provider.key,
+        contentHash: "unchanged",
+        body: Buffer.alloc(0),
+        fetchedAt: at,
+      },
+    });
+    await prisma.providerRun.create({
+      data: {
+        scanRunId: run.id,
+        providerKey: provider.key,
+        status: "NOT_MODIFIED",
+        candidates: 0,
+        startedAt: at,
+        finishedAt: at,
+      },
+    });
+
+    return runStagesFromPayloads({
+      scanRunId: run.id,
+      now: at,
+      installs: [{ id: installId, package: { slug: GAME_SLUG } }],
+    });
+  }
+
+  it("fills a null column from an unchanged provider's last stored payload", async () => {
+    const ART = "https://images.example/sets/late-art.jpg";
+    await runWith([
+      { id: "w-late", name: "Late Art Set", date: "2027-05-05T00:00:00.000Z", imageUrl: ART, imageKind: "ART" },
+    ]);
+
+    // Stand-in for the production history: the payload carrying the art is on
+    // disk and has been for weeks, but the column is null because nothing that
+    // could store it had run by the time that payload was last parsed.
+    const set = await setNamed("Late Art Set");
+    await prisma.productSet.update({ where: { id: set.id }, data: { imageUrl: null, imageKind: null } });
+
+    const totals = await runNotModified();
+
+    expect(totals.candidates).toBe(0);
+    expect(totals.productSetsEnriched).toBe(1);
+    const filled = await setNamed("Late Art Set");
+    expect(filled.imageUrl).toBe(ART);
+    expect(filled.imageKind).toBe("ART");
+  });
+
+  it("writes nothing but presentational fields", async () => {
+    // The backfill must never look like a run. It writes no claim, publishes no
+    // date and reaches no verdict -- a stale payload getting a vote on what the
+    // calendar says is exactly what NOT_MODIFIED exists to prevent.
+    const before = await prisma.sourceClaim.count();
+    const totals = await runNotModified();
+
+    expect(await prisma.sourceClaim.count()).toBe(before);
+    expect(totals.claimsWritten).toBe(0);
+    expect(totals.eventsPublished).toBe(0);
+    expect(totals.productSetsCreated).toBe(0);
+  });
+
+  it("never creates a set from a payload no current run corroborates", async () => {
+    // A candidate that resolves to "new" is dropped rather than created, so a
+    // stale payload can neither invent a product nor resurrect one a cleanup
+    // sweep archived.
+    await runWith([
+      {
+        id: "w-ghost",
+        name: "Ghost Set",
+        date: "2027-06-05T00:00:00.000Z",
+        imageUrl: "https://images.example/sets/ghost.jpg",
+        imageKind: "ART",
+      },
+    ]);
+    const ghost = await setNamed("Ghost Set");
+    await prisma.releaseEvent.deleteMany({ where: { productSetId: ghost.id } });
+    await prisma.setIdentity.deleteMany({ where: { productSetId: ghost.id } });
+    await prisma.productSet.delete({ where: { id: ghost.id } });
+
+    const totals = await runNotModified();
+
+    expect(totals.productSetsCreated).toBe(0);
+    expect(
+      await prisma.productSet.count({ where: { tcgProfileInstallId: installId, name: "Ghost Set" } }),
+    ).toBe(0);
+  });
+});

@@ -234,6 +234,25 @@ export async function getRawPayloads(scanRunId: string, providerKeys?: string[])
   return rows;
 }
 
+/**
+ * The most recent payload this provider actually returned a body for, from any
+ * run.
+ *
+ * NOT_MODIFIED runs store a row with an empty body -- there was nothing to
+ * store -- so `body: { not: ... }` cannot be expressed as a length check in
+ * Prisma's SQLite filters and the emptiness is settled in code below. Used by
+ * the presentational backfill in lib/ingest/orchestrate.ts, which needs a
+ * parsable payload for a provider precisely when *this* run has none.
+ */
+export async function getLatestStoredPayload(providerKey: string) {
+  const rows = await prisma.rawPayload.findMany({
+    where: { providerKey },
+    orderBy: { fetchedAt: "desc" },
+    take: 5,
+  });
+  return rows.find((row) => row.body.length > 0) ?? null;
+}
+
 export async function recordProviderRun(params: {
   scanRunId: string;
   providerKey: string;
