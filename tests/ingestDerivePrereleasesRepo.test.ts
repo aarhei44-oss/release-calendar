@@ -118,10 +118,10 @@ describe("derived prerelease events, end to end", () => {
       productSetId,
       type: "PRERELEASE",
       region: "GLOBAL",
-      date: { kind: "EXACT", date: PRERELEASE_DATE },
     });
-    expect(forSource.id).not.toBe(derived.id);
-    expect(forSource.derivedFromEventId).toBeNull();
+    expect(forSource.created).toBe(true);
+    expect(forSource.event.id).not.toBe(derived.id);
+    expect(forSource.event.derivedFromEventId).toBeNull();
   });
 
   it("stays out of the absence sweep, so G7 can never cancel it", async () => {

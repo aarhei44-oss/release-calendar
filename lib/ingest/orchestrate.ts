@@ -845,14 +845,18 @@ export function groupResolvedCandidates(resolved: ResolvedCandidate[]): Map<stri
  * everything but a prerelease group in a game that has one).
  */
 async function gateGroup(group: EventGroup, now: Date, expectedDates: CandidateDate[] = []): Promise<ApplyItem> {
-  const event = await ingestRepo.findOrCreateReleaseEvent({
+  const { event, created } = await ingestRepo.findOrCreateReleaseEvent({
     productSetId: group.productSetId,
     type: group.type,
     region: group.region,
-    date: group.entries[0].date,
   });
 
-  const before = await ingestRepo.getPublishedState(event.id);
+  // A row created moments ago has published nothing, so it must reach the gate
+  // as `null` rather than as its own freshly written state. Reading it back
+  // instead is what let a single unqualified claim publish a date on sight:
+  // the row was seeded from that claim, getPublishedState handed the seed back
+  // as "what this event already shows", and a HOLD dutifully restated it.
+  const before = created ? null : await ingestRepo.getPublishedState(event.id);
   const history = await ingestRepo.getClaimHistoryForEvent(event.id);
 
   const observed = group.entries.map((entry) => ({

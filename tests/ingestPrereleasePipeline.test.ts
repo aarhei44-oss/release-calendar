@@ -12,17 +12,15 @@ import type { Candidate, RunDiffChange } from "@/lib/ingest/types";
  * English Wikipedia's Magic set list states a "Pre-release date", and
  * `wikipedia` is the only origin that states one -- so G1 wanted an official
  * source, G2 wanted a second independent origin, G3 wanted a retailer, and none
- * of them fired. The event was therefore HELD on every run it had ever seen,
- * which has a subtler consequence than it sounds: a held verdict restates the
- * *published* date, and the published date is whatever
- * findOrCreateReleaseEvent happened to seed the row with the very first time
- * the claim was seen. So a Wikipedia prerelease was frozen at its first-ever
- * value, at RUMORED, forever -- never re-checked, and unable to move when
- * Wikipedia corrected it.
+ * of them fired. The event is therefore HELD on every run it ever has, and a
+ * held verdict restates the published date -- which, now that
+ * findOrCreateReleaseEvent creates a row dateless, is nothing at all. Without
+ * G8 every Magic prerelease sits at TBD in the undated tab indefinitely.
  *
- * G8 makes the schedule the corroboration those events could never get, which
- * turns them into ordinary published dates that re-evaluate every run. These
- * tests run the real stages over stored payloads and assert at the database.
+ * G8 makes the schedule the corroboration those events could never otherwise
+ * get, turning them into ordinary published dates that re-evaluate every run.
+ * These tests run the real stages over stored payloads and assert at the
+ * database.
  */
 
 const GAME_SLUG = "magic-the-gathering";
@@ -219,14 +217,11 @@ describe("a Wikipedia-only prerelease date", () => {
     expect(change?.rule).toBe("NONE");
     expect(prerelease.status).toBe("RUMORED");
 
-    // The row still *carries* 2026-03-02, because findOrCreateReleaseEvent
-    // seeds a new event with the first candidate's date before the gate ever
-    // sees it, and a HOLD then restates that seeded value. That predates this
-    // work and affects every event type, not just prereleases -- fixing it
-    // would un-publish the first-run date of every lone-claim event in the
-    // catalogue, which is a separate decision. What G8 governs is whether the
-    // gate ever *endorses* the date, and here it does not.
-    expect(prerelease.dateExact?.toISOString()).toBe("2026-03-02T00:00:00.000Z");
+    // And the bad date reaches nobody. findOrCreateReleaseEvent creates the row
+    // dateless, so a held verdict has nothing to restate -- the mis-parse stays
+    // on the claim, where it is auditable, and off the calendar.
+    expect(prerelease.dateType).toBe("TBD");
+    expect(prerelease.dateExact).toBeNull();
   });
 
   it("derives one instead when no source states a prerelease date at all", async () => {

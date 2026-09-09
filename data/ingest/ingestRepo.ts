@@ -3,6 +3,7 @@ import type {
   ProductImageKind,
   ProviderStatus,
   Region,
+  ReleaseEvent,
   ReleaseEventType,
   ReleaseStatus,
   ReviewReason,
@@ -665,6 +666,29 @@ export async function getPublishedState(releaseEventId: string): Promise<Publish
  * Resolves the one event a (productSet, type, region) triple names, creating it
  * if this is the first time anything has claimed it.
  *
+ * **A created event is dateless**, and reports itself as `created: true` so the
+ * caller can tell the gate it has no published state. Both halves of that
+ * matter, and both were wrong until they were fixed together.
+ *
+ * This used to seed the new row with the first candidate's date. That looked
+ * harmless -- the gate was about to decide the date anyway -- but the seeded
+ * value *became* the published state, because getPublishedState reads the row
+ * that was just written. So a HOLD (which expresses "don't move it" by
+ * restating the published date) restated the seed, and a single unqualified
+ * claim put a date on the calendar that no gate rule had ever endorsed, on the
+ * first run it was seen. It then froze there: every later run held the same
+ * value, so the source could not correct it either.
+ *
+ * Worst hit was rule G3, whose entire purpose is that a lone retailer date must
+ * hold still for seven runs before anyone believes it. Seeding published it on
+ * run one and G3 had nothing left to gate. G5 and G6 were weakened the same
+ * way, since both compare against a "published" date that was never published.
+ *
+ * Note this only ever governed *newly created* rows. Events already carrying a
+ * seeded date keep it: a HOLD still restates whatever the row shows, and no
+ * pass exists that could tell an endorsed date from a seeded one after the
+ * fact.
+ *
  * Region is part of the lookup, not just of the row it creates. Without it a
  * Japanese street date and a global one for the same expansion resolve to a
  * single event, arrive at the gate as two claims three months apart, and are
@@ -689,9 +713,9 @@ export async function getPublishedState(releaseEventId: string): Promise<Publish
  * pass owns rows with an anchor.
  */
 export async function findOrCreateReleaseEvent(
-  params: { productSetId: string; type: ReleaseEventType; region: Region; date: CandidateDate },
+  params: { productSetId: string; type: ReleaseEventType; region: Region },
   db: Db = prisma,
-) {
+): Promise<{ event: ReleaseEvent; created: boolean }> {
   const existing = await db.releaseEvent.findFirst({
     where: {
       productSetId: params.productSetId,
@@ -702,15 +726,20 @@ export async function findOrCreateReleaseEvent(
     },
     orderBy: { createdAt: "asc" },
   });
-  if (existing) return existing;
-  return db.releaseEvent.create({
+  if (existing) return { event: existing, created: false };
+
+  const event = await db.releaseEvent.create({
     data: {
       productSetId: params.productSetId,
       type: params.type,
       region: params.region,
-      ...toEventDateColumns(params.date),
+      // Explicitly dateless. `dateType` is NOT NULL with no default, so this is
+      // also the only way the row is writable at all -- but the reason it is
+      // TBD rather than the candidate's date is the one above.
+      ...toEventDateColumns(null),
     },
   });
+  return { event, created: true };
 }
 
 /**

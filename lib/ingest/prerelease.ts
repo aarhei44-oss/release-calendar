@@ -16,12 +16,12 @@ import type { CandidateDate } from "./types";
  * origin, G3 wants a retailer -- so no rule fires and the event is HELD on
  * every run it has ever had.
  *
- * A held event is worse off than it sounds. The gate expresses "don't move it"
- * by restating the published date, and for these events the published date is
- * only ever whatever findOrCreateReleaseEvent seeded the row with the first
- * time the claim appeared. So a Wikipedia prerelease sits frozen at its
- * first-seen value at RUMORED indefinitely: never re-checked against anything,
- * and structurally unable to move when Wikipedia corrects it.
+ * A held event has nothing to show. The gate expresses "don't move it" by
+ * restating the published date, and an event no rule has ever endorsed has no
+ * published date to restate -- findOrCreateReleaseEvent creates the row
+ * dateless precisely so that a claim cannot smuggle a date past the rules. So
+ * every Magic and Lorcana prerelease sits at TBD in the undated tab
+ * indefinitely, however long Wikipedia has been stating it.
  *
  * Scraping harder does not fix that, because there is no second origin to find.
  * What there *is* instead is a schedule: these games run their prereleases on a

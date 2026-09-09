@@ -253,21 +253,36 @@ describe("findOrCreateReleaseEvent scopes by region", () => {
   });
 
   it("creates one event per region and reuses each of them", async () => {
-    const date = { kind: "EXACT", date: new Date("2026-11-06T00:00:00.000Z") } as const;
-    const globalEvent = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "GLOBAL", date });
-    const jpEvent = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "JP", date });
+    const globalEvent = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "GLOBAL" });
+    const jpEvent = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "JP" });
 
-    expect(jpEvent.id).not.toBe(globalEvent.id);
-    expect(globalEvent.region).toBe("GLOBAL");
-    expect(jpEvent.region).toBe("JP");
+    expect(jpEvent.event.id).not.toBe(globalEvent.event.id);
+    expect(globalEvent.event.region).toBe("GLOBAL");
+    expect(jpEvent.event.region).toBe("JP");
+    expect(globalEvent.created).toBe(true);
+    expect(jpEvent.created).toBe(true);
 
     // Idempotent per region: a second run resolves the same two rows rather than
     // making a third.
-    const again = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "JP", date });
-    expect(again.id).toBe(jpEvent.id);
+    const again = await ingestRepo.findOrCreateReleaseEvent({ productSetId, type: "SHELF", region: "JP" });
+    expect(again.event.id).toBe(jpEvent.event.id);
+    expect(again.created).toBe(false);
     expect(
       await prisma.releaseEvent.count({ where: { productSetId, type: "SHELF", archivedAt: null } }),
     ).toBe(2);
+  });
+
+  it("creates the row dateless, so no claim publishes a date the gate never weighed", async () => {
+    const { event, created } = await ingestRepo.findOrCreateReleaseEvent({
+      productSetId,
+      type: "PROMO",
+      region: "GLOBAL",
+    });
+    expect(created).toBe(true);
+    expect(event.dateType).toBe("TBD");
+    expect(event.dateExact).toBeNull();
+    // And it has no published state for the gate to hold onto.
+    expect(await ingestRepo.getPublishedState(event.id)).toEqual({ date: null, status: "RUMORED" });
   });
 });
 

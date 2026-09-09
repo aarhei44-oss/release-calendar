@@ -210,12 +210,12 @@ export function evaluateGate(input: GateInput): Verdict {
   //
   // Exists because prerelease dates have no second origin to find. Wikipedia is
   // the only source that states Magic's or Lorcana's, it is COMMUNITY tier and
-  // alone, so G1/G2/G3 all decline and the event is held on every run it ever
-  // has -- which leaves it frozen at whatever date it was first created with,
-  // at RUMORED, unable to move when the source corrects itself. That is the
-  // gate being right about the wrong question: the claim's problem is not that
-  // it is uncorroborated, it is that the only other party who knows the answer
-  // is the publisher's event schedule, which does not publish a feed.
+  // alone, so G1/G2/G3 all decline and the event is held -- at TBD, forever,
+  // since a held event that no rule ever endorsed has no date to restate. That
+  // is the gate being right about the wrong question: the claim's problem is
+  // not that it is uncorroborated, it is that the only other party who knows
+  // the answer is the publisher's event schedule, which does not publish a
+  // feed.
   //
   // So the schedule corroborates instead. `expectedDates` is computed from the
   // *published* shelf date for this product -- a date that already got through
