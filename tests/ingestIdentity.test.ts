@@ -230,9 +230,25 @@ describe("set codes", () => {
     expect(setCodesFor({ name: "ME06: Delta Reign", code: null })).toEqual(["ME06"]);
     expect(setCodesFor({ name: "OP-13 Royal Blood", code: null })).toEqual(["OP13"]);
     expect(setCodesFor({ name: "Phantom Aria [GD04]", code: null })).toEqual(["GD04"]);
-    // The column wins the first slot, but a code in the name is still carried:
-    // either one is allowed to find the set.
-    expect(setCodesFor({ name: "ME06: Delta Reign", code: "DLR" })).toEqual(["DLR", "ME06"]);
+  });
+
+  it("stops reading the name once the origin has given a code of its own", () => {
+    // An origin that prints a code column has stated its identifier; a code
+    // inside a display name is only our inference about one. Reading both makes
+    // the source appear to contradict itself.
+    expect(setCodesFor({ name: "ME06: Delta Reign", code: "DLR" })).toEqual(["DLR"]);
+
+    // The case that made this matter. TCGplayer files the Inuyasha release-event
+    // cards under UE23BT_RE but titles them "UE23BT: ...". Harvesting both made
+    // UE23BT look like one origin's name for two products, which disqualified
+    // the code for the base set too -- so "UE23BT: Inuyasha" was created with a
+    // synthetic code and left the code tier for good.
+    const codes = collectAmbiguousCodes([
+      { origin: "tcgplayer", name: "UE23BT: Inuyasha", code: "UE23BT" },
+      { origin: "tcgplayer", name: "UE23BT: Inuyasha Release Event Cards", code: "UE23BT_RE" },
+    ]);
+    expect(codes.has("UE23BT")).toBe(false);
+    expect(setCodesFor({ name: "UE23BT: Inuyasha Release Event Cards", code: "UE23BT_RE" })).toEqual(["UE23BTRE"]);
   });
 
   it("does not mistake an ordinary first word for a code", () => {

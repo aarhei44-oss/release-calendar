@@ -151,13 +151,48 @@ export function setCodesFor(input: { name?: string | null; code?: string | null 
 
   push(input.code);
 
-  const name = input.name?.trim();
-  if (name) {
-    push(LEADING_NAME_CODE.exec(name)?.[1]);
-    push(TRAILING_NAME_CODE.exec(name)?.[1]);
+  // The name is read for codes only when the origin gave us none of its own.
+  //
+  // An origin that prints a code column has *told* us its identifier; a code
+  // sitting inside a display name is only ever our inference about one. Reading
+  // both and treating them as equals is not belt-and-braces, it is us
+  // second-guessing the source, and it did measurable damage. TCGplayer lists
+  // "UE23BT: Inuyasha Release Event Cards" under the abbreviation UE23BT_RE, so
+  // harvesting UE23BT out of its name made that one code appear to name two
+  // different products within a single origin -- exactly the shape
+  // collectAmbiguousCodes exists to catch. It duly disqualified UE23BT for
+  // *both* rows, so the base set ("UE23BT: Inuyasha", abbreviation UE23BT) was
+  // created with a synthetic code and left the code tier permanently. The same
+  // happened to UE20BT and UE22BT, each of which also has a _RE sibling.
+  //
+  // Worse, once the base set was synthetic, buildCodeIndex skipped it and handed
+  // UE23BT to the Release Event Cards row instead -- so the next origin to
+  // publish UE23BT would have matched the one product it definitely is not.
+  //
+  // Nothing is lost for the code-less origins the name tier was written for: a
+  // wiki row with no code column still has its name read exactly as before.
+  if (codes.length === 0) {
+    const name = input.name?.trim();
+    if (name) {
+      push(LEADING_NAME_CODE.exec(name)?.[1]);
+      push(TRAILING_NAME_CODE.exec(name)?.[1]);
+    }
   }
 
   return codes;
+}
+
+/**
+ * The code token a name is prefixed with ("UE22BT: CHAINSAW MAN" -> "UE22BT"),
+ * or null. Exported for lib/ingest/displayName.ts, which drops such a prefix
+ * from the stored display name when the candidate's own code already says the
+ * same thing -- matching has always ignored it (see stripSetCodeTokens), and
+ * the calendar had no reason to keep showing it when nothing else does.
+ */
+export function leadingSetCodeToken(name: string): string | null {
+  const match = LEADING_NAME_CODE.exec(name.trim());
+  if (!match) return null;
+  return normalizeSetCode(match[1]) ? match[1] : null;
 }
 
 /**
