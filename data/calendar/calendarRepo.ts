@@ -168,9 +168,18 @@ export async function getFilteredEvents(filters: CalendarFilters = {}): Promise<
  * it is *now*, not what it changed from (a brand-new discovery and a
  * RUMORED->CONFIRMED jump look the same here: both just bump updatedAt).
  * Capped at 20 so a very active subscription set doesn't return unbounded
- * rows for a dashboard "what's new" feed. The superseded-prerelease filter
- * runs after that cap, so a feed carrying one can come back with 19 -- worth
- * less than a second query per request to top back up, on a list nobody counts.
+ * rows for a dashboard "what's new" feed.
+ *
+ * The superseded-prerelease filter runs *after* that cap, so a feed carrying
+ * one comes back with 19. That is deliberate rather than tolerated: the
+ * dashboard renders this list's length as a stat tile
+ * (app/dashboard/DashboardShell.tsx) directly above the card listing these
+ * same events, so the number has to agree with the rows underneath it or it
+ * reads as a bug. excludeDismissed (data/subscriptions/subscriptionsRepo.ts)
+ * already post-filters here for the same reason. Topping the page back up to
+ * 20 would cost a second query and put the tile back out of step with its own
+ * list -- and the cap already means the number is "how many are shown", never
+ * "how many exist".
  */
 export async function getRecentlyUpdatedEvents(filters: { installIds?: string[]; updatedSince: Date }): Promise<CalendarEvent[]> {
   const events = await prisma.releaseEvent.findMany({
