@@ -381,6 +381,26 @@ describe("enrichment from providers that did not change", () => {
     expect(filled.imageKind).toBe("ART");
   });
 
+  it("still finds the payload after many unchanged runs in a row", async () => {
+    // The providers this backfill exists for are exactly the ones that sit
+    // still for weeks. On production today ygoprodeck's five most recent
+    // payload rows are all empty and the real one is sixth, so a lookup that
+    // scanned a fixed handful of recent rows would have found nothing and done
+    // nothing -- silently, which is the failure this whole stage was written to
+    // end.
+    const ART = "https://images.example/sets/patient-art.jpg";
+    await runWith([
+      { id: "w-patient", name: "Patient Set", date: "2027-07-05T00:00:00.000Z", imageUrl: ART, imageKind: "ART" },
+    ]);
+    const set = await setNamed("Patient Set");
+    await prisma.productSet.update({ where: { id: set.id }, data: { imageUrl: null, imageKind: null } });
+
+    for (let i = 0; i < 8; i += 1) await runNotModified();
+
+    const filled = await setNamed("Patient Set");
+    expect(filled.imageUrl).toBe(ART);
+  });
+
   it("writes nothing but presentational fields", async () => {
     // The backfill must never look like a run. It writes no claim, publishes no
     // date and reaches no verdict -- a stale payload getting a vote on what the

@@ -238,19 +238,29 @@ export async function getRawPayloads(scanRunId: string, providerKeys?: string[])
  * The most recent payload this provider actually returned a body for, from any
  * run.
  *
- * NOT_MODIFIED runs store a row with an empty body -- there was nothing to
- * store -- so `body: { not: ... }` cannot be expressed as a length check in
- * Prisma's SQLite filters and the emptiness is settled in code below. Used by
- * the presentational backfill in lib/ingest/orchestrate.ts, which needs a
- * parsable payload for a provider precisely when *this* run has none.
+ * Used by the presentational backfill in lib/ingest/orchestrate.ts, which needs
+ * a parsable payload for a provider precisely when *this* run has none.
+ *
+ * The emptiness test has to happen in SQLite, not in JS over a fetched page.
+ * NOT_MODIFIED writes a row with an empty body, and the providers this backfill
+ * exists for are the ones that go NOT_MODIFIED for weeks: on production today
+ * ygoprodeck's five most recent payload rows are all empty and the real one is
+ * sixth. Any fixed `take` big enough to be safe is also big enough to drag
+ * several megabytes of gzipped payload across for nothing -- and one too small
+ * fails by finding nothing at all, silently, which is the exact failure mode
+ * the backfill was written to end.
+ *
+ * So the length filter runs in the query and only the one chosen body is read.
  */
 export async function getLatestStoredPayload(providerKey: string) {
-  const rows = await prisma.rawPayload.findMany({
-    where: { providerKey },
-    orderBy: { fetchedAt: "desc" },
-    take: 5,
-  });
-  return rows.find((row) => row.body.length > 0) ?? null;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "RawPayload"
+     WHERE "providerKey" = ${providerKey} AND length("body") > 0
+     ORDER BY "fetchedAt" DESC
+     LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  return prisma.rawPayload.findUnique({ where: { id: rows[0].id } });
 }
 
 export async function recordProviderRun(params: {
