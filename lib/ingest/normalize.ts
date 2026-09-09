@@ -1,5 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import { z } from "zod";
+import { cleanCandidateNaming } from "./displayName";
 import type { Provider } from "./providers/types";
 import type { Candidate, RawPayloadRecord } from "./types";
 
@@ -142,7 +143,10 @@ export function normalizePayload(payload: RawPayloadRecord, provider: Provider):
         `expected origin "${provider.origin}", got "${result.data.origin}"`,
       );
     }
-    candidates.push(result.data);
+    // Runs after validation, never instead of it: the schema still decides
+    // whether a candidate is well-formed, and only then is its display name
+    // cleaned of scraping artefacts. See lib/ingest/displayName.ts.
+    candidates.push({ ...result.data, ...cleanCandidateNaming(result.data) });
   }
 
   return candidates;
