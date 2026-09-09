@@ -232,6 +232,25 @@ model ReleaseEvent {
   archivedAt            DateTime?
   mergedIntoId          String?
   movedFromProductSetId String?
+  // Set on a PRERELEASE event this pipeline *computed* from a shelf date rather
+  // than read from a source (lib/ingest/prerelease.ts). Almost no origin
+  // publishes prerelease dates at all -- Pokemon, Yu-Gi-Oh! and One Piece have
+  // none whatsoever -- so the schedule the game itself follows ("Magic
+  // prereleases are the Friday before the street date") is the only thing that
+  // can put these on the calendar.
+  //
+  // Presence of this column is what makes derived rows a *disjoint* population
+  // from source-backed ones: findOrCreateReleaseEvent excludes them, so the
+  // gate can never adopt one and start writing verdicts onto a row it has no
+  // claims for, and the derivation pass never touches a row a source owns.
+  // It also names the shelf event the date was computed from, so retraction
+  // ("the anchor stopped being CONFIRMED") is a lookup rather than a guess.
+  derivedFromEventId    String?
+  // Which slot of the game's schedule this row is, e.g. "friday-1" /
+  // "friday-2" for Pokemon's two prerelease Fridays. Needed because
+  // (productSetId, type, region) cannot tell two prerelease weekends for one
+  // product apart, and without it the second slot would overwrite the first.
+  derivedSlot           String?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
@@ -258,6 +277,12 @@ model ReleaseEvent {
   @@index([dateType, dateExact, dateStart])
   @@index([archivedAt])
   @@index([movedFromProductSetId])
+  // One derived row per (anchor shelf event, schedule slot). SQLite treats
+  // NULLs as distinct in a unique index, so every source-backed event (both
+  // columns NULL) is exempt from this and keeps its existing behaviour --
+  // the same exemption SourceClaim's unique index relies on above.
+  @@unique([derivedFromEventId, derivedSlot])
+  @@index([derivedFromEventId])
 }
 
 model SourceClaim {

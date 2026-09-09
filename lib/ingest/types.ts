@@ -299,7 +299,7 @@ export type PublishedState = {
   status: ReleaseStatus;
 };
 
-export type GateRule = "G1" | "G2" | "G3" | "G4" | "G5" | "G6" | "G7" | "NONE";
+export type GateRule = "G1" | "G2" | "G3" | "G4" | "G5" | "G6" | "G7" | "G8" | "NONE";
 
 /**
  * Machine-readable "why". Deliberately finer-grained than GateRule: two
@@ -314,6 +314,8 @@ export type VerdictReason =
   | "INDEPENDENT_AGREEMENT"
   /** G3: a lone retailer date that has held still long enough. */
   | "RETAILER_STREAK"
+  /** G8: a lone prerelease claim landing where the game's own schedule says it should. */
+  | "SCHEDULE_CORROBORATED"
   /** G4: the only dated evidence is speculative, so no date is published. */
   | "SPECULATIVE_ONLY"
   /** G5: qualifying claims disagree beyond the agreement window. */

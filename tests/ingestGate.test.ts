@@ -11,7 +11,7 @@ import {
 
 /**
  * The gate decides what the calendar shows, so this file is deliberately the
- * most exhaustive one in the repo. Every rule G1-G7 is covered on its own, at
+ * most exhaustive one in the repo. Every rule G1-G8 is covered on its own, at
  * its exact threshold boundary, and in combination with the rules it can
  * collide with.
  *
@@ -78,6 +78,17 @@ function publishedAt(iso: string, status: PublishedState["status"] = "CONFIRMED"
 
 function gate(claims: ClaimRecord[], published: PublishedState | null = null, now: Date = NOW) {
   const input: GateInput = { now, claims, published, origins: REGISTRY };
+  return evaluateGate(input);
+}
+
+/** As `gate`, but hands the gate a schedule to check claims against (rule G8). */
+function gateWithSchedule(
+  claims: ClaimRecord[],
+  expectedDates: CandidateDate[],
+  published: PublishedState | null = null,
+  now: Date = NOW,
+) {
+  const input: GateInput = { now, claims, published, origins: REGISTRY, expectedDates };
   return evaluateGate(input);
 }
 
@@ -796,5 +807,124 @@ describe("determinism", () => {
     const published = publishedAt("2027-12-01T00:00:00.000Z");
     expect(gate([absentClaim], published, NOW).reason).toBe("ABSENT");
     expect(gate([absentClaim], published, new Date(NOW.getTime() + 14 * DAY_MS)).reason).toBe("ABSENT_CANCELLED");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G8 -- schedule corroboration.
+//
+// The rule exists for exactly one shape of problem: a prerelease date that only
+// one COMMUNITY source states, which every other rule correctly declines to
+// publish and which therefore sat at a null date forever. These tests pin both
+// halves of that -- that the schedule lets such a claim through, and that it is
+// a real check rather than a rubber stamp.
+// ---------------------------------------------------------------------------
+
+describe("G8 -- a lone claim matching the game's own schedule", () => {
+  const SHELF_FRIDAY = "2026-07-24T00:00:00.000Z";
+  const PRERELEASE_FRIDAY = "2026-07-17T00:00:00.000Z";
+
+  it("publishes a lone community claim that lands on the expected date", () => {
+    const verdict = gateWithSchedule([claim({ origin: "communityA", date: exact(PRERELEASE_FRIDAY) })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.rule).toBe("G8");
+    expect(verdict.reason).toBe("SCHEDULE_CORROBORATED");
+    expect(verdict.date).toEqual(exact(PRERELEASE_FRIDAY));
+  });
+
+  it("is exactly the case that holds today without a schedule", () => {
+    const claims = [claim({ origin: "communityA", date: exact(PRERELEASE_FRIDAY) })];
+    const held = gate(claims);
+    expect(held.action).toBe("HOLD");
+    expect(held.reason).toBe("AWAITING_CORROBORATION");
+    expect(held.date).toBeNull();
+  });
+
+  it("holds a claim that misses the expected date, so the check is a real one", () => {
+    const verdict = gateWithSchedule([claim({ origin: "communityA", date: exact("2026-07-04T00:00:00.000Z") })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(verdict.action).toBe("HOLD");
+    expect(verdict.rule).toBe("NONE");
+    expect(verdict.date).toBeNull();
+  });
+
+  it("uses the same agreement window as every other rule -- 3 days in, 4 days out", () => {
+    const inside = gateWithSchedule([claim({ origin: "communityA", date: exact("2026-07-20T00:00:00.000Z") })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(inside.rule).toBe("G8");
+
+    const outside = gateWithSchedule([claim({ origin: "communityA", date: exact("2026-07-21T00:00:00.000Z") })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(outside.action).toBe("HOLD");
+  });
+
+  it("matches any slot when a game predicts several (Pokemon's two prerelease Fridays)", () => {
+    const firstWeekend = exact("2026-07-10T00:00:00.000Z");
+    const secondWeekend = exact(PRERELEASE_FRIDAY);
+    const verdict = gateWithSchedule([claim({ origin: "communityA", date: firstWeekend })], [
+      secondWeekend,
+      firstWeekend,
+    ]);
+    expect(verdict.rule).toBe("G8");
+    expect(verdict.date).toEqual(firstWeekend);
+  });
+
+  it("declines a claim another origin contradicts, the same way G3 does", () => {
+    const verdict = gateWithSchedule(
+      [
+        claim({ origin: "communityA", date: exact(PRERELEASE_FRIDAY) }),
+        claim({ origin: "retailerA", date: exact("2026-06-20T00:00:00.000Z") }),
+      ],
+      [exact(PRERELEASE_FRIDAY)],
+    );
+    expect(verdict.action).toBe("HOLD");
+    expect(verdict.reason).toBe("CONTRADICTED");
+  });
+
+  it("never overrides G4 -- a speculative claim on the expected date still publishes nothing", () => {
+    const verdict = gateWithSchedule([claim({ origin: "rumor", date: exact(PRERELEASE_FRIDAY) })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(verdict.action).toBe("HOLD");
+    expect(verdict.rule).toBe("G4");
+    expect(verdict.reason).toBe("SPECULATIVE_ONLY");
+  });
+
+  it("yields to G1 and G2 when they also fire, so the recorded rule names the stronger evidence", () => {
+    const viaOfficial = gateWithSchedule([claim({ origin: "official", date: exact(PRERELEASE_FRIDAY) })], [
+      exact(PRERELEASE_FRIDAY),
+    ]);
+    expect(viaOfficial.rule).toBe("G1");
+
+    const viaAgreement = gateWithSchedule(
+      [
+        claim({ origin: "communityA", date: exact(PRERELEASE_FRIDAY) }),
+        claim({ origin: "communityB", date: exact(PRERELEASE_FRIDAY) }),
+      ],
+      [exact(PRERELEASE_FRIDAY)],
+    );
+    expect(viaAgreement.rule).toBe("G2");
+  });
+
+  it("still defers to G6 -- a schedule match is not a licence to move a date two weeks", () => {
+    const verdict = gateWithSchedule(
+      [claim({ origin: "communityA", date: exact(PRERELEASE_FRIDAY) })],
+      [exact(PRERELEASE_FRIDAY)],
+      publishedAt("2026-06-01T00:00:00.000Z"),
+    );
+    expect(verdict.action).toBe("FLAG");
+    expect(verdict.rule).toBe("G6");
+    expect(verdict.date).toEqual(exact("2026-06-01T00:00:00.000Z"));
+  });
+
+  it("is inert when no schedule is supplied, which is every non-prerelease event", () => {
+    const withEmpty = gateWithSchedule([claim({ origin: "communityA", date: exact(SHELF_FRIDAY) })], []);
+    expect(withEmpty.action).toBe("HOLD");
+    expect(withEmpty.rule).toBe("NONE");
   });
 });

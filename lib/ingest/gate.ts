@@ -32,7 +32,7 @@ import {
  * outvote a single authoritative correction, and that whichever source
  * happened to run last silently won a disagreement.
  *
- * Here, visibility is decided by named rules (G1..G7) with explicit
+ * Here, visibility is decided by named rules (G1..G8) with explicit
  * thresholds, and confidence is computed but demoted to a display and
  * review-ranking signal. Every verdict names the rule that produced it.
  *
@@ -89,11 +89,21 @@ export type GateInput = {
   published: PublishedState | null;
   /** Defaults to the production ORIGINS; tests and later phases can substitute their own lineage. */
   origins?: OriginRegistry;
+  /**
+   * Dates this event is independently expected to fall on, from something other
+   * than a source claim. In practice: the prerelease dates a game's published
+   * schedule implies for its shelf date (lib/ingest/prerelease.ts), supplied by
+   * the orchestrator for PRERELEASE groups only.
+   *
+   * Empty (the default) for every other event, which makes G8 inert -- the gate
+   * has no opinion about schedules it was not handed.
+   */
+  expectedDates?: CandidateDate[];
 };
 
 /** One way the evidence could justify publishing a date, before conflict and shift checks. */
 type Proposal = {
-  rule: Extract<GateRule, "G1" | "G2" | "G3">;
+  rule: Extract<GateRule, "G1" | "G2" | "G3" | "G8">;
   date: CandidateDate;
   /** The claims that back it; their union across proposals is the "qualifying" set G5 examines. */
   claims: ClaimRecord[];
@@ -193,6 +203,41 @@ export function evaluateGate(input: GateInput): Verdict {
     if (isContradicted(claim)) continue;
     if (claim.consecutiveRuns < GATE_THRESHOLDS.retailerCorroborationRuns) continue;
     proposals.push({ rule: "G3", date: claim.date, claims: [claim], tier: claim.tier });
+  }
+
+  // -------------------------------------------------------------------------
+  // G8 -- a lone claim that lands where the game's own schedule says it should.
+  //
+  // Exists because prerelease dates have no second origin to find. Wikipedia is
+  // the only source that states Magic's or Lorcana's, it is COMMUNITY tier and
+  // alone, so G1/G2/G3 all decline and the event is held on every run it ever
+  // has -- which leaves it frozen at whatever date it was first created with,
+  // at RUMORED, unable to move when the source corrects itself. That is the
+  // gate being right about the wrong question: the claim's problem is not that
+  // it is uncorroborated, it is that the only other party who knows the answer
+  // is the publisher's event schedule, which does not publish a feed.
+  //
+  // So the schedule corroborates instead. `expectedDates` is computed from the
+  // *published* shelf date for this product -- a date that already got through
+  // this same gate on its own evidence -- plus the game's stated convention, and
+  // a claim agreeing with it has been checked against something genuinely
+  // independent of itself. A mis-parsed cell lands nowhere near the expected
+  // Friday and stays exactly as held as it is today.
+  //
+  // Contradicted claims are excluded on the same reasoning as G3: if another
+  // origin disputes the date, "it matches the usual weekday" is not enough to
+  // settle it, and holding is the conservative answer.
+  // -------------------------------------------------------------------------
+  const expectedDates = input.expectedDates ?? [];
+  if (expectedDates.length > 0) {
+    for (const claim of eligible) {
+      if (isContradicted(claim)) continue;
+      const matchesSchedule = expectedDates.some((expected) =>
+        datesAgreeWithin(expected, claim.date, GATE_THRESHOLDS.agreementDays),
+      );
+      if (!matchesSchedule) continue;
+      proposals.push({ rule: "G8", date: claim.date, claims: [claim], tier: claim.tier });
+    }
   }
 
   if (proposals.length === 0) {
@@ -379,10 +424,18 @@ function reasonForRule(rule: Proposal["rule"]): VerdictReason {
       return "INDEPENDENT_AGREEMENT";
     case "G3":
       return "RETAILER_STREAK";
+    case "G8":
+      return "SCHEDULE_CORROBORATED";
   }
 }
 
-const RULE_PRIORITY: Record<Proposal["rule"], number> = { G1: 0, G2: 1, G3: 2 };
+// G8 sits above G3 because it is a stronger statement: a date checked against
+// the game's own convention has been corroborated by something, whereas a G3
+// date has only failed to change for seven runs. Ordering is only ever
+// consulted after G5 has established that the surviving proposals agree to
+// within three days, so this picks which near-identical date to show and
+// which rule name to record -- never who wins a dispute.
+const RULE_PRIORITY: Record<Proposal["rule"], number> = { G1: 0, G2: 1, G8: 2, G3: 3 };
 
 /**
  * Picks between surviving proposals. Only reached once G5 has established that

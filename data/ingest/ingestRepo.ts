@@ -679,6 +679,14 @@ export async function getPublishedState(releaseEventId: string): Promise<Publish
  * printings) stayed unaffected; v1 is gone, but tightening this to a real
  * uniqueness constraint is a separate schema decision, not required for v2 to
  * work correctly -- scoping happens here, in v2's resolution logic, regardless.
+ *
+ * Derived rows are excluded from the lookup (`derivedFromEventId: null`). A
+ * computed prerelease shares the (productSet, PRERELEASE, region) triple with a
+ * sourced one, so without this filter the gate would find a row it has no
+ * claims for, hand it to the absence sweep on the next run, and eventually
+ * cancel a date the derivation pass is still actively maintaining. The two
+ * populations stay disjoint: the gate owns rows with claims, the derivation
+ * pass owns rows with an anchor.
  */
 export async function findOrCreateReleaseEvent(
   params: { productSetId: string; type: ReleaseEventType; region: Region; date: CandidateDate },
@@ -690,6 +698,7 @@ export async function findOrCreateReleaseEvent(
       type: params.type,
       region: params.region,
       archivedAt: null,
+      derivedFromEventId: null,
     },
     orderBy: { createdAt: "asc" },
   });
@@ -855,16 +864,228 @@ export async function getRunDiff(scanRunId: string) {
  * one origin-bearing claim so v2 never passes judgement on rows only the v1
  * crawler has ever touched -- while both pipelines coexist, each owns what it
  * wrote.
+ *
+ * Derived prerelease rows are excluded explicitly as well as implicitly. They
+ * carry no claims at all, so the clause above already skips them; stating it
+ * outright means a future change that writes any claim against a derived row
+ * cannot silently hand it to the absence sweep, which would cancel a date whose
+ * only "source" is a shelf date the sweep never looks at.
  */
 export async function getIngestTrackedEvents(installIds: string[]) {
   if (installIds.length === 0) return [];
   return prisma.releaseEvent.findMany({
     where: {
       archivedAt: null,
+      derivedFromEventId: null,
       productSet: { tcgProfileInstallId: { in: installIds } },
       sourceClaims: { some: { origin: { not: null } } },
     },
     select: { id: true, productSetId: true },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Derived prerelease events (lib/ingest/derivePrereleases.ts)
+//
+// Three reads that between them describe the whole reconciliation: what shelf
+// dates could anchor a prerelease, which prerelease dates a real source already
+// owns, and which derived rows exist right now.
+// ---------------------------------------------------------------------------
+
+/**
+ * Every live SHELF event in the given installs, with the game slug needed to
+ * look up its prerelease schedule.
+ *
+ * Deliberately not filtered to CONFIRMED-and-exact in SQL, even though only
+ * those anchor anything. The derivation pass has to answer "does this derived
+ * row's anchor still qualify?", and an anchor that has slipped back to
+ * ANNOUNCED has to be *seen* to be retracted -- filtering it out here would
+ * make it indistinguishable from a deleted one, which is a different case with
+ * a different outcome.
+ */
+export async function getShelfAnchors(installIds: string[]) {
+  if (installIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: {
+      type: "SHELF",
+      archivedAt: null,
+      productSet: { tcgProfileInstallId: { in: installIds }, archivedAt: null },
+    },
+    select: {
+      id: true,
+      productSetId: true,
+      region: true,
+      status: true,
+      confidence: true,
+      dateType: true,
+      dateExact: true,
+      dateStart: true,
+      dateEnd: true,
+      windowGranularity: true,
+      windowStart: true,
+      windowEnd: true,
+      productSet: { select: { install: { select: { package: { select: { slug: true } } } } } },
+    },
+  });
+  return events.map((event) => ({
+    id: event.id,
+    productSetId: event.productSetId,
+    region: event.region,
+    status: event.status,
+    confidence: event.confidence,
+    game: event.productSet.install.package.slug,
+    date: fromEventDateColumns(event),
+  }));
+}
+
+/**
+ * Prerelease dates that a real source already owns, keyed by product set.
+ *
+ * The derivation pass skips any slot one of these already covers. A stated date
+ * beats a computed one even when they differ by a few days: the source is
+ * describing an event somebody scheduled, and the schedule here is only ever a
+ * model of what that person usually does.
+ */
+export async function getSourcedPrereleaseDates(installIds: string[]) {
+  if (installIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: {
+      type: "PRERELEASE",
+      archivedAt: null,
+      derivedFromEventId: null,
+      dateType: { not: "TBD" },
+      productSet: { tcgProfileInstallId: { in: installIds }, archivedAt: null },
+    },
+    select: {
+      id: true,
+      productSetId: true,
+      region: true,
+      dateType: true,
+      dateExact: true,
+      dateStart: true,
+      dateEnd: true,
+      windowGranularity: true,
+      windowStart: true,
+      windowEnd: true,
+    },
+  });
+  return events.map((event) => ({
+    id: event.id,
+    productSetId: event.productSetId,
+    region: event.region,
+    date: fromEventDateColumns(event),
+  }));
+}
+
+/** Every derived prerelease row in the given installs, archived ones included -- a retracted row is un-archived, not re-created. */
+export async function getDerivedPrereleaseEvents(installIds: string[]) {
+  if (installIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: {
+      derivedFromEventId: { not: null },
+      productSet: { tcgProfileInstallId: { in: installIds } },
+    },
+    select: {
+      id: true,
+      productSetId: true,
+      region: true,
+      status: true,
+      archivedAt: true,
+      derivedFromEventId: true,
+      derivedSlot: true,
+      dateType: true,
+      dateExact: true,
+      dateStart: true,
+      dateEnd: true,
+      windowGranularity: true,
+      windowStart: true,
+      windowEnd: true,
+    },
+  });
+  return events.map((event) => ({
+    id: event.id,
+    productSetId: event.productSetId,
+    region: event.region,
+    status: event.status,
+    archivedAt: event.archivedAt,
+    derivedFromEventId: event.derivedFromEventId as string,
+    derivedSlot: event.derivedSlot,
+    date: fromEventDateColumns(event),
+  }));
+}
+
+/**
+ * Creates or refreshes the derived row for one (anchor, slot).
+ *
+ * Upserted on the (derivedFromEventId, derivedSlot) unique index rather than
+ * created, so a row whose anchor date moved is *updated in place*. That is what
+ * keeps a user's follow, personal note and reminder attached across a delay --
+ * delete-and-recreate would cascade all three away and hand the user a new
+ * event id they were never following.
+ *
+ * `archivedAt: null` on the update path is the un-retraction: a slot that was
+ * archived when its shelf date lost CONFIRMED comes back as the same row, with
+ * whatever was attached to it intact.
+ */
+export async function upsertDerivedPrereleaseEvent(params: {
+  productSetId: string;
+  derivedFromEventId: string;
+  derivedSlot: string;
+  region: Region;
+  date: CandidateDate;
+  status: ReleaseStatus;
+  confidence: number;
+  sourceSummary: string;
+  now: Date;
+}) {
+  const columns = toEventDateColumns(params.date);
+  return prisma.releaseEvent.upsert({
+    where: {
+      derivedFromEventId_derivedSlot: {
+        derivedFromEventId: params.derivedFromEventId,
+        derivedSlot: params.derivedSlot,
+      },
+    },
+    update: {
+      region: params.region,
+      status: params.status,
+      confidence: params.confidence,
+      sourceSummary: params.sourceSummary,
+      lastSeenAt: params.now,
+      archivedAt: null,
+      ...columns,
+    },
+    create: {
+      productSetId: params.productSetId,
+      type: "PRERELEASE",
+      derivedFromEventId: params.derivedFromEventId,
+      derivedSlot: params.derivedSlot,
+      region: params.region,
+      status: params.status,
+      confidence: params.confidence,
+      sourceSummary: params.sourceSummary,
+      lastSeenAt: params.now,
+      ...columns,
+    },
+  });
+}
+
+/**
+ * Retracts a derived row by archiving it, which is how it leaves the calendar
+ * (every calendar query filters `archivedAt: null` -- see data/calendar/
+ * calendarRepo.ts).
+ *
+ * Not a delete, even though the retraction is triggered by the derived date
+ * ceasing to be true. Deleting cascades to EventFollow, EventPersonalNote,
+ * EventDismissal and EventReaction, so a publisher pushing a set back by a week
+ * would silently drop every user who was following its prerelease -- and the
+ * date is very likely to come back, at which point the upsert above restores
+ * this same row with all of that still attached.
+ */
+export async function archiveDerivedPrereleaseEvent(releaseEventId: string, now: Date) {
+  return prisma.releaseEvent.update({
+    where: { id: releaseEventId },
+    data: { archivedAt: now },
   });
 }
 

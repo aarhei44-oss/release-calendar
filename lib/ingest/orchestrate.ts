@@ -1,20 +1,29 @@
 import { randomUUID } from "node:crypto";
-import type { Prisma, ProductImageKind, ScanScopeType, ScanTrigger } from "@/app/generated/prisma/client";
+import type {
+  Prisma,
+  ProductImageKind,
+  ReleaseStatus,
+  ScanScopeType,
+  ScanTrigger,
+} from "@/app/generated/prisma/client";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
 import { dispatchScanChangeNotifications } from "@/lib/notifications/dispatch";
 import { applyVerdicts, type ApplyItem, type ClaimWrite } from "./apply";
 import { buildClaimRecords } from "./claims";
+import { derivePrereleaseEvents } from "./derivePrereleases";
 import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
 import { collectAmbiguousCodes, normalizeSetCode, resolveSetIdentity } from "./identity";
 import { normalizeRun } from "./normalize";
 import { toScanChanges } from "./notifications";
+import { expectedPrereleaseDates } from "./prerelease";
 import { getProvider, providersForGames } from "./providers/registry";
 import type { FetchContext, Provider } from "./providers/types";
 import {
   ORIGINS,
   type Candidate,
+  type CandidateDate,
   type ClaimRecord,
   type Origin,
   type RawPayloadRecord,
@@ -83,6 +92,18 @@ export type IngestTotals = {
    * means something is overwriting rather than filling.
    */
   productSetsEnriched: number;
+  /**
+   * Prerelease events written from a game's schedule rather than a source
+   * (lib/ingest/derivePrereleases.ts), and events retracted because their
+   * anchor shelf date stopped being confirmed. Unlike productSetsEnriched
+   * these are *restated* every run, so `prereleasesDerived` sits at roughly the
+   * number of confirmed upcoming sets in scheduled games rather than falling to
+   * zero -- it is a level, not a delta. `prereleasesRetracted` is the one to
+   * watch: a spike means shelf dates lost their CONFIRMED status en masse,
+   * which is far more likely to be an ingest problem than a wave of delays.
+   */
+  prereleasesDerived: number;
+  prereleasesRetracted: number;
   errors: number;
 };
 
@@ -104,6 +125,8 @@ export function emptyTotals(): IngestTotals {
     reviewItemsOpened: 0,
     productSetsCreated: 0,
     productSetsEnriched: 0,
+    prereleasesDerived: 0,
+    prereleasesRetracted: 0,
     errors: 0,
   };
 }
@@ -394,6 +417,8 @@ export async function runStagesFromPayloads(params: {
     reviewItemsOpened: 0,
     productSetsCreated: 0,
     productSetsEnriched: 0,
+    prereleasesDerived: 0,
+    prereleasesRetracted: 0,
     errors: 0,
   };
 
@@ -444,6 +469,13 @@ export async function runStagesFromPayloads(params: {
 
   const items: ApplyItem[] = [];
   const touchedEventIds = new Set<string>();
+  const installIds = installs.map((install) => install.id);
+
+  // Shelf dates as they stand going into this run, so gate rule G8 has an
+  // anchor even for a product whose shelf date nothing reported this time.
+  // Overlaid below with this run's own shelf verdicts, which is why the groups
+  // are gated shelf-first.
+  const shelfAnchors = await loadShelfAnchors(installIds);
 
   // ---- Stages 3 & 4, per install: Identity then Gate ----
   for (const install of installs) {
@@ -452,11 +484,32 @@ export async function runStagesFromPayloads(params: {
 
     const resolved = await resolveInstallCandidates(install.id, forInstall, totals);
 
-    for (const group of groupResolvedCandidates(resolved).values()) {
+    for (const group of orderGroupsShelfFirst(groupResolvedCandidates(resolved))) {
       try {
-        const item = await gateGroup(group, now);
+        // Only PRERELEASE groups get expected dates, and only where the game
+        // publishes a schedule; everywhere else this is empty and G8 is inert.
+        const expectedDates =
+          group.type === "PRERELEASE"
+            ? expectedDatesForAnchor(install.package.slug, shelfAnchors.get(anchorKey(group.productSetId, group.region)))
+            : [];
+
+        const item = await gateGroup(group, now, expectedDates);
         touchedEventIds.add(item.releaseEventId);
         items.push(item);
+
+        // A shelf verdict reached this run supersedes the stored anchor for any
+        // prerelease group still to come. Without this, a set whose street date
+        // is confirmed for the first time today would not get its prerelease
+        // until tomorrow's run, purely because the two were read in the wrong
+        // order. (A manually overridden event is the one case this can be ahead
+        // of the database, since Apply declines to move its date -- the
+        // derivation pass re-reads the real rows afterwards and settles it.)
+        if (group.type === "SHELF") {
+          shelfAnchors.set(anchorKey(group.productSetId, group.region), {
+            status: item.verdict.status,
+            date: item.verdict.date,
+          });
+        }
       } catch (error) {
         totals.errors += 1;
         logEvent({
@@ -474,7 +527,7 @@ export async function runStagesFromPayloads(params: {
   // Events this run said nothing about are not simply skipped: silence is the
   // input G7 reasons over, and an event nobody mentions is exactly the case
   // the rule exists for.
-  const trackedEvents = await ingestRepo.getIngestTrackedEvents(installs.map((install) => install.id));
+  const trackedEvents = await ingestRepo.getIngestTrackedEvents(installIds);
   for (const event of trackedEvents) {
     if (touchedEventIds.has(event.id)) continue;
     try {
@@ -501,7 +554,69 @@ export async function runStagesFromPayloads(params: {
   totals.reviewItemsOpened = applied.reviewItemsOpened;
   totals.errors += applied.errors;
 
+  // ---- Stage 5b: derived prereleases. ----
+  // After Apply, deliberately: it restates dates the gate has just settled, so
+  // it has to read them settled. See lib/ingest/derivePrereleases.ts.
+  //
+  // Its changes stay out of `diffChanges`, which is what drives subscriber
+  // email (notifyOfIngestChanges). A derived prerelease is arithmetic on a
+  // shelf date the follower was already told about, so mailing it as separate
+  // news would double every announcement.
+  const derived = await derivePrereleaseEvents({ installIds, now, scanRunId });
+  totals.prereleasesDerived = derived.written;
+  totals.prereleasesRetracted = derived.retracted;
+  totals.errors += derived.errors;
+
   return { ...totals, diffChanges: applied.diff.changes };
+}
+
+// ---------------------------------------------------------------------------
+// Shelf anchors, for gate rule G8
+// ---------------------------------------------------------------------------
+
+/** What a prerelease group needs to know about its product's shelf date. */
+type ShelfAnchor = { status: ReleaseStatus; date: CandidateDate | null };
+
+/** Same (productSet, region) scoping the event key uses -- a JP shelf date must not anchor a global prerelease. */
+function anchorKey(productSetId: string, region: Candidate["region"]): string {
+  return `${productSetId}\0${region}`;
+}
+
+async function loadShelfAnchors(installIds: string[]): Promise<Map<string, ShelfAnchor>> {
+  const anchors = new Map<string, ShelfAnchor>();
+  for (const anchor of await ingestRepo.getShelfAnchors(installIds)) {
+    anchors.set(anchorKey(anchor.productSetId, anchor.region), { status: anchor.status, date: anchor.date });
+  }
+  return anchors;
+}
+
+/**
+ * The dates the game's schedule predicts, or none.
+ *
+ * The CONFIRMED bar is the same one the derivation pass uses: a schedule
+ * computed from a date still under argument is not a check on anything, it just
+ * launders the argument into a second event.
+ */
+function expectedDatesForAnchor(game: string, anchor: ShelfAnchor | undefined): CandidateDate[] {
+  if (!anchor || anchor.status !== "CONFIRMED") return [];
+  return expectedPrereleaseDates(game, anchor.date);
+}
+
+/**
+ * Groups in gate order: SHELF first, everything else after.
+ *
+ * Only the relative order of SHELF against the rest matters (a prerelease group
+ * is checked against its product's shelf verdict), so this is a stable
+ * partition rather than a sort -- two prerelease groups keep whatever order
+ * grouping gave them, which keeps a replay deterministic.
+ */
+function orderGroupsShelfFirst(groups: Map<string, EventGroup>): EventGroup[] {
+  const shelf: EventGroup[] = [];
+  const rest: EventGroup[] = [];
+  for (const group of groups.values()) {
+    (group.type === "SHELF" ? shelf : rest).push(group);
+  }
+  return [...shelf, ...rest];
 }
 
 /**
@@ -722,8 +837,14 @@ export function groupResolvedCandidates(resolved: ResolvedCandidate[]): Map<stri
   return groups;
 }
 
-/** Stage 4 for one (productSet, type, region): assemble claims, run the gate, package the result for Apply. */
-async function gateGroup(group: EventGroup, now: Date): Promise<ApplyItem> {
+/**
+ * Stage 4 for one (productSet, type, region): assemble claims, run the gate,
+ * package the result for Apply.
+ *
+ * `expectedDates` is the schedule check gate rule G8 weighs (empty for
+ * everything but a prerelease group in a game that has one).
+ */
+async function gateGroup(group: EventGroup, now: Date, expectedDates: CandidateDate[] = []): Promise<ApplyItem> {
   const event = await ingestRepo.findOrCreateReleaseEvent({
     productSetId: group.productSetId,
     type: group.type,
@@ -742,7 +863,7 @@ async function gateGroup(group: EventGroup, now: Date): Promise<ApplyItem> {
   }));
 
   const claims: ClaimRecord[] = buildClaimRecords({ history, observed, now });
-  const verdict = evaluateGate({ now, claims, published: before });
+  const verdict = evaluateGate({ now, claims, published: before, expectedDates });
 
   const claimWrites: ClaimWrite[] = group.entries.map((entry) => ({
     origin: entry.origin,
