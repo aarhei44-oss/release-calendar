@@ -240,20 +240,27 @@ describe("real fixtures: the cross-origin pairings gate rule G2 needs", () => {
 // ---------------------------------------------------------------------------
 
 describe("real fixtures: products that must stay distinct", () => {
-  it("keeps all nine POP Series sets apart despite one shared abbreviation", () => {
-    // tcgcsv gives every POP Series release the abbreviation "POP". A code that
-    // one origin hands to nine products is not an identifier, and
-    // collectAmbiguousCodes is what notices.
-    const ids = new Set(
-      Array.from({ length: 9 }, (_, index) => forGame("pokemon-tcg").setOf.get(`POP Series ${index + 1}`)),
-    );
-    expect(ids.size).toBe(9);
-  });
-
-  it("keeps the four Pokémon sets sharing the abbreviation PR apart", () => {
-    const names = ["EX Trainer Kit 1: Latias & Latios", "EX Trainer Kit 2: Plusle & Minun", "Nintendo Promos", "Alternate Art Promos"];
-    const ids = new Set(names.map((name) => forGame("pokemon-tcg").setOf.get(name)));
-    expect(ids.size).toBe(4);
+  it("never sees TCGplayer's catalogue buckets at all", () => {
+    // These used to be the file's showcase for collectAmbiguousCodes: tcgcsv
+    // gives all nine POP Series releases the abbreviation "POP" and four
+    // unrelated promo pools "PR", and the resolver had to keep thirteen
+    // products apart on names alone.
+    //
+    // It still can -- that rule is pinned directly in ingestIdentity.test.ts --
+    // but the resolver is no longer asked to. None of these is a dated product;
+    // every one carries a crawl timestamp where a release date would be, and
+    // tcgcsv.ts now drops such a group rather than admitting it as a dateless
+    // candidate. The strongest thing this file can say about them is that they
+    // never reach identity resolution in the first place.
+    const bucketed = [
+      ...Array.from({ length: 9 }, (_, index) => `POP Series ${index + 1}`),
+      "EX Trainer Kit 1: Latias & Latios",
+      "EX Trainer Kit 2: Plusle & Minun",
+      "Nintendo Promos",
+      "Alternate Art Promos",
+    ];
+    const { setOf } = forGame("pokemon-tcg");
+    for (const name of bucketed) expect(setOf.has(name)).toBe(false);
   });
 
   it("keeps a set apart from its own Classic Collection", () => {
@@ -272,7 +279,10 @@ describe("real fixtures: products that must stay distinct", () => {
     expectDifferentSets("magic-the-gathering", "Star Trek", "Commander: Star Trek");
     expectDifferentSets("magic-the-gathering", "The Hobbit", "Art Series: The Hobbit");
     expectDifferentSets("magic-the-gathering", "The Hobbit", "The Hobbit: Eternal-Legal");
-    expectDifferentSets("magic-the-gathering", "Secret Lair Drop Series", "Secret Lair Series");
+    // "Secret Lair Drop Series" / "Secret Lair Series" used to sit here too.
+    // Both are evergreen TCGplayer pools with a crawl timestamp for a date, so
+    // neither reaches the resolver any more -- see the catalogue-bucket test
+    // above.
   });
 
   it("keeps a One Piece set apart from its release-event cards", () => {
@@ -396,11 +406,16 @@ describe("real fixtures: region as part of the event key", () => {
     // need nothing.
     "disney-lorcana": { GLOBAL: 7 },
     "gundam-card-game": { GLOBAL: 10 },
-    "magic-the-gathering": { GLOBAL: 56 },
+    // 56 -> 20, 24 -> 5 and 32 -> 14: tcgcsv.ts now drops a group whose
+    // publishedOn is a crawl timestamp rather than admitting it as a dateless
+    // candidate, and those three games are where TCGplayer keeps its evergreen
+    // promo and box-set pools. Every event removed was one with no date and no
+    // prospect of one. The three games with no such pools are untouched.
+    "magic-the-gathering": { GLOBAL: 20 },
     "one-piece-tcg": { GLOBAL: 15 },
-    "pokemon-tcg": { GLOBAL: 24, JP: 2 },
+    "pokemon-tcg": { GLOBAL: 5, JP: 2 },
     riftbound: { GLOBAL: 7 },
-    "yugioh-tcg": { GLOBAL: 32 },
+    "yugioh-tcg": { GLOBAL: 14 },
   };
 
   for (const game of GAMES) {
@@ -525,7 +540,15 @@ describe("real fixtures: cross-origin pairing rate per game", () => {
     // set: Wikipedia's three "Unnamed Universes Beyond Set" rows, which shared
     // a placeholder name, a "TBA" code and therefore one external id, and had
     // fused into a single contentless ProductSet.
-    "magic-the-gathering": { candidates: 70, sets: 54, paired: 11 },
+    //
+    // Then 70 -> 34 candidates and 54 -> 18 sets, when tcgcsv.ts stopped
+    // admitting its crawl-timestamped catalogue pools. **`paired` did not
+    // move** -- here or for Pokemon or Yu-Gi-Oh! -- and that is the number
+    // worth watching: every set this removed was one no second origin had ever
+    // corroborated, because there was no release for a second origin to
+    // corroborate. The catalogue lost two thirds of its rows and none of its
+    // evidence.
+    "magic-the-gathering": { candidates: 34, sets: 18, paired: 11 },
     // 0 before, same reason as Gundam. Ten of the publisher's eleven in-window
     // products pair; the eleventh (Double Pack Set Vol.12) is one TCGplayer
     // does not carry.
@@ -535,9 +558,9 @@ describe("real fixtures: cross-origin pairing rate per game", () => {
     // two in-window rows both resolved onto the English product they name,
     // through the Bulbapedia article link both pages carry. Two extra
     // candidates landing on zero extra sets is the whole claim of that change.
-    "pokemon-tcg": { candidates: 30, sets: 24, paired: 3 },
+    "pokemon-tcg": { candidates: 11, sets: 5, paired: 3 },
     "riftbound": { candidates: 10, sets: 7, paired: 3 },
-    "yugioh-tcg": { candidates: 40, sets: 32, paired: 8 },
+    "yugioh-tcg": { candidates: 22, sets: 14, paired: 8 },
   };
 
   for (const game of GAMES) {

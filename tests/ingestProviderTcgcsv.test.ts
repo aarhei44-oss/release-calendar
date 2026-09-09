@@ -130,17 +130,31 @@ describe("tcgcsv provider: the forward window", () => {
 });
 
 describe("tcgcsv provider: crawl-timestamp publishedOn", () => {
-  it("reads a Z-suffixed publishedOn as TBD instead of an EXACT date", () => {
+  it("drops a group whose publishedOn is a crawl timestamp", () => {
     // Real tcgcsv rows for evergreen promo/box-set pools (no genuine release
     // date) carry the instant the crawler last touched the record rather
     // than a curated date -- a real ISO instant, "Z"-suffixed and sub-second
-    // precise. Left as EXACT this makes an ageless pool look like a fresh
-    // imminent release every day the crawl runs, which is what actually put
+    // precise. Left as EXACT this made an ageless pool look like a fresh
+    // imminent release every day the crawl ran, which is what actually put
     // "Arena Promos" et al. on the live calendar dated to the pipeline's last
     // run day. The fixture's own MTG category is full of these.
-    const arenaPromos = parse().find((candidate) => candidate.name === "Arena Promos");
-    expect(arenaPromos).toBeDefined();
-    expect(arenaPromos?.date).toEqual({ kind: "TBD" });
+    //
+    // Reading them as TBD instead fixed the false dates but kept the rows, and
+    // a dateless row that will never gain a date is not a release the calendar
+    // can ever show -- it is a ProductSet and an event the gate re-holds
+    // forever. A "Z" suffix is not a weaker date; it says this group is not a
+    // dated product, so the group is dropped.
+    const names = new Set(parse().map((candidate) => candidate.name));
+    for (const bucket of ["Arena Promos", "FNM Promos", "Judge Promos", "POP Series 1"]) {
+      expect(names.has(bucket)).toBe(false);
+    }
+  });
+
+  it("leaves genuinely dated groups alone", () => {
+    // The guard has to be narrow enough that a real release is never caught by
+    // it -- these are ordinary whole-day publishedOn rows in the same payload.
+    const names = new Set(parse().map((candidate) => candidate.name));
+    expect(names.has("ME06: Delta Reign")).toBe(true);
   });
 
   it("still reads a naive (non-Z) publishedOn as an EXACT date", () => {

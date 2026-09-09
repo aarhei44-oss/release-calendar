@@ -158,10 +158,31 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
       // day the pipeline last ran. A "Z" suffix never appears on a genuine
       // value, so it's read as TBD instead.
       const isCrawlTimestamp = raw?.endsWith("Z") ?? false;
-      const parsed = raw && !isCrawlTimestamp ? parseIsoDateUtc(raw) : null;
+      // A crawl timestamp is not a weaker date than usual, it is a statement
+      // that this group is not a dated product at all -- so the group is
+      // dropped here rather than admitted as TBD.
+      //
+      // Reading it as TBD (this provider's first correction, once the timestamp
+      // was no longer being read as a release date) stopped promo pools being
+      // dated to whatever day the pipeline last ran, but it left them on the
+      // books: 73 dateless ProductSets -- "FNM Promos", "Judge Promos", "POP
+      // Series 1" through "9", "EX Trainer Kit 2: Plusle & Minun" -- each with
+      // an event the gate re-held on every run forever, because there is no
+      // date coming and no rule that can retire them. They were 48% of the
+      // catalogue and 0% of the calendar.
+      //
+      // This is safe to do unconditionally because the two states are cleanly
+      // separated in the feed rather than merely usually distinguishable:
+      // across all eight categories on 2026-09-08, every group carried a
+      // publishedOn, every genuine one was a bare whole-day value, and the 73
+      // "Z"-suffixed ones matched the 73 dateless sets in the database exactly.
+      // A product that later gains a real date reappears as an ordinary
+      // candidate the next run, so nothing is permanently excluded.
+      if (isCrawlTimestamp) continue;
+      const parsed = raw ? parseIsoDateUtc(raw) : null;
       // A publishedOn that is present but unreadable is drift worth failing on:
       // silently downgrading it to TBD would quietly blank real dates.
-      if (raw && !isCrawlTimestamp && !parsed) {
+      if (raw && !parsed) {
         throw parseErrorFor(
           PROVIDER_KEY,
           `${categoryId}.results.${group.groupId}.publishedOn`,
