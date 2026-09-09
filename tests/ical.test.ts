@@ -28,7 +28,6 @@ function fakeEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
       tcgProfileInstallId: "install-1",
       code: "CODE-1",
       name: "Foundations",
-      releaseQuarter: null,
       meta: null,
       imageUrl: null,
       createdAt: new Date(),

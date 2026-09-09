@@ -185,7 +185,6 @@ model ProductSet {
   // claim about the product's real code, so it must never be treated as one.
   codeIsSynthetic     Boolean   @default(false)
   name                String?
-  releaseQuarter      String?
   meta                Json?
   imageUrl            String?
   // What `imageUrl` actually depicts, because the origins that publish one do

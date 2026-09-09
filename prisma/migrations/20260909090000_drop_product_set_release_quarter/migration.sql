@@ -1,0 +1,14 @@
+-- Drops ProductSet.releaseQuarter, which nothing has ever written or read.
+--
+-- It predates the ReleaseEvent WINDOW columns (windowGranularity/windowStart/
+-- windowEnd), which say the same thing properly: a quarter is a granularity on
+-- a real date span belonging to the *event*, not a string on the product. Once
+-- those landed, no ingest path had a reason to fill this and no view had a
+-- reason to read it, so it sat null on all 165 rows in production while still
+-- appearing in every ProductSet type, test fixture and select. A column that
+-- can only ever be null is a question every future reader has to ask and
+-- answer for themselves.
+--
+-- Requires SQLite 3.35+ for DROP COLUMN; the app image ships 3.53.
+-- AlterTable
+ALTER TABLE "ProductSet" DROP COLUMN "releaseQuarter";

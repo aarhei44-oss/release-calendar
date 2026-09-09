@@ -14,7 +14,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "SV-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "SV-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -26,7 +26,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "MTG-STARTER", name: "Sample Expansion", releaseQuarter: "2026-Q1" },
+      { code: "MTG-STARTER", name: "Sample Expansion" },
     ],
   },
   {
@@ -38,7 +38,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "OP-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "OP-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -50,7 +50,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "LOR-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "LOR-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -62,7 +62,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "GDM-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "GDM-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -74,7 +74,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "RIFT-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "RIFT-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -86,7 +86,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "YGO-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "YGO-STARTER", name: "Sample Booster Set" },
     ],
   },
   {
@@ -98,7 +98,7 @@ const LAUNCH_PACKAGES = [
     sourceConfigs: [],
     installedVersion: "1.0.0",
     productSets: [
-      { code: "UA-STARTER", name: "Sample Booster Set", releaseQuarter: "2026-Q1" },
+      { code: "UA-STARTER", name: "Sample Booster Set" },
     ],
   },
 ] as const;
@@ -146,12 +146,11 @@ async function main() {
             code: set.code,
           },
         },
-        update: { name: set.name, releaseQuarter: set.releaseQuarter },
+        update: { name: set.name },
         create: {
           tcgProfileInstallId: install.id,
           code: set.code,
           name: set.name,
-          releaseQuarter: set.releaseQuarter,
         },
       });
 
