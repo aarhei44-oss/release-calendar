@@ -272,6 +272,121 @@ export const REACTION_EMOJIS = [
   { emoji: "\u{1F644}", label: "Skip", sentiment: "negative" },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// Source claims
+// ---------------------------------------------------------------------------
+
+/**
+ * The parts of a SourceClaim row this grouping reads. Structural rather than
+ * the Prisma type so the pure function stays testable without a database row.
+ */
+export type GroupableClaim = {
+  id: string;
+  origin: string | null;
+  host: string | null;
+  url: string;
+  tier: string;
+  disposition: string;
+  lastVerifiedAt: Date | null;
+  createdAt: Date;
+};
+
+/** One source's standing claim, with how long it has been saying it. */
+export type GroupedSourceClaim = {
+  /** Stable per group -- the id of the most recently verified claim in it. */
+  id: string;
+  origin: string | null;
+  host: string | null;
+  url: string;
+  tier: string;
+  disposition: string;
+  /** Distinct calendar days this source was observed making the claim. */
+  days: number;
+  firstSeenAt: Date;
+  lastVerifiedAt: Date;
+};
+
+function claimDay(claim: GroupableClaim): Date {
+  return claim.lastVerifiedAt ?? claim.createdAt;
+}
+
+/**
+ * Collapses a run-by-run claim history into one row per source.
+ *
+ * SourceClaim is keyed on (scanRunId, origin, releaseEventId) -- see
+ * data/ingest/ingestRepo.ts's upsertIngestClaim -- so a nightly scan writes a
+ * *new* row for the same source saying the same thing every single day. That
+ * is exactly what makes replay convergent and confidence countable, so the
+ * table is right; it is only the drawer that must not read it literally. Left
+ * ungrouped, an event tracked for a month listed one source thirty times, and
+ * the list grew by a row a day forever.
+ *
+ * Grouped by `origin` (the declared upstream identity from
+ * lib/ingest/types.ts's ORIGINS), not by `host` or `url`: those are where a
+ * claim was *fetched*, and one origin can move hosts or paginate across URLs
+ * without becoming a second source -- the same distinction gate rule G2 turns
+ * on. v1 crawler rows have no origin at all, so they fall back to host, then
+ * url, which keeps them one-row-per-site rather than collapsing every legacy
+ * claim into a single anonymous blob.
+ *
+ * `days` counts distinct calendar days, not rows: an ad-hoc re-scan on an
+ * afternoon already covered by that morning's run is the same day of the
+ * source saying the same thing, and counting rows would let a busy day look
+ * like corroboration over time.
+ */
+export function groupSourceClaims(claims: GroupableClaim[]): GroupedSourceClaim[] {
+  const groups = new Map<string, { latest: GroupableClaim; days: Set<string>; firstSeenAt: Date; lastVerifiedAt: Date }>();
+
+  for (const claim of claims) {
+    const key = claim.origin ?? claim.host ?? claim.url;
+    const seenAt = claimDay(claim);
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, {
+        latest: claim,
+        days: new Set([seenAt.toISOString().slice(0, 10)]),
+        firstSeenAt: seenAt,
+        lastVerifiedAt: seenAt,
+      });
+      continue;
+    }
+    group.days.add(seenAt.toISOString().slice(0, 10));
+    if (seenAt > group.lastVerifiedAt) {
+      group.lastVerifiedAt = seenAt;
+      // The newest row is what the source says *now* -- tier, disposition and
+      // URL all come from it, so a source that changed its mind isn't shown
+      // still holding a position it has since abandoned.
+      group.latest = claim;
+    }
+    if (seenAt < group.firstSeenAt) group.firstSeenAt = seenAt;
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      id: group.latest.id,
+      origin: group.latest.origin,
+      host: group.latest.host,
+      url: group.latest.url,
+      tier: group.latest.tier,
+      disposition: group.latest.disposition,
+      days: group.days.size,
+      firstSeenAt: group.firstSeenAt,
+      lastVerifiedAt: group.lastVerifiedAt,
+    }))
+    .sort((a, b) => b.lastVerifiedAt.getTime() - a.lastVerifiedAt.getTime());
+}
+
+/** "pokemon-official" -> "Pokemon Official", for a source row's headline. */
+export function sourceLabel(claim: GroupedSourceClaim): string {
+  if (claim.origin) {
+    return claim.origin
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+  return claim.host ?? claim.url;
+}
+
 export type ReactionCounts = Record<string, number>;
 
 /** Highest-count emoji first, capped at `limit` -- for a compact badge on a card/list row/grid cell, as opposed to EventReactions' full interactive picker. */

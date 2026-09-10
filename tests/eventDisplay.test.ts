@@ -3,10 +3,13 @@ import {
   NEUTRAL_BADGE_CLASS,
   formatEventDate,
   formatRelativeTime,
+  groupSourceClaims,
   regionBadgeLabel,
   regionBadgeTitle,
+  sourceLabel,
   topReactions,
   typeBadgeLabel,
+  type GroupableClaim,
 } from "@/app/calendar/eventDisplay";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 
@@ -176,5 +179,161 @@ describe("topReactions", () => {
   it("defaults to a limit of 2", () => {
     const counts = { "\u{1F525}": 1, "\u{1F60D}": 1, "\u{1F614}": 1 };
     expect(topReactions(counts)).toHaveLength(2);
+  });
+});
+
+describe("groupSourceClaims", () => {
+  function claim(overrides: Partial<GroupableClaim>): GroupableClaim {
+    return {
+      id: "c1",
+      origin: "scryfall",
+      host: "api.scryfall.com",
+      url: "https://api.scryfall.com/sets/abc",
+      tier: "COMMUNITY",
+      disposition: "SUPPORTS",
+      lastVerifiedAt: new Date("2026-01-01T03:00:00.000Z"),
+      createdAt: new Date("2026-01-01T03:00:00.000Z"),
+      ...overrides,
+    };
+  }
+
+  // The bug this exists for: SourceClaim is keyed on (scanRunId, origin,
+  // releaseEventId), so a nightly scan writes a fresh row for the same source
+  // saying the same thing every day. The drawer listed each of those as its
+  // own source, so a long-tracked event grew a row a day forever.
+  it("collapses one origin's nightly rows into a single row counting the days", () => {
+    const claims = [1, 2, 3, 4].map((day) =>
+      claim({
+        id: `run-${day}`,
+        lastVerifiedAt: new Date(`2026-01-0${day}T03:00:00.000Z`),
+      }),
+    );
+
+    const grouped = groupSourceClaims(claims);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].days).toBe(4);
+    expect(grouped[0].firstSeenAt).toEqual(new Date("2026-01-01T03:00:00.000Z"));
+    expect(grouped[0].lastVerifiedAt).toEqual(new Date("2026-01-04T03:00:00.000Z"));
+  });
+
+  // Two scans on one day are the same day of the same source saying the same
+  // thing -- counting rows would let a busy day masquerade as a longer
+  // standing claim.
+  it("counts distinct days, not rows", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "morning", lastVerifiedAt: new Date("2026-01-01T03:00:00.000Z") }),
+      claim({ id: "afternoon", lastVerifiedAt: new Date("2026-01-01T18:00:00.000Z") }),
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].days).toBe(1);
+  });
+
+  // Grouping is by declared origin, not by where the row was fetched: one
+  // origin paginating across URLs (or moving host) is still one source, which
+  // is the same distinction gate rule G2 turns on.
+  it("groups by origin even when the url differs between runs", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "a", url: "https://api.scryfall.com/sets/abc?page=1" }),
+      claim({ id: "b", url: "https://api.scryfall.com/sets/abc?page=2" }),
+    ]);
+    expect(grouped).toHaveLength(1);
+  });
+
+  it("keeps genuinely separate origins separate", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "a", origin: "scryfall" }),
+      claim({ id: "b", origin: "wizards-official", host: "magic.wizards.com", tier: "OFFICIAL" }),
+    ]);
+    expect(grouped).toHaveLength(2);
+  });
+
+  // v1 crawler rows predate the origin column entirely; falling back to host
+  // keeps them one row per site instead of collapsing every legacy claim into
+  // a single anonymous blob.
+  it("falls back to host for rows with no origin", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "a", origin: null, host: "example.com" }),
+      claim({ id: "b", origin: null, host: "example.com" }),
+      claim({ id: "c", origin: null, host: "other.com" }),
+    ]);
+    expect(grouped).toHaveLength(2);
+  });
+
+  // A source that changed its mind should be shown holding its current
+  // position, not the one it has since abandoned.
+  it("reports the most recent row's tier, disposition and url", () => {
+    const grouped = groupSourceClaims([
+      claim({
+        id: "old",
+        disposition: "SUPPORTS",
+        url: "https://api.scryfall.com/old",
+        lastVerifiedAt: new Date("2026-01-01T03:00:00.000Z"),
+      }),
+      claim({
+        id: "new",
+        disposition: "CONTRADICTS",
+        url: "https://api.scryfall.com/new",
+        lastVerifiedAt: new Date("2026-01-05T03:00:00.000Z"),
+      }),
+    ]);
+    expect(grouped[0].id).toBe("new");
+    expect(grouped[0].disposition).toBe("CONTRADICTS");
+    expect(grouped[0].url).toBe("https://api.scryfall.com/new");
+  });
+
+  it("orders the most recently confirmed source first", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "stale", origin: "wikipedia", lastVerifiedAt: new Date("2026-01-01T03:00:00.000Z") }),
+      claim({ id: "fresh", origin: "scryfall", lastVerifiedAt: new Date("2026-02-01T03:00:00.000Z") }),
+    ]);
+    expect(grouped.map((g) => g.origin)).toEqual(["scryfall", "wikipedia"]);
+  });
+
+  // v1 rows can have a null lastVerifiedAt; createdAt is when that row was
+  // written, so it's the day the source was observed saying this.
+  it("falls back to createdAt when a row was never explicitly verified", () => {
+    const grouped = groupSourceClaims([
+      claim({ id: "a", lastVerifiedAt: null, createdAt: new Date("2026-03-01T00:00:00.000Z") }),
+    ]);
+    expect(grouped[0].days).toBe(1);
+    expect(grouped[0].lastVerifiedAt).toEqual(new Date("2026-03-01T00:00:00.000Z"));
+  });
+
+  it("returns nothing for an event with no claims", () => {
+    expect(groupSourceClaims([])).toEqual([]);
+  });
+});
+
+describe("sourceLabel", () => {
+  it("spells a hyphenated origin key out in title case", () => {
+    const [grouped] = groupSourceClaims([
+      {
+        id: "a",
+        origin: "wizards-official",
+        host: "magic.wizards.com",
+        url: "https://magic.wizards.com/sets",
+        tier: "OFFICIAL",
+        disposition: "SUPPORTS",
+        lastVerifiedAt: new Date("2026-01-01T00:00:00.000Z"),
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ]);
+    expect(sourceLabel(grouped)).toBe("Wizards Official");
+  });
+
+  it("names an origin-less v1 row by its host", () => {
+    const [grouped] = groupSourceClaims([
+      {
+        id: "a",
+        origin: null,
+        host: "example.com",
+        url: "https://example.com/announcement",
+        tier: "COMMUNITY",
+        disposition: "SUPPORTS",
+        lastVerifiedAt: null,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    ]);
+    expect(sourceLabel(grouped)).toBe("example.com");
   });
 });

@@ -10,7 +10,12 @@ import {
   getCommentById,
   deleteCommentById,
 } from "@/data/calendar/calendarRepo";
-import { stripPremiumImageUrls, stripDescriptionForAnonymous, REACTION_EMOJIS } from "./eventDisplay";
+import {
+  stripPremiumImageUrls,
+  stripDescriptionForAnonymous,
+  groupSourceClaims,
+  REACTION_EMOJIS,
+} from "./eventDisplay";
 import {
   followEvent as repoFollowEvent,
   unfollowEvent as repoUnfollowEvent,
@@ -85,6 +90,11 @@ export async function getEventDetail(eventId: string) {
       // in the drawer even though the server would allow them). The
       // drawer should read premium status from here, not from useSession().
       viewerIsPremium: isPremium,
+      // Collapsed here rather than in the drawer so the run-by-run history
+      // doesn't ride along in the wire payload either -- an event scanned
+      // nightly for a year has hundreds of near-identical claim rows, and the
+      // drawer only ever wants one line per source. See groupSourceClaims.
+      sourceClaims: groupSourceClaims(detail.sourceClaims),
       productSet: {
         ...detail.productSet,
         imageUrl: isPremium ? detail.productSet.imageUrl : null,

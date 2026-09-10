@@ -4,11 +4,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
-import { X, Lock } from "lucide-react";
+import { X, Lock, ChevronRight } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { googleCalendarEventUrl, outlookComEventUrl, office365EventUrl } from "@/lib/calendarLinks";
 import { getEventDetail } from "./actions";
-import { NEUTRAL_BADGE_CLASS, formatEventDate, regionBadgeLabel, regionBadgeTitle, statusBadgeClass } from "./eventDisplay";
+import {
+  NEUTRAL_BADGE_CLASS,
+  formatEventDate,
+  regionBadgeLabel,
+  regionBadgeTitle,
+  sourceLabel,
+  statusBadgeClass,
+  type GroupedSourceClaim,
+} from "./eventDisplay";
 import { eventTitle } from "./mapEvents";
 import { CommentsForEvent } from "./CommentsForEvent";
 import { EventPersonalization } from "./EventPersonalization";
@@ -214,40 +222,7 @@ export function EventDrawer({ eventId, onClose }: Props) {
 
                     <AddToCalendar detail={detail} isPremium={isPremium} />
 
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Source claims ({detail.sourceClaims.length})
-                      </h3>
-                      {detail.sourceClaims.length === 0 ? (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          No source claims recorded yet.
-                        </p>
-                      ) : (
-                        <ul className="mt-2 flex flex-col gap-2">
-                          {detail.sourceClaims.map((claim) => (
-                            <li
-                              key={claim.id}
-                              className="rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{claim.tier}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  {claim.disposition}
-                                </span>
-                              </div>
-                              <a
-                                href={claim.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="break-all text-xs text-blue-600 hover:underline dark:text-blue-400"
-                              >
-                                {claim.host ?? claim.url}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
+                    <SourceClaims claims={detail.sourceClaims} />
 
                     {session?.user && (
                       <EventPersonalization eventId={detail.id} isPremium={isPremium} />
@@ -265,6 +240,77 @@ export function EventDrawer({ eventId, onClose }: Props) {
         )}
       </AnimatePresence>
     </Dialog.Root>
+  );
+}
+
+const CLAIM_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/**
+ * One row per source, collapsed by default.
+ *
+ * Provenance is the drawer's supporting evidence, not its headline -- most
+ * visitors want the date and the art, and only some want to audit where the
+ * date came from. Closed by default it costs one line; the count in the
+ * summary is the part that carries at a glance, since "3 sources" is the
+ * actual signal (see gate rule G2: independent origins agreeing is what
+ * publishes a date), and it stays legible whether the event was scanned once
+ * or every night for a year.
+ */
+function SourceClaims({ claims }: { claims: GroupedSourceClaim[] }) {
+  if (claims.length === 0) {
+    return (
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Source claims</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No source claims recorded yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 dark:text-gray-300 dark:focus-visible:ring-gray-100">
+        <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+        Source claims
+        <span className="font-normal text-gray-500 dark:text-gray-400">
+          ({claims.length} {claims.length === 1 ? "source" : "sources"})
+        </span>
+      </summary>
+      <ul className="mt-2 flex flex-col gap-2">
+        {claims.map((claim) => (
+          <li
+            key={claim.id}
+            className="rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-medium">{sourceLabel(claim)}</span>
+              <span
+                className="shrink-0 text-xs text-gray-500 dark:text-gray-400"
+                title={`First seen ${CLAIM_DATE_FORMATTER.format(claim.firstSeenAt)}, last confirmed ${CLAIM_DATE_FORMATTER.format(claim.lastVerifiedAt)}`}
+              >
+                {claim.days} {claim.days === 1 ? "day" : "days"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>{claim.tier}</span>
+              <span>{claim.disposition}</span>
+            </div>
+            <a
+              href={claim.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all text-xs text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {claim.host ?? claim.url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
