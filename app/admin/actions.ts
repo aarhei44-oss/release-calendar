@@ -112,6 +112,13 @@ export async function listProviderHealth() {
   });
 }
 
+export async function getLastScheduledRun() {
+  return withActionLogging("admin.getLastScheduledRun", async () => {
+    await requireAdmin();
+    return adminRepo.getLastScheduledRun();
+  });
+}
+
 /** Re-derives a stored run's conclusions from its saved payloads. Does no network I/O -- see lib/ingest/replay.ts. */
 export async function replayIngestRun(runId: string) {
   return withActionLogging("admin.replayIngestRun", async () => {

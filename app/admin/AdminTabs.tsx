@@ -10,10 +10,21 @@ import type {
   listUsers,
   listIngestRunHealth,
   listProviderHealth,
+  getLastScheduledRun,
   listReviewQueue,
 } from "./actions";
 
 type AdminTab = "profiles" | "users" | "system" | "review";
+
+/** Split out of the component body so the Date.now() read isn't an inline impure call during render -- see SystemTab.tsx's hoursSince for the same pattern. */
+function isCronStale(
+  lastScheduledRun: Awaited<ReturnType<typeof getLastScheduledRun>>,
+  scheduledRunStaleHours: number,
+): boolean {
+  if (!lastScheduledRun) return true;
+  const hoursAgo = (Date.now() - new Date(lastScheduledRun.createdAt).getTime()) / (60 * 60 * 1000);
+  return hoursAgo > scheduledRunStaleHours;
+}
 
 const TABS: { value: AdminTab; label: string }[] = [
   { value: "profiles", label: "Profiles" },
@@ -28,6 +39,8 @@ type Props = {
   ingestRuns: Awaited<ReturnType<typeof listIngestRunHealth>>;
   providerHealth: Awaited<ReturnType<typeof listProviderHealth>>;
   providerStaleHours: number;
+  lastScheduledRun: Awaited<ReturnType<typeof getLastScheduledRun>>;
+  scheduledRunStaleHours: number;
   reviewQueue: Awaited<ReturnType<typeof listReviewQueue>>;
 };
 
@@ -37,12 +50,15 @@ export function AdminTabs({
   ingestRuns,
   providerHealth,
   providerStaleHours,
+  lastScheduledRun,
+  scheduledRunStaleHours,
   reviewQueue,
 }: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
 
   const openReviewCount = reviewQueue.length;
   const staleProviderCount = providerHealth.filter((provider) => provider.stale).length;
+  const cronLooksStale = isCronStale(lastScheduledRun, scheduledRunStaleHours);
 
   const installOptions = packages.flatMap((pkg) =>
     pkg.installs.map((install) => ({
@@ -111,6 +127,18 @@ export function AdminTabs({
                   <span className="sr-only"> providers stale</span>
                 </span>
               )}
+              {tab.value === "system" && staleProviderCount === 0 && cronLooksStale && (
+                <span
+                  className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900"
+                  title={
+                    lastScheduledRun
+                      ? `No scheduled run in over ${scheduledRunStaleHours}h -- check the droplet's cron`
+                      : "No scheduled run has ever completed -- check the droplet's cron"
+                  }
+                >
+                  !<span className="sr-only"> scheduled run is overdue</span>
+                </span>
+              )}
             </button>
           );
         })}
@@ -148,6 +176,8 @@ export function AdminTabs({
             ingestRuns={ingestRuns}
             providerHealth={providerHealth}
             providerStaleHours={providerStaleHours}
+            lastScheduledRun={lastScheduledRun}
+            scheduledRunStaleHours={scheduledRunStaleHours}
           />
         </div>
       )}

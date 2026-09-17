@@ -10,11 +10,13 @@ import {
   triggerFreshnessCheck,
   type listIngestRunHealth,
   type listProviderHealth,
+  type getLastScheduledRun,
 } from "./actions";
 
 type InstallOption = { id: string; label: string };
 type IngestRuns = Awaited<ReturnType<typeof listIngestRunHealth>>;
 type ProviderHealth = Awaited<ReturnType<typeof listProviderHealth>>;
+type LastScheduledRun = Awaited<ReturnType<typeof getLastScheduledRun>>;
 
 const STATUS_STYLES: Record<string, string> = {
   RUNNING: "bg-blue-100 text-blue-700",
@@ -67,16 +69,35 @@ function formatDuration(ms: number | null): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
+function hoursSince(date: Date | string): number {
+  return (Date.now() - new Date(date).getTime()) / (60 * 60 * 1000);
+}
+
+/** A run's totals rendered as the handful of counts an operator actually scans for: what got created or confirmed, and what needs a look. */
+function TotalsSummary({ totals }: { totals: { eventsPublished: number; productSetsCreated: number; reviewItemsOpened: number; eventsStale: number } }) {
+  const parts: string[] = [];
+  if (totals.productSetsCreated > 0) parts.push(`${totals.productSetsCreated} new product set(s)`);
+  if (totals.eventsPublished > 0) parts.push(`${totals.eventsPublished} event(s) published`);
+  if (totals.reviewItemsOpened > 0) parts.push(`${totals.reviewItemsOpened} flagged for review`);
+  if (totals.eventsStale > 0) parts.push(`${totals.eventsStale} gone stale`);
+  if (parts.length === 0) return <span className="text-gray-500">No changes</span>;
+  return <>{parts.join(" · ")}</>;
+}
+
 export function SystemTab({
   installs,
   ingestRuns,
   providerHealth,
   providerStaleHours,
+  lastScheduledRun,
+  scheduledRunStaleHours,
 }: {
   installs: InstallOption[];
   ingestRuns: IngestRuns;
   providerHealth: ProviderHealth;
   providerStaleHours: number;
+  lastScheduledRun: LastScheduledRun;
+  scheduledRunStaleHours: number;
 }) {
   const router = useRouter();
   const [selectedInstall, setSelectedInstall] = useState(installs[0]?.id ?? "");
@@ -184,6 +205,56 @@ export function SystemTab({
         </p>
       )}
 
+      {/* ---- Cron heartbeat ------------------------------------------------
+          Answers "is the droplet's cron actually firing" directly, rather
+          than leaving it to be inferred from scanning the runs table below
+          for a SCHEDULED row -- ops/trigger-ingest.sh's cron entry lives only
+          on the host, so this is the only place that confirms it fired. */}
+      {(() => {
+        const hoursAgo = lastScheduledRun ? hoursSince(lastScheduledRun.createdAt) : null;
+        const stale = hoursAgo === null || hoursAgo > scheduledRunStaleHours;
+        if (!stale && lastScheduledRun) {
+          return (
+            <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+              <span className="font-semibold">Cron is running.</span> Last scheduled run {formatWhen(lastScheduledRun.createdAt)}
+              {hoursAgo !== null && <> ({Math.floor(hoursAgo)}h ago)</>} —{" "}
+              <span
+                className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[lastScheduledRun.status] ?? "bg-gray-100 text-gray-700"}`}
+              >
+                {lastScheduledRun.status}
+              </span>
+              {lastScheduledRun.totals && (
+                <span className="ml-2">
+                  <TotalsSummary totals={lastScheduledRun.totals} />
+                </span>
+              )}
+            </div>
+          );
+        }
+        return (
+          <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <span className="font-semibold">
+              {lastScheduledRun
+                ? `No scheduled run in over ${scheduledRunStaleHours}h.`
+                : "No scheduled run has ever completed."}
+            </span>{" "}
+            {lastScheduledRun ? (
+              <>
+                Last one was {formatWhen(lastScheduledRun.createdAt)}
+                {hoursAgo !== null && <> ({Math.floor(hoursAgo)}h ago)</>} — check the droplet&apos;s crontab and{" "}
+                <code className="rounded bg-amber-100 px-1">ops/trigger-ingest.sh</code>&apos;s own log line.
+              </>
+            ) : (
+              <>
+                Every run below is manual. If the cron entry exists, check it&apos;s pointed at{" "}
+                <code className="rounded bg-amber-100 px-1">/api/ingest/run</code> with a valid{" "}
+                <code className="rounded bg-amber-100 px-1">INGEST_TRIGGER_TOKEN</code>.
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ---- Freshness alarms ------------------------------------------- */}
       {alarmedProviders.length > 0 && (
         <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
@@ -284,6 +355,7 @@ export function SystemTab({
               <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
                 <th className="py-2">Status</th>
                 <th>Providers</th>
+                <th>Results</th>
                 <th>Scope</th>
                 <th>Trigger</th>
                 <th>Started</th>
@@ -329,6 +401,18 @@ export function SystemTab({
                         </ul>
                       )}
                     </td>
+                    <td className="py-2 text-xs">
+                      {runRow.diffSummary ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-gray-800">
+                            {runRow.diffSummary.newEvents} new · {runRow.diffSummary.newlyConfirmed} confirmed
+                          </span>
+                          <span className="text-gray-500">{runRow.diffSummary.totalChanges} change(s) total</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">No diff recorded</span>
+                      )}
+                    </td>
                     <td>{runRow.scopeType}</td>
                     <td>{runRow.trigger}</td>
                     <td>{formatWhen(runRow.createdAt)}</td>
@@ -372,7 +456,7 @@ export function SystemTab({
               })}
               {ingestRuns.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-gray-500">
+                  <td colSpan={8} className="py-4 text-center text-gray-500">
                     No runs yet — trigger a manual rescan above, or wait for the next scheduled scan.
                   </td>
                 </tr>

@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/app/generated/prisma/client";
-import { startIngest } from "@/lib/ingest/orchestrate";
+import { startIngest, type IngestTotals } from "@/lib/ingest/orchestrate";
 import { runRetentionCleanupPass } from "@/lib/ingest/retention";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { evaluateFreshness, PROVIDER_STALE_AFTER_HOURS, runProviderFreshnessAlarmPass } from "@/lib/ingest/freshness";
 import { replayRun, retryRun } from "@/lib/ingest/replay";
-import { fromEventDateColumns, type CandidateDate, type ReviewDetail, type SerializedDate } from "@/lib/ingest/types";
+import {
+  fromEventDateColumns,
+  type CandidateDate,
+  type ReviewDetail,
+  type RunDiffChange,
+  type SerializedDate,
+} from "@/lib/ingest/types";
 import { logEvent } from "@/lib/logger";
 
 export async function listPackagesWithInstalls() {
@@ -160,7 +166,39 @@ export type IngestRunHealth = {
   providerHealth: RunHealthStatus;
   /** Whether any provider FAILED, i.e. whether "Retry failed" has anything to do. */
   hasFailedProviders: boolean;
+  /** Aggregate counts Apply recorded for this run (see orchestrate.ts's IngestTotals). Null for a run from before totals existed. */
+  totals: IngestTotals | null;
+  /** Derived from this run's RunDiff -- null when the run recorded no diff (e.g. it errored before Apply). */
+  diffSummary: RunDiffSummary | null;
 };
+
+export type RunDiffSummary = {
+  totalChanges: number;
+  /** Events that did not exist before this run -- statusBefore is null exactly when applyOne saw no prior PublishedState. */
+  newEvents: number;
+  /** Events whose status became CONFIRMED this run, having not already been CONFIRMED. */
+  newlyConfirmed: number;
+};
+
+/** Narrows ScanRun.totals (a nullable Json column) to IngestTotals. Malformed or pre-totals rows read as null rather than throwing. */
+function toIngestTotals(totals: unknown): IngestTotals | null {
+  if (!totals || typeof totals !== "object") return null;
+  return totals as IngestTotals;
+}
+
+function toRunDiffChanges(changes: unknown): RunDiffChange[] {
+  return Array.isArray(changes) ? (changes as RunDiffChange[]) : [];
+}
+
+function summarizeRunDiff(changes: RunDiffChange[]): RunDiffSummary {
+  return {
+    totalChanges: changes.length,
+    newEvents: changes.filter((change) => change.statusBefore === null).length,
+    newlyConfirmed: changes.filter(
+      (change) => change.statusAfter === "CONFIRMED" && change.statusBefore !== "CONFIRMED",
+    ).length,
+  };
+}
 
 function healthFor(providerRuns: ProviderRunSummary[]): RunHealthStatus {
   if (providerRuns.length === 0) return "NO_PROVIDERS";
@@ -180,10 +218,14 @@ export async function listIngestRunHealth(limit = 10): Promise<IngestRunHealth[]
   const runs = await prisma.scanRun.findMany({ orderBy: { createdAt: "desc" }, take: limit });
   if (runs.length === 0) return [];
 
-  const providerRuns = await prisma.providerRun.findMany({
-    where: { scanRunId: { in: runs.map((run) => run.id) } },
-    orderBy: [{ providerKey: "asc" }],
-  });
+  const runIds = runs.map((run) => run.id);
+  const [providerRuns, runDiffs] = await Promise.all([
+    prisma.providerRun.findMany({
+      where: { scanRunId: { in: runIds } },
+      orderBy: [{ providerKey: "asc" }],
+    }),
+    prisma.runDiff.findMany({ where: { scanRunId: { in: runIds } } }),
+  ]);
 
   const byRun = new Map<string, ProviderRunSummary[]>();
   for (const row of providerRuns) {
@@ -200,6 +242,10 @@ export async function listIngestRunHealth(limit = 10): Promise<IngestRunHealth[]
     byRun.set(row.scanRunId, list);
   }
 
+  const diffByRun = new Map(
+    runDiffs.map((row) => [row.scanRunId, summarizeRunDiff(toRunDiffChanges(row.changes))]),
+  );
+
   return runs.map((run) => {
     const rows = byRun.get(run.id) ?? [];
     return {
@@ -214,8 +260,42 @@ export async function listIngestRunHealth(limit = 10): Promise<IngestRunHealth[]
       providerRuns: rows,
       providerHealth: healthFor(rows),
       hasFailedProviders: rows.some((row) => row.status === "FAILED"),
+      totals: toIngestTotals(run.totals),
+      diffSummary: diffByRun.get(run.id) ?? null,
     };
   });
+}
+
+/** Cron fires the v2 pipeline daily (see ops/trigger-ingest.sh); this is a day plus a buffer before the "last scheduled run" banner reads as stale rather than merely "not yet due". */
+export const SCHEDULED_RUN_STALE_HOURS = 26;
+
+export type LastScheduledRun = {
+  id: string;
+  status: string;
+  createdAt: Date;
+  finishedAt: Date | null;
+  totals: IngestTotals | null;
+};
+
+/**
+ * The most recent cron-triggered run, looked up directly rather than read off
+ * listIngestRunHealth's limited recent-runs list -- a burst of manual reruns
+ * from the System tab must never push the one signal that actually answers
+ * "is the droplet's cron firing" out of view.
+ */
+export async function getLastScheduledRun(): Promise<LastScheduledRun | null> {
+  const run = await prisma.scanRun.findFirst({
+    where: { trigger: "SCHEDULED" },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!run) return null;
+  return {
+    id: run.id,
+    status: run.status,
+    createdAt: run.createdAt,
+    finishedAt: run.finishedAt,
+    totals: toIngestTotals(run.totals),
+  };
 }
 
 export type ProviderHealth = {

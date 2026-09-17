@@ -3,13 +3,14 @@ import {
   listUsers,
   listIngestRunHealth,
   listProviderHealth,
+  getLastScheduledRun,
   listReviewQueue,
 } from "./actions";
-import { PROVIDER_STALE_HOURS } from "@/data/admin/adminRepo";
+import { PROVIDER_STALE_HOURS, SCHEDULED_RUN_STALE_HOURS } from "@/data/admin/adminRepo";
 import { AdminTabs } from "./AdminTabs";
 
 export default async function AdminPage() {
-  const [packages, users, ingestRuns, providerHealth, reviewQueue] = await Promise.all([
+  const [packages, users, ingestRuns, providerHealth, lastScheduledRun, reviewQueue] = await Promise.all([
     listPackagesWithInstalls(),
     listUsers(),
     // Supersedes the old listScanRuns() call: this returns the same ScanRun
@@ -18,6 +19,7 @@ export default async function AdminPage() {
     // wants the bare list.
     listIngestRunHealth(),
     listProviderHealth(),
+    getLastScheduledRun(),
     listReviewQueue(),
   ]);
 
@@ -28,6 +30,8 @@ export default async function AdminPage() {
       ingestRuns={ingestRuns}
       providerHealth={providerHealth}
       providerStaleHours={PROVIDER_STALE_HOURS}
+      lastScheduledRun={lastScheduledRun}
+      scheduledRunStaleHours={SCHEDULED_RUN_STALE_HOURS}
       reviewQueue={reviewQueue}
     />
   );
