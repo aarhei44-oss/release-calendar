@@ -239,11 +239,20 @@ export async function deleteCommentById(commentId: string) {
 
 /** Live counts for the landing page's trust-building stat line ("X upcoming releases across Y games"). */
 export async function getLandingStats() {
-  const [releasesTracked, gamesTracked] = await Promise.all([
+  const [releasesTracked, gamesTracked, lastSuccessfulRun] = await Promise.all([
     prisma.releaseEvent.count({ where: { archivedAt: null, status: { notIn: ["RELEASED", "CANCELLED"] } } }),
     prisma.tcgProfileInstall.count({ where: { enabled: true } }),
+    // Any successful run, scheduled or manual -- a public visitor cares that
+    // sources were re-checked recently, not which trigger did it. See
+    // data/admin/adminRepo.ts's getLastScheduledRun for the admin-only,
+    // cron-specific version of this same idea.
+    prisma.scanRun.findFirst({
+      where: { status: "SUCCEEDED" },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true },
+    }),
   ]);
-  return { releasesTracked, gamesTracked };
+  return { releasesTracked, gamesTracked, lastCheckedAt: lastSuccessfulRun?.finishedAt ?? null };
 }
 
 /** Enabled installs, for populating the public filter bar's install dropdown. */

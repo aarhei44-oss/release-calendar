@@ -21,6 +21,9 @@ export function SiteHeader() {
             <Link href="/premium" className={navLinkClass}>
               Upgrade
             </Link>
+            <Link href="/about" className={navLinkClass}>
+              About
+            </Link>
           </nav>
         </div>
         <div className="hidden md:block">
@@ -50,6 +53,9 @@ export function SiteHeader() {
             </Link>
             <Link href="/premium" className={navLinkClass}>
               Upgrade
+            </Link>
+            <Link href="/about" className={navLinkClass}>
+              About
             </Link>
           </nav>
           <div onClick={() => setOpen(false)}>

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getLandingStats } from "@/data/calendar/calendarRepo";
+import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
+import { formatRelativeTime } from "@/app/calendar/eventDisplay";
 
 // The production SQLite file lives on a Docker volume only present at
 // runtime, not during the CI build -- without this, Next's static optimizer
@@ -51,6 +53,7 @@ export default async function Home() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-16">
+      <AdsenseAutoAds />
       <section className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-3xl font-bold sm:text-4xl">Never miss a TCG release again.</h1>
         <p className="max-w-xl text-gray-600 dark:text-gray-400">
@@ -62,6 +65,12 @@ export default async function Home() {
           <p className="text-sm text-gray-500 dark:text-gray-500">
             Tracking {stats.releasesTracked} upcoming release{stats.releasesTracked === 1 ? "" : "s"} across{" "}
             {stats.gamesTracked} game{stats.gamesTracked === 1 ? "" : "s"}.
+            {stats.lastCheckedAt && (
+              <>
+                {" "}
+                Sources last checked {formatRelativeTime(stats.lastCheckedAt)}.
+              </>
+            )}
           </p>
         )}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3">

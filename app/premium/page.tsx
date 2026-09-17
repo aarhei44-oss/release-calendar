@@ -3,6 +3,7 @@ import { Check, Minus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
 import { isCheckoutConfigured } from "@/lib/stripe";
 import { createCheckoutSession, createPortalSession } from "./actions";
 
@@ -48,6 +49,7 @@ export default async function PremiumPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-16">
+      <AdsenseAutoAds />
       <section className="flex flex-col items-center gap-3 text-center">
         <h1 className="text-3xl font-bold sm:text-4xl">Free vs. Premium</h1>
         <p className="max-w-xl text-gray-600 dark:text-gray-400">

@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
-import { getServerSession } from "next-auth";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { authOptions } from "./auth";
 import { Providers } from "./providers";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -18,47 +15,39 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Same runtime-configurable read as components/AdsenseAutoAds.tsx and
+// app/ads.txt/route.ts -- module scope, not NEXT_PUBLIC_, so it comes from
+// this deployment's .env rather than getting baked into the shared Docker
+// image at CI build time.
+const adsenseClientId = process.env.ADSENSE_CLIENT_ID;
+
 export const metadata: Metadata = {
   title: "Release Watcher",
   description: "A calendar of upcoming TCG product releases.",
+  // Lets Google associate this site with the AdSense account without
+  // waiting on ads.txt propagation, and is Google's own recommended defense
+  // against a third party claiming this site's inventory for their account.
+  other: adsenseClientId ? { "google-adsense-account": adsenseClientId } : undefined,
 };
 
-// Server-read (not NEXT_PUBLIC_) so it's configurable per-deployment at
-// runtime via .env, same as GOOGLE_CLIENT_ID/ADMIN_EMAILS -- this app ships
-// one prebuilt Docker image (see docker-compose.registry.yml), and a
-// NEXT_PUBLIC_ var would get baked into that shared image at CI build time
-// instead. Unset = no ads at all, same no-op-until-configured pattern as
-// SMTP_HOST for email alerts.
-const adsenseClientId = process.env.ADSENSE_CLIENT_ID;
-
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // Premium is ad-free (see /premium) -- checked here, not just hidden with
-  // CSS, so the ad script genuinely never loads/fires for a premium user.
-  const session = await getServerSession(authOptions);
-  const showAds = Boolean(adsenseClientId) && !session?.user?.isPremium;
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  // AdSense Auto Ads is no longer loaded here -- see components/AdsenseAutoAds.tsx
+  // for why (Google rejected the site over ads firing on content-free
+  // screens). Each content-bearing page renders that component itself.
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
-        {showAds && (
-          // Google AdSense Auto Ads: one loader script, no per-page ad-unit
-          // markup needed -- Google places ads algorithmically once the
-          // account is approved. See .env.example for setup.
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        )}
         <Providers>
           <SiteHeader />
           <main className="min-h-0 flex-1 overflow-y-auto">
             {children}
             <footer className="flex flex-wrap items-center justify-center gap-4 border-t border-gray-200 px-4 py-6 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-500">
+              <Link href="/about" className="hover:underline">
+                About
+              </Link>
               <Link href="/privacy" className="hover:underline">
                 Privacy Policy
               </Link>

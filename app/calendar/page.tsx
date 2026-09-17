@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
+import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
 import { getFilteredEvents } from "./actions";
 import { listEnabledInstallsForFilters, type CalendarFilters } from "@/data/calendar/calendarRepo";
 import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
@@ -88,12 +89,19 @@ export default async function CalendarPage({ searchParams }: Props) {
     await getReactionSummariesForEvents(events.map((e) => e.id)),
   );
 
+  // Google's policy explicitly names empty search-result screens as an
+  // example of "ads without publisher-content" -- a filtered/searched view
+  // with zero matches is that same shape, so ads are withheld right along
+  // with it rather than only ever being gated on the route.
   return (
-    <CalendarShell
-      parsed={parsed}
-      events={events}
-      installOptions={installOptions}
-      reactionSummaries={reactionSummaries}
-    />
+    <>
+      {events.length > 0 && <AdsenseAutoAds />}
+      <CalendarShell
+        parsed={parsed}
+        events={events}
+        installOptions={installOptions}
+        reactionSummaries={reactionSummaries}
+      />
+    </>
   );
 }
