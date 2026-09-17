@@ -96,17 +96,6 @@ export default function AboutPage() {
           it with false confidence.
         </p>
       </Section>
-
-      <Section title="Who runs this">
-        <p>
-          Release Watcher is built and operated by Aaron Hein. Questions, corrections, or a source we&apos;re
-          missing? Email{" "}
-          <a href="mailto:Kausemu44@gmail.com" className="underline">
-            Kausemu44@gmail.com
-          </a>
-          .
-        </p>
-      </Section>
     </div>
   );
 }
