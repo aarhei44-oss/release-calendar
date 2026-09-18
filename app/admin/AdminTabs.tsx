@@ -12,6 +12,7 @@ import type {
   listProviderHealth,
   getLastScheduledRun,
   listReviewQueue,
+  listNewsSourceHealth,
 } from "./actions";
 
 type AdminTab = "profiles" | "users" | "system" | "review";
@@ -42,6 +43,7 @@ type Props = {
   lastScheduledRun: Awaited<ReturnType<typeof getLastScheduledRun>>;
   scheduledRunStaleHours: number;
   reviewQueue: Awaited<ReturnType<typeof listReviewQueue>>;
+  newsSourceHealth: Awaited<ReturnType<typeof listNewsSourceHealth>>;
 };
 
 export function AdminTabs({
@@ -53,6 +55,7 @@ export function AdminTabs({
   lastScheduledRun,
   scheduledRunStaleHours,
   reviewQueue,
+  newsSourceHealth,
 }: Props) {
   const [active, setActive] = useState<AdminTab>("profiles");
 
@@ -178,6 +181,7 @@ export function AdminTabs({
             providerStaleHours={providerStaleHours}
             lastScheduledRun={lastScheduledRun}
             scheduledRunStaleHours={scheduledRunStaleHours}
+            newsSourceHealth={newsSourceHealth}
           />
         </div>
       )}

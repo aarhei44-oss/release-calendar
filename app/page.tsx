@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
 import { getLandingStats } from "@/data/calendar/calendarRepo";
+import { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
 import { formatRelativeTime } from "@/app/calendar/eventDisplay";
 
@@ -51,6 +52,11 @@ export default async function Home() {
   // and CTAs below don't depend on it, only this one stat line does.
   const stats = await getLandingStats().catch(() => null);
 
+  // Free teaser: 3 latest headlines across enabled sources, safe to show an
+  // anonymous visitor by construction (getLatestNewsTeaser selects no
+  // premium-exclusive fields). Same degrade-gracefully pattern as stats above.
+  const newsTeaser = await getLatestNewsTeaser(3).catch(() => null);
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-16">
       <AdsenseAutoAds />
@@ -72,6 +78,30 @@ export default async function Home() {
               </>
             )}
           </p>
+        )}
+        {newsTeaser && newsTeaser.length > 0 && (
+          <div className="flex w-full max-w-md flex-col gap-1.5 text-left">
+            <h2 className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
+              Latest news
+            </h2>
+            <ul className="flex flex-col gap-1.5 text-sm">
+              {newsTeaser.map((item) => (
+                <li key={item.id} className="rounded-md border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-gray-900 hover:underline dark:text-gray-100"
+                  >
+                    {item.title}
+                  </a>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-500">
+                    {item.source.label} · {formatRelativeTime(item.publishedAt)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
           <Link

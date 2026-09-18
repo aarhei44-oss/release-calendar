@@ -8,15 +8,18 @@ import {
   replayIngestRun,
   retryIngestRun,
   triggerFreshnessCheck,
+  toggleNewsSourceEnabled,
   type listIngestRunHealth,
   type listProviderHealth,
   type getLastScheduledRun,
+  type listNewsSourceHealth,
 } from "./actions";
 
 type InstallOption = { id: string; label: string };
 type IngestRuns = Awaited<ReturnType<typeof listIngestRunHealth>>;
 type ProviderHealth = Awaited<ReturnType<typeof listProviderHealth>>;
 type LastScheduledRun = Awaited<ReturnType<typeof getLastScheduledRun>>;
+type NewsSourceHealth = Awaited<ReturnType<typeof listNewsSourceHealth>>;
 
 const STATUS_STYLES: Record<string, string> = {
   RUNNING: "bg-blue-100 text-blue-700",
@@ -91,6 +94,7 @@ export function SystemTab({
   providerStaleHours,
   lastScheduledRun,
   scheduledRunStaleHours,
+  newsSourceHealth,
 }: {
   installs: InstallOption[];
   ingestRuns: IngestRuns;
@@ -98,6 +102,7 @@ export function SystemTab({
   providerStaleHours: number;
   lastScheduledRun: LastScheduledRun;
   scheduledRunStaleHours: number;
+  newsSourceHealth: NewsSourceHealth;
 }) {
   const router = useRouter();
   const [selectedInstall, setSelectedInstall] = useState(installs[0]?.id ?? "");
@@ -147,6 +152,13 @@ export function SystemTab({
   }
 
   const alarmedProviders = providerHealth.filter((provider) => provider.stale);
+
+  function toggleNewsSource(sourceId: string, label: string, enabled: boolean) {
+    run("Toggle news source", async () => {
+      await toggleNewsSourceEnabled(sourceId, enabled);
+      return `${label} ${enabled ? "enabled" : "disabled"}.`;
+    });
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -332,6 +344,61 @@ export function SystemTab({
                 <tr>
                   <td colSpan={5} className="py-4 text-center text-gray-500">
                     No provider runs recorded yet — the v2 pipeline has not run on this install.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ---- News sources (backlog item 26) ------------------------------- */}
+      <div>
+        <h3 className="mb-1 text-sm font-medium text-gray-700">News sources</h3>
+        <p className="mb-2 text-xs text-gray-500">
+          Per-source enable/disable for the news-feed pipeline (<code className="rounded bg-gray-100 px-1">ops/trigger-news.sh</code>,
+          cron&apos;d every 6h). Auto-publish, no approval queue -- disabling a source stops future fetches but leaves its
+          already-fetched items in place.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+                <th className="py-2">Source</th>
+                <th>Tier</th>
+                <th>Enabled</th>
+                <th>Last fetched</th>
+                <th>Items</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {newsSourceHealth.map((source) => (
+                <tr key={source.id} className="border-b border-gray-100 align-top">
+                  <td className="py-2 font-medium">{source.label}</td>
+                  <td>
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{source.tier}</span>
+                  </td>
+                  <td>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={source.enabled}
+                        disabled={isPending}
+                        onChange={(e) => toggleNewsSource(source.id, source.label, e.target.checked)}
+                      />
+                      <span className="sr-only">{source.label} enabled</span>
+                    </label>
+                  </td>
+                  <td>{formatWhen(source.lastFetchedAt)}</td>
+                  <td>{source.itemCount}</td>
+                  <td className="max-w-xs break-words text-xs text-red-700">{source.lastError ?? "—"}</td>
+                </tr>
+              ))}
+              {newsSourceHealth.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                    No news sources seeded yet.
                   </td>
                 </tr>
               )}

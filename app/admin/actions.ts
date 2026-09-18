@@ -175,3 +175,22 @@ export async function resolveReviewItem(itemId: string, resolution: z.input<type
     return adminRepo.resolveReviewItem(idSchema.parse(itemId), reviewResolutionSchema.parse(resolution));
   });
 }
+
+// ---------------------------------------------------------------------------
+// News feed (backlog item 26): source health for the admin System tab. Same
+// requireAdmin gate and withActionLogging wrapper as everything above.
+// ---------------------------------------------------------------------------
+
+export async function listNewsSourceHealth() {
+  return withActionLogging("admin.listNewsSourceHealth", async () => {
+    await requireAdmin();
+    return adminRepo.listNewsSourceHealth();
+  });
+}
+
+export async function toggleNewsSourceEnabled(sourceId: string, enabled: boolean) {
+  return withActionLogging("admin.toggleNewsSourceEnabled", async () => {
+    await requireAdmin();
+    return adminRepo.toggleNewsSourceEnabled(idSchema.parse(sourceId), z.boolean().parse(enabled));
+  });
+}

@@ -90,6 +90,7 @@ job.
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | OAuth credentials from the Google Cloud Console (Google sign-in is the only auth method). |
 | `ADMIN_EMAILS` | yes | Comma-separated emails granted the `ADMIN` role on first sign-in. |
 | `INGEST_TRIGGER_TOKEN` | no, but required for an external cron to drive ingest | Bearer token `POST /api/ingest/run` compares (constant-time) against the `Authorization` header. Unset means the route only accepts an admin session (e.g. from the System tab's own "Trigger manual rescan"), so an unauthenticated cron call is rejected -- generate with `openssl rand -hex 32`. |
+| `NEWS_TRIGGER_TOKEN` | no, but required for an external cron to drive the news-feed fetch | Same shape as `INGEST_TRIGGER_TOKEN` but for `POST /api/news/run` -- a separate secret, not reused, so the two triggers can be rotated independently. |
 | `SITE_ADDRESS` | Docker Compose only | Domain Caddy serves and requests a TLS cert for, e.g. `calendar.example.com`. Defaults to `localhost` (no TLS). |
 | `SEED_ON_BOOT` | Docker Compose only | `true` runs `prisma db seed` on container boot (idempotent). |
 | `SMTP_HOST` | no | Enables outbound email (change alerts, Premium digests, lead-time reminders, admin freshness alarms) when set. Unset means every sender no-ops with a log line rather than throwing -- alerts are opt-in in the UI whether or not an operator has configured mail. |

@@ -504,6 +504,45 @@ export type ReviewResolution =
  * see ingestRepo.resolveReviewItem for why that flag is the point of the
  * action rather than an extra.
  */
+// ---------------------------------------------------------------------------
+// News feed (backlog item 26): source health for the admin System tab.
+// ---------------------------------------------------------------------------
+
+export type NewsSourceHealth = {
+  id: string;
+  label: string;
+  tier: string;
+  enabled: boolean;
+  lastFetchedAt: Date | null;
+  lastError: string | null;
+  itemCount: number;
+};
+
+/** One row per NewsFeedSource with its latest fetch outcome and how many items it's produced -- the news-pipeline analogue of listProviderHealth above. */
+export async function listNewsSourceHealth(): Promise<NewsSourceHealth[]> {
+  const sources = await prisma.newsFeedSource.findMany({
+    include: { _count: { select: { items: true } } },
+    orderBy: { label: "asc" },
+  });
+
+  return sources.map((source) => ({
+    id: source.id,
+    label: source.label,
+    tier: source.tier,
+    enabled: source.enabled,
+    lastFetchedAt: source.lastFetchedAt,
+    lastError: source.lastError,
+    itemCount: source._count.items,
+  }));
+}
+
+export async function toggleNewsSourceEnabled(sourceId: string, enabled: boolean) {
+  return prisma.newsFeedSource.update({
+    where: { id: sourceId },
+    data: { enabled },
+  });
+}
+
 export async function resolveReviewItem(id: string, resolution: ReviewResolution, now: Date = new Date()) {
   const item = await ingestRepo.getReviewItem(id);
   if (!item) throw new Error("No such review item.");
