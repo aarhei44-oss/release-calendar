@@ -5,6 +5,7 @@ import { authOptions } from "@/app/auth";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { listEnabledInstallsForFilters } from "@/data/calendar/calendarRepo";
 import { listNewsItems } from "@/data/news/newsRepo";
+import { getSubscribedInstallIds } from "@/data/subscriptions/subscriptionsRepo";
 import { NewsShell } from "./NewsShell";
 
 export const metadata: Metadata = {
@@ -53,15 +54,17 @@ export default async function NewsPage({ searchParams }: Props) {
 
   const installIds = parseInstallIds(rawInstallIds);
 
-  const [installs, items] = await Promise.all([
+  const [installs, items, subscribedInstallIds] = await Promise.all([
     listEnabledInstallsForFilters(),
     listNewsItems({ installIds }),
+    getSubscribedInstallIds(session.user.id),
   ]);
 
   return (
     <NewsShell
       installOptions={installs.map((install) => ({ id: install.id, name: install.package.name }))}
       installIds={installIds}
+      subscribedInstallIds={subscribedInstallIds}
       items={items}
     />
   );

@@ -52,9 +52,15 @@ export async function pruneOldItems(olderThanDays: number) {
   });
 }
 
-export async function getLatestNewsTeaser(limit: number) {
+export async function getLatestNewsTeaser(limit: number, installIds?: string[]) {
   return prisma.newsItem.findMany({
-    where: { archivedAt: null, source: { enabled: true } },
+    where: {
+      archivedAt: null,
+      source: {
+        enabled: true,
+        ...(installIds && installIds.length > 0 ? { tcgProfileInstallId: { in: installIds } } : {}),
+      },
+    },
     orderBy: { publishedAt: "desc" },
     take: limit,
     include: { source: { select: { label: true, tier: true } } },

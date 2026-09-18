@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame, Newspaper } from "lucide-react";
+import { useTransition } from "react";
+import * as Checkbox from "@radix-ui/react-checkbox";
+import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame, Newspaper, Check, Loader2 } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import type { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import { eventTitle } from "@/app/calendar/mapEvents";
@@ -31,6 +33,8 @@ type Props = {
   mostMeh?: TrendingEvent[];
   /** Premium-only; dashboard/page.tsx only fetches this for a premium session, so a non-premium visitor always gets an empty array here and the card self-hides. */
   latestNews?: NewsTeaserItem[];
+  /** Mirrors the ?newsSubs=1 query param dashboard/page.tsx already scoped the latestNews fetch by. */
+  newsOnlySubscribed?: boolean;
   /** Premium-configurable (see /profile); defaults to every card, in the default order. */
   cardOrder?: DashboardCardId[];
 };
@@ -197,9 +201,11 @@ export function DashboardShell({
   mostHyped = [],
   mostMeh = [],
   latestNews = [],
+  newsOnlySubscribed = false,
   cardOrder = DEFAULT_DASHBOARD_CARD_ORDER,
 }: Props) {
   const router = useRouter();
+  const [isNewsFilterPending, startNewsFilterTransition] = useTransition();
   const newlyConfirmed = recentActivity.filter((e) => e.status === "CONFIRMED");
   // Belt and braces: getFilteredEvents (shared with /calendar and
   // /subscriptions) already drops TBD events from every date-range query, so
@@ -211,6 +217,12 @@ export function DashboardShell({
 
   function openEvent(eventId: string) {
     router.push(`/calendar?tab=upcoming&eventId=${eventId}`);
+  }
+
+  function toggleNewsOnlySubscribed(checked: boolean) {
+    startNewsFilterTransition(() => {
+      router.push(checked ? "/dashboard?newsSubs=1" : "/dashboard");
+    });
   }
 
   if (subscribedGames.length === 0) {
@@ -320,15 +332,39 @@ export function DashboardShell({
             case "latestNews":
               // Self-hides when empty, same as newlyConfirmed/communityPulse --
               // and for a non-premium session it's always empty, since
-              // dashboard/page.tsx never fetches news items for one.
-              return latestNews.length > 0 ? (
+              // dashboard/page.tsx never fetches news items for one. The one
+              // exception: once "My subscriptions" is checked, the card stays
+              // up with an explicit empty state instead of vanishing, so the
+              // checkbox itself (and the way back out of the filter) doesn't
+              // disappear along with the news it filtered away.
+              return latestNews.length > 0 || newsOnlySubscribed ? (
                 <section key={cardId} className="@container">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <SectionHeading icon={Newspaper} title="Latest news" />
-                    <Link href="/news" className="shrink-0 text-sm text-blue-600 hover:underline dark:text-blue-400">
-                      View all
-                    </Link>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                        <Checkbox.Root
+                          checked={newsOnlySubscribed}
+                          onCheckedChange={(checked) => toggleNewsOnlySubscribed(checked === true)}
+                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-300 transition-colors data-[state=checked]:border-gray-900 data-[state=checked]:bg-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 dark:border-gray-600 dark:data-[state=checked]:border-gray-100 dark:data-[state=checked]:bg-gray-100 dark:focus-visible:ring-gray-100"
+                        >
+                          <Checkbox.Indicator>
+                            <Check className="h-3 w-3 text-white dark:text-gray-900" />
+                          </Checkbox.Indicator>
+                        </Checkbox.Root>
+                        My subscriptions
+                        {isNewsFilterPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 dark:text-gray-500" aria-label="Loading" />}
+                      </label>
+                      <Link href="/news" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                        View all
+                      </Link>
+                    </div>
                   </div>
+                  {latestNews.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                      No recent news from your subscribed games.
+                    </p>
+                  )}
                   <ul className="flex flex-col gap-2">
                     {latestNews.map((item) => (
                       <li

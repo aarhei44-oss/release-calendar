@@ -13,6 +13,10 @@ import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "./cards
 const TRENDING_LIST_SIZE = 3;
 const DASHBOARD_NEWS_SIZE = 5;
 
+type Props = {
+  searchParams: Promise<{ newsSubs?: string }>;
+};
+
 /** Ranks a pool of events by reaction score and keeps the top N with a positive score in that direction. */
 function topByScore(events: CalendarEvent[], scores: Map<string, { positive: number; negative: number }>, key: "positive" | "negative"): TrendingEvent[] {
   return events
@@ -22,12 +26,14 @@ function topByScore(events: CalendarEvent[], scores: Map<string, { positive: num
     .slice(0, TRENDING_LIST_SIZE);
 }
 
-export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+export default async function DashboardPage({ searchParams }: Props) {
+  const [session, { newsSubs }] = await Promise.all([getServerSession(authOptions), searchParams]);
 
   if (!session?.user) {
     return <SignInPrompt message="Sign in to see a dashboard of what's new for the games you follow." />;
   }
+
+  const newsOnlySubscribed = newsSubs === "1";
 
   const [subscriptions, upcoming, recentActivity, profile] = await Promise.all([
     listSubscriptions(session.user.id),
@@ -55,7 +61,11 @@ export default async function DashboardPage() {
   // the rendered card, the same lesson this repo already learned once for
   // ProductSet.imageUrl (see stripPremiumImageUrls above). A non-premium
   // session gets no news items in its props at all, not just a hidden card.
-  const latestNews = profile.isPremium ? await getLatestNewsTeaser(DASHBOARD_NEWS_SIZE).catch(() => []) : [];
+  const subscribedInstallIds = subscriptions.map((s) => s.tcgProfileInstallId);
+  const newsFilterIds = newsOnlySubscribed ? subscribedInstallIds : undefined;
+  const latestNews = profile.isPremium
+    ? await getLatestNewsTeaser(DASHBOARD_NEWS_SIZE, newsFilterIds).catch(() => [])
+    : [];
 
   return (
     <DashboardShell
@@ -65,6 +75,7 @@ export default async function DashboardPage() {
       mostHyped={topByScore(pooledEvents, reactionScores, "positive")}
       mostMeh={topByScore(pooledEvents, reactionScores, "negative")}
       latestNews={latestNews}
+      newsOnlySubscribed={newsOnlySubscribed}
       cardOrder={cardOrder}
     />
   );

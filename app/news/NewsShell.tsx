@@ -13,13 +13,20 @@ type NewsItem = Awaited<ReturnType<typeof listNewsItems>>[number];
 type Props = {
   installOptions: InstallOption[];
   installIds: string[];
+  subscribedInstallIds: string[];
   items: NewsItem[];
 };
 
 const checkboxBoxClass =
   "flex h-4 w-4 shrink-0 items-center justify-center rounded border border-gray-300 transition-colors data-[state=checked]:border-gray-900 data-[state=checked]:bg-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 dark:border-gray-600 dark:data-[state=checked]:border-gray-100 dark:data-[state=checked]:bg-gray-100 dark:focus-visible:ring-gray-100";
 
-export function NewsShell({ installOptions, installIds, items }: Props) {
+function sameInstalls(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedB = [...b].sort();
+  return [...a].sort().every((id, i) => id === sortedB[i]);
+}
+
+export function NewsShell({ installOptions, installIds, subscribedInstallIds, items }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -30,11 +37,34 @@ export function NewsShell({ installOptions, installIds, items }: Props) {
     });
   }
 
+  function toggleSubscribedOnly(checked: boolean) {
+    startTransition(() => {
+      router.push(checked ? `/news?installIds=${subscribedInstallIds.join(",")}` : "/news");
+    });
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-4 lg:flex-row lg:p-8">
       <aside className="flex shrink-0 flex-col gap-2 lg:w-48">
         <h2 className="text-xs font-medium text-gray-600 dark:text-gray-400">Game</h2>
         <div className="flex flex-col gap-2">
+          {subscribedInstallIds.length > 0 && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+              <Checkbox.Root
+                checked={sameInstalls(installIds, subscribedInstallIds)}
+                onCheckedChange={(checked) => toggleSubscribedOnly(checked === true)}
+                className={checkboxBoxClass}
+              >
+                <Checkbox.Indicator>
+                  <Check className="h-3 w-3 text-white dark:text-gray-900" />
+                </Checkbox.Indicator>
+              </Checkbox.Root>
+              My subscriptions
+            </label>
+          )}
+          {subscribedInstallIds.length > 0 && (
+            <hr className="border-gray-200 dark:border-gray-800" />
+          )}
           {installOptions.map((option) => (
             <label key={option.id} className="flex cursor-pointer items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
               <Checkbox.Root
