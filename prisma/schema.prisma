@@ -96,6 +96,17 @@ enum DigestFrequency {
   WEEKLY
 }
 
+/// How much weight a news item's source carries -- same vocabulary the
+/// release calendar's SourceTier already teaches visitors (see the About
+/// page), applied to a different kind of item. OFFICIAL is unused by any
+/// seeded source today: every publisher checked when this feature was
+/// scoped ran no RSS feed at all.
+enum NewsSourceTier {
+  OFFICIAL
+  RETAILER
+  COMMUNITY
+}
+
 // ---------------------------------------------------------------------------
 // Ingest v2 enums (lib/ingest/*). The v2 pipeline is built alongside the v1
 // crawler (lib/crawler/*) and does not replace it yet -- everything below is
@@ -164,11 +175,12 @@ model TcgProfileInstall {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  package       TcgProfilePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  productSets   ProductSet[]
-  discoveryHits DiscoveryHit[]
-  scanRuns      ScanRun[]
-  subscriptions Subscription[]
+  package         TcgProfilePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  productSets     ProductSet[]
+  discoveryHits   DiscoveryHit[]
+  scanRuns        ScanRun[]
+  subscriptions   Subscription[]
+  newsFeedSources NewsFeedSource[]
 
   @@index([packageId])
 }
@@ -722,4 +734,48 @@ model EventReaction {
   @@unique([userId, releaseEventId])
   @@index([releaseEventId, emoji])
   @@index([movedFromReleaseEventId])
+}
+
+// ---------------------------------------------------------------------------
+// News feed (backlog item 26). A separate, deliberately simpler pipeline from
+// ingest v2 above -- there's no dedup/gate/confidence machinery here because
+// two feeds reporting the same item is fine to show twice, and two feeds
+// reporting the same URL just *is* the same item. A source's own row carries
+// its latest fetch outcome directly (lastFetchedAt/lastEtag/lastError) rather
+// than a separate per-run log table like ScanRun/ProviderRun, since a fetch
+// tick is one GET per source, not a multi-provider reconciliation.
+// ---------------------------------------------------------------------------
+
+model NewsFeedSource {
+  id                  String         @id @default(cuid())
+  label               String
+  feedUrl             String         @unique
+  tier                NewsSourceTier
+  tcgProfileInstallId String?
+  enabled             Boolean        @default(true)
+  lastFetchedAt       DateTime?
+  lastEtag            String?
+  lastError           String?
+  createdAt           DateTime       @default(now())
+
+  install TcgProfileInstall? @relation(fields: [tcgProfileInstallId], references: [id], onDelete: SetNull)
+  items   NewsItem[]
+
+  @@index([tcgProfileInstallId])
+}
+
+model NewsItem {
+  id          String    @id @default(cuid())
+  sourceId    String
+  title       String
+  url         String    @unique
+  summary     String?
+  publishedAt DateTime
+  fetchedAt   DateTime  @default(now())
+  archivedAt  DateTime?
+
+  source NewsFeedSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, publishedAt])
+  @@index([archivedAt])
 }

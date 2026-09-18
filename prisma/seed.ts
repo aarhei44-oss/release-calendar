@@ -103,6 +103,50 @@ const LAUNCH_PACKAGES = [
   },
 ] as const;
 
+// Confirmed working, fetched and parsed by hand during the news-feed feature
+// scoping pass (2026-09-17) -- see the published scoping doc for the full
+// verification notes. Deliberately excludes gundam-card-game (no candidate
+// found) and riftbound (found but not cross-checked against the official
+// domain) -- seed those once they've been checked, not before.
+const NEWS_FEED_SOURCES = [
+  {
+    packageSlug: "magic-the-gathering",
+    label: "MTGGoldfish",
+    feedUrl: "https://www.mtggoldfish.com/feed",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "pokemon-tcg",
+    label: "PokeBeach — Front Page News",
+    feedUrl: "https://www.pokebeach.com/forums/forum/front-page-news.18/index.rss",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "yugioh-tcg",
+    label: "YGOrganization",
+    feedUrl: "https://ygorganization.com/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "yugioh-tcg",
+    label: "Bleeding Cool — Yu-Gi-Oh!",
+    feedUrl: "https://bleedingcool.com/games/tabletop/card-games/yu-gi-oh/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "disney-lorcana",
+    label: "Lorcana Player",
+    feedUrl: "https://lorcanaplayer.com/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "one-piece-tcg",
+    label: "Total Cards — One Piece",
+    feedUrl: "https://totalcards.net/blogs/one-piece.atom",
+    tier: "RETAILER",
+  },
+] as const;
+
 async function main() {
   for (const pkg of LAUNCH_PACKAGES) {
     const profilePackage = await prisma.tcgProfilePackage.upsert({
@@ -175,6 +219,29 @@ async function main() {
         });
       }
     }
+  }
+
+  for (const source of NEWS_FEED_SOURCES) {
+    const profilePackage = await prisma.tcgProfilePackage.findUnique({
+      where: { slug: source.packageSlug },
+    });
+    if (!profilePackage) continue;
+
+    const install = await prisma.tcgProfileInstall.findFirst({
+      where: { packageId: profilePackage.id },
+    });
+    if (!install) continue;
+
+    await prisma.newsFeedSource.upsert({
+      where: { feedUrl: source.feedUrl },
+      update: { label: source.label, tier: source.tier, tcgProfileInstallId: install.id },
+      create: {
+        label: source.label,
+        feedUrl: source.feedUrl,
+        tier: source.tier,
+        tcgProfileInstallId: install.id,
+      },
+    });
   }
 
   console.log("Seed complete.");
