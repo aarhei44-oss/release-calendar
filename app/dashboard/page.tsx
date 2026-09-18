@@ -3,6 +3,7 @@ import { authOptions } from "@/app/auth";
 import { listSubscriptions, getUpcomingForSubscriptions, getRecentActivityForSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { getProfile } from "@/data/profile/profileRepo";
 import { getReactionScoresForEvents } from "@/data/events/eventPersonalizationRepo";
+import { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { stripPremiumImageUrls } from "@/app/calendar/eventDisplay";
@@ -10,6 +11,7 @@ import { DashboardShell, type TrendingEvent } from "./DashboardShell";
 import { DEFAULT_DASHBOARD_CARD_ORDER, resolveDashboardCardOrder } from "./cards";
 
 const TRENDING_LIST_SIZE = 3;
+const DASHBOARD_NEWS_SIZE = 5;
 
 /** Ranks a pool of events by reaction score and keeps the top N with a positive score in that direction. */
 function topByScore(events: CalendarEvent[], scores: Map<string, { positive: number; negative: number }>, key: "positive" | "negative"): TrendingEvent[] {
@@ -49,6 +51,12 @@ export default async function DashboardPage() {
   const reactionScores = await getReactionScoresForEvents([...trendingPool.keys()]);
   const pooledEvents = [...trendingPool.values()];
 
+  // News is a paid feature (see /news) -- gate the fetch itself, not just
+  // the rendered card, the same lesson this repo already learned once for
+  // ProductSet.imageUrl (see stripPremiumImageUrls above). A non-premium
+  // session gets no news items in its props at all, not just a hidden card.
+  const latestNews = profile.isPremium ? await getLatestNewsTeaser(DASHBOARD_NEWS_SIZE).catch(() => []) : [];
+
   return (
     <DashboardShell
       subscribedGames={subscriptions.map((s) => ({ id: s.tcgProfileInstallId, name: s.install.package.name }))}
@@ -56,6 +64,7 @@ export default async function DashboardPage() {
       recentActivity={strippedRecentActivity}
       mostHyped={topByScore(pooledEvents, reactionScores, "positive")}
       mostMeh={topByScore(pooledEvents, reactionScores, "negative")}
+      latestNews={latestNews}
       cardOrder={cardOrder}
     />
   );

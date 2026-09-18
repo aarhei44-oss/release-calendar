@@ -106,8 +106,21 @@ const LAUNCH_PACKAGES = [
 // Confirmed working, fetched and parsed by hand during the news-feed feature
 // scoping pass (2026-09-17) -- see the published scoping doc for the full
 // verification notes. Deliberately excludes gundam-card-game (no candidate
-// found) and riftbound (found but not cross-checked against the official
-// domain) -- seed those once they've been checked, not before.
+// found). Riftbound.gg was added in a follow-up pass (2026-09-18) once its
+// feed and its relationship to the game's actual publishers were checked --
+// its own footer discloses "Riftbound.gg is not affiliated with Riot Games
+// and UVS Games", the same kind of unofficial-but-legitimate fan site as
+// PokeBeach/YGOrganization/Lorcana Player above, so it's COMMUNITY tier too.
+// Still excluded: Serebii (publicly confirmed to run no RSS feed at all --
+// its own operator has said as much, to avoid cannibalizing site visits),
+// the official en.onepiece-cardgame.com (no feed at any of the usual
+// WordPress/Jekyll paths, and no <link rel="alternate"> autodiscovery tag
+// on its /news/ page), and ICv2 (its https://icv2.com/rss is a real,
+// working RSS 2.0 feed -- but it's whole-industry "geek culture" coverage,
+// not per-game, and this repo's per-source model has no keyword-filter step
+// to bucket it by game yet -- see the scoping doc's deferred cross-game-press
+// decision. Seeding it today would dump comics/board-game/merch noise into
+// every game's unfiltered feed; revisit once that filtering step exists).
 const NEWS_FEED_SOURCES = [
   {
     packageSlug: "magic-the-gathering",
@@ -144,6 +157,12 @@ const NEWS_FEED_SOURCES = [
     label: "Total Cards — One Piece",
     feedUrl: "https://totalcards.net/blogs/one-piece.atom",
     tier: "RETAILER",
+  },
+  {
+    packageSlug: "riftbound",
+    label: "Riftbound.gg",
+    feedUrl: "https://riftbound.gg/feed/",
+    tier: "COMMUNITY",
   },
 ] as const;
 

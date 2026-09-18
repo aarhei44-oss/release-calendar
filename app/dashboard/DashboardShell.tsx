@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame } from "lucide-react";
+import { CalendarDays, Sparkles, PartyPopper, ChevronRight, Flame, Newspaper } from "lucide-react";
 import type { CalendarEvent } from "@/data/calendar/calendarRepo";
+import type { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import { eventTitle } from "@/app/calendar/mapEvents";
 import {
   NEUTRAL_BADGE_CLASS,
@@ -19,6 +20,8 @@ type SubscribedGame = { id: string; name: string };
 
 export type TrendingEvent = { event: CalendarEvent; score: number };
 
+type NewsTeaserItem = Awaited<ReturnType<typeof getLatestNewsTeaser>>[number];
+
 type Props = {
   subscribedGames: SubscribedGame[];
   upcoming: CalendarEvent[];
@@ -26,6 +29,8 @@ type Props = {
   /** Ranked by total positive/negative reaction count, already filtered to score > 0 and capped, see dashboard/page.tsx's topByScore. */
   mostHyped?: TrendingEvent[];
   mostMeh?: TrendingEvent[];
+  /** Premium-only; dashboard/page.tsx only fetches this for a premium session, so a non-premium visitor always gets an empty array here and the card self-hides. */
+  latestNews?: NewsTeaserItem[];
   /** Premium-configurable (see /profile); defaults to every card, in the default order. */
   cardOrder?: DashboardCardId[];
 };
@@ -191,6 +196,7 @@ export function DashboardShell({
   recentActivity,
   mostHyped = [],
   mostMeh = [],
+  latestNews = [],
   cardOrder = DEFAULT_DASHBOARD_CARD_ORDER,
 }: Props) {
   const router = useRouter();
@@ -309,6 +315,40 @@ export function DashboardShell({
                     <TrendingColumn title="Most hyped" emoji={"\u{1F525}"} events={mostHyped} onSelect={openEvent} />
                     <TrendingColumn title="Getting meh reactions" emoji={"\u{1F614}"} events={mostMeh} onSelect={openEvent} />
                   </div>
+                </section>
+              ) : null;
+            case "latestNews":
+              // Self-hides when empty, same as newlyConfirmed/communityPulse --
+              // and for a non-premium session it's always empty, since
+              // dashboard/page.tsx never fetches news items for one.
+              return latestNews.length > 0 ? (
+                <section key={cardId} className="@container">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <SectionHeading icon={Newspaper} title="Latest news" />
+                    <Link href="/news" className="shrink-0 text-sm text-blue-600 hover:underline dark:text-blue-400">
+                      View all
+                    </Link>
+                  </div>
+                  <ul className="flex flex-col gap-2">
+                    {latestNews.map((item) => (
+                      <li
+                        key={item.id}
+                        className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+                      >
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-gray-900 hover:underline dark:text-gray-100"
+                        >
+                          {item.title}
+                        </a>
+                        <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
+                          {item.source.label} · {formatRelativeTime(item.publishedAt)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               ) : null;
           }

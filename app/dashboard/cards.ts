@@ -1,18 +1,26 @@
-export type DashboardCardId = "upcoming" | "newlyConfirmed" | "recentActivity" | "communityPulse";
+export type DashboardCardId = "upcoming" | "newlyConfirmed" | "recentActivity" | "communityPulse" | "latestNews";
 
 export const DASHBOARD_CARD_LABELS: Record<DashboardCardId, string> = {
   upcoming: "Next 7 days",
   newlyConfirmed: "Newly confirmed",
   recentActivity: "What's new",
   communityPulse: "Community pulse (hype & meh)",
+  latestNews: "Latest news",
 };
 
-/** Every card, in the default order -- what a non-premium (or not-yet-customized) dashboard shows. */
+/**
+ * Every card, in the default order -- what a non-premium (or not-yet-
+ * customized) dashboard shows. "latestNews" sits in this default slot too,
+ * but a non-premium session never actually gets data for it (see
+ * dashboard/page.tsx, which only fetches news items when isPremium) --
+ * the card just self-hides when empty, same as newlyConfirmed/communityPulse.
+ */
 export const DEFAULT_DASHBOARD_CARD_ORDER: DashboardCardId[] = [
   "upcoming",
   "newlyConfirmed",
   "recentActivity",
   "communityPulse",
+  "latestNews",
 ];
 
 export function isDashboardCardId(value: string): value is DashboardCardId {

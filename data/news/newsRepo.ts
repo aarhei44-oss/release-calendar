@@ -60,3 +60,26 @@ export async function getLatestNewsTeaser(limit: number) {
     include: { source: { select: { label: true, tier: true } } },
   });
 }
+
+const NEWS_LIST_LIMIT = 150;
+
+/**
+ * Full feed for the paid /news page -- premium-gated by the caller
+ * (app/news/page.tsx), unlike getLatestNewsTeaser above. `installIds`
+ * filters to sources tied to those TcgProfileInstalls; an empty/omitted
+ * filter returns every enabled source's items, cross-game press included.
+ */
+export async function listNewsItems({ installIds }: { installIds?: string[] } = {}) {
+  return prisma.newsItem.findMany({
+    where: {
+      archivedAt: null,
+      source: {
+        enabled: true,
+        ...(installIds && installIds.length > 0 ? { tcgProfileInstallId: { in: installIds } } : {}),
+      },
+    },
+    orderBy: { publishedAt: "desc" },
+    take: NEWS_LIST_LIMIT,
+    include: { source: { select: { label: true, tier: true, tcgProfileInstallId: true } } },
+  });
+}
