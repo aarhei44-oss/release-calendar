@@ -121,6 +121,27 @@ const LAUNCH_PACKAGES = [
 // to bucket it by game yet -- see the scoping doc's deferred cross-game-press
 // decision. Seeding it today would dump comics/board-game/merch noise into
 // every game's unfiltered feed; revisit once that filtering step exists).
+//
+// Second follow-up pass (2026-09-18), prompted by PokeBeach and Lorcana
+// Player both 403ing from the production droplet's IP specifically (not a
+// code/header issue -- confirmed the same URLs 200 from an unrelated
+// machine, and still 403 from the droplet with a normal browser UA; reads
+// as datacenter-IP blocking on their end). Added Lorcana.gg and PokeJungle's
+// TCG-only category feed as extra per-game coverage, each verified 200 from
+// the droplet itself before landing here. Lorcana.gg is a second full
+// community-news source for Lorcana Player to lean on. PokeJungle's feed is
+// scoped to its "tcg" category specifically (its site-wide feed is broader
+// Pokemon-franchise coverage -- games, GO, anime -- with TCG as one category
+// among many, same cross-game-noise shape as ICv2 above); it posts far less
+// often than PokeBeach did (tied to official announcements, not daily
+// community chatter), so treat it as a supplement, not PokeBeach's
+// replacement. Gundam and Union Arena were re-checked and still have no
+// working dedicated feed -- Union Arena's English release is barely a year
+// old and hasn't grown dedicated fan press yet; Gundam's one candidate with
+// a real feed (TCG Top Decks HQ) mixes in Naruto TCG and others sitewide
+// with no per-category feed that actually filters (category feed URLs all
+// redirect to its homepage), so it has the same cross-game problem as ICv2
+// on top of being low-volume (last post over a month old at check time).
 const NEWS_FEED_SOURCES = [
   {
     packageSlug: "magic-the-gathering",
@@ -162,6 +183,18 @@ const NEWS_FEED_SOURCES = [
     packageSlug: "riftbound",
     label: "Riftbound.gg",
     feedUrl: "https://riftbound.gg/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "disney-lorcana",
+    label: "Lorcana.gg",
+    feedUrl: "https://lorcana.gg/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "pokemon-tcg",
+    label: "PokeJungle — Pokemon TCG",
+    feedUrl: "https://pokejungle.net/category/tcg/feed/",
     tier: "COMMUNITY",
   },
 ] as const;
