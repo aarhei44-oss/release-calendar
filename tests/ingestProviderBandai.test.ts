@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DIGIMON_PAGES, bandaiDigimonProvider } from "@/lib/ingest/providers/bandaiDigimon";
 import { GUNDAM_PAGES, bandaiGundamProvider } from "@/lib/ingest/providers/bandaiGundam";
 import { ONE_PIECE_PAGES, bandaiOnePieceProvider } from "@/lib/ingest/providers/bandaiOnePiece";
 import { bandaiUnionArenaProvider } from "@/lib/ingest/providers/bandaiUnionArena";
@@ -31,6 +32,10 @@ import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 const FETCHED_AT = new Date("2026-09-04T20:00:00.000Z");
 const ONE_PIECE_FIXTURE = loadFixture<Record<string, string>>("bandaiOnePiece.pages.json");
 const GUNDAM_FIXTURE = loadFixture<Record<string, string>>("bandaiGundam.pages.json");
+// world.digimoncard.com/products/, trimmed to ten of its <article> rows (boosters,
+// starter decks, a Premium Bandai pack and box, and a playmat) on 2026-09-19.
+const DIGIMON_FETCHED_AT = new Date("2026-09-19T12:00:00.000Z");
+const DIGIMON_FIXTURE = loadFixture<Record<string, string>>("bandaiDigimon.pages.json");
 const UNION_ARENA_FETCHED_AT = new Date("2026-09-05T12:00:00.000Z");
 const UNION_ARENA_FIXTURE = loadFixture<{ index: string; products: Record<string, string> }>(
   "bandaiUnionArena.pages.json",
@@ -48,6 +53,10 @@ function parseUnionArena(value: unknown = UNION_ARENA_FIXTURE, fetchedAt = UNION
   return parseFixture(bandaiUnionArenaProvider, value, fetchedAt);
 }
 
+function parseDigimon(value: unknown = DIGIMON_FIXTURE, fetchedAt = DIGIMON_FETCHED_AT): Candidate[] {
+  return parseFixture(bandaiDigimonProvider, value, fetchedAt);
+}
+
 function byName(candidates: Candidate[], fragment: string): Candidate | undefined {
   return candidates.find((candidate) => candidate.name.includes(fragment));
 }
@@ -58,7 +67,7 @@ function byName(candidates: Candidate[], fragment: string): Candidate | undefine
 
 describe("Bandai providers: shape", () => {
   it("speaks for the publisher, at OFFICIAL tier", () => {
-    for (const provider of [bandaiOnePieceProvider, bandaiGundamProvider, bandaiUnionArenaProvider]) {
+    for (const provider of [bandaiOnePieceProvider, bandaiGundamProvider, bandaiUnionArenaProvider, bandaiDigimonProvider]) {
       expect(provider.origin).toBe("bandai-official");
       expect(provider.tier).toBe("OFFICIAL");
       expect(ORIGINS["bandai-official"].tier).toBe("OFFICIAL");
@@ -76,6 +85,8 @@ describe("Bandai providers: shape", () => {
     expect(bandaiOnePieceProvider.games).toEqual(["one-piece-tcg"]);
     expect(bandaiGundamProvider.games).toEqual(["gundam-card-game"]);
     expect(bandaiUnionArenaProvider.games).toEqual(["union-arena-tcg"]);
+    expect(bandaiDigimonProvider.games).toEqual(["digimon-card-game"]);
+    for (const page of DIGIMON_PAGES) expect(page.url).toContain("world.digimoncard.com/products/");
     for (const page of ONE_PIECE_PAGES) expect(page.url).toContain("en.onepiece-cardgame.com");
     for (const page of GUNDAM_PAGES) expect(page.url).toContain("gundam-gcg.com/en/");
   });
@@ -327,6 +338,71 @@ describe("bandai-unionarena provider: field mapping", () => {
 // Drift
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Digimon
+// ---------------------------------------------------------------------------
+
+describe("bandai-digimon provider: field mapping", () => {
+  it("reads a booster's name, code and street date, with the game prefix and code stripped from the name", () => {
+    const booster = parseDigimon().find((candidate) => candidate.code === "BT-26" && candidate.type === "SHELF");
+    expect(booster).toMatchObject({
+      origin: "bandai-official",
+      game: "digimon-card-game",
+      name: "TIMELESS BONDS",
+      region: "GLOBAL",
+      date: { kind: "EXACT", date: new Date("2026-09-04T00:00:00Z") },
+      url: "https://world.digimoncard.com/products/pack/ver26/",
+      externalIds: { "bandai-official": "digimon:pack/ver26" },
+    });
+  });
+
+  it("turns a stated Pre-Release date into a PRERELEASE event for the same set", () => {
+    const prerelease = parseDigimon().find((candidate) => candidate.code === "BT-26" && candidate.type === "PRERELEASE");
+    expect(prerelease).toMatchObject({
+      name: "TIMELESS BONDS",
+      date: { kind: "EXACT", date: new Date("2026-08-28T00:00:00Z") },
+      externalIds: { "bandai-official": "digimon:pack/ver26" },
+    });
+  });
+
+  it("emits no PRERELEASE for a product that states none", () => {
+    const candidates = parseDigimon().filter((candidate) => candidate.code === "EX-13");
+    expect(candidates.map((candidate) => candidate.type)).toEqual(["SHELF"]);
+    expect(candidates[0].date).toEqual({ kind: "EXACT", date: new Date("2026-10-02T00:00:00Z") });
+  });
+
+  it("reads starter decks, whose links are root-relative", () => {
+    // ST-24 shipped 2026-05-15, which is outside the forward window of the
+    // 2026-09-19 capture, so the same bytes are read as of a scan run that week.
+    const deck = parseDigimon(DIGIMON_FIXTURE, new Date("2026-05-10T12:00:00Z")).find(
+      (candidate) => candidate.code === "ST-24",
+    );
+    expect(deck).toMatchObject({
+      name: "DIGIMON DATA SQUAD",
+      url: "https://world.digimoncard.com/products/deck/st-24/",
+      externalIds: { "bandai-official": "digimon:deck/st-24" },
+    });
+  });
+
+  it("leaves out Premium Bandai items and goods, which state conflicting regional dates or are not cards", () => {
+    const codes = parseDigimon().map((candidate) => candidate.code);
+    expect(codes).not.toContain("LM-09");
+    expect(codes).not.toContain("PB-26");
+    for (const candidate of parseDigimon()) {
+      expect(candidate.name).not.toMatch(/playmat|sleeve/i);
+    }
+  });
+
+  it("drops products that shipped before the forward window", () => {
+    // BT-25 released 2026-05-22, more than 90 days before the capture.
+    expect(parseDigimon().some((candidate) => candidate.code === "BT-25")).toBe(false);
+  });
+
+  it("carries a code on every candidate, which is what pairs it with the retailer's row", () => {
+    for (const candidate of parseDigimon()) expect(candidate.code).toMatch(/^[A-Z]{2}-\d{2}$/);
+  });
+});
+
 describe("Bandai providers: a page redesign fails loudly", () => {
   it("raises ParseError when no product rows match", () => {
     // The failure this guards against is not a crash, it is a *silence*: a
@@ -374,6 +450,17 @@ describe("Bandai providers: a page redesign fails loudly", () => {
       expect(error).toBeInstanceOf(ParseError);
       expect((error as ParseError).providerKey).toBe("bandai-unionarena");
       expect((error as ParseError).path).toBe("index");
+    }
+  });
+
+  it("throws a ParseError naming the Digimon provider when no product rows match", () => {
+    try {
+      parseDigimon({ "digimon-products": "<html><body><article data-url='x'></article></body></html>" });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ParseError);
+      expect((error as ParseError).providerKey).toBe("bandai-digimon");
+      expect((error as ParseError).path).toBe("rows");
     }
   });
 

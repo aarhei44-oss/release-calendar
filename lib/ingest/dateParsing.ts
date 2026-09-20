@@ -11,6 +11,7 @@ export type ParsedDate =
   | { dateType: "TBD" };
 
 const MONTH_DAY_YEAR = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/;
+const DAY_MONTH_YEAR = /^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})$/;
 const MONTH_YEAR = /^([A-Za-z]+)\.?\s+(\d{4})$/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const YEAR_ONLY = /^(\d{4})$/;
@@ -32,7 +33,7 @@ const MONTH_INDEX: Record<string, number> = {
 
 /**
  * Parses release-date text as it commonly appears on Wikipedia-style
- * tables and TCG tracker sites: "May 9, 2012", "Jun 12, 2026",
+ * tables and TCG tracker sites: "May 9, 2012", "7 August 2026", "Jun 12, 2026",
  * "2026-07-25" (ISO, as used by e.g. gundamcardlist.com), or
  * "December 1993" (month + year only -> a one-month WINDOW). Anything
  * unrecognized becomes TBD rather than throwing, since scraped text is
@@ -56,6 +57,18 @@ export function parseFlexibleDate(raw: string): ParsedDate {
     const month = MONTH_INDEX[exact[1].toLowerCase()];
     const day = Number(exact[2]);
     const year = Number(exact[3]);
+    if (month !== undefined && isValidDate(year, month, day)) {
+      return { dateType: "EXACT", dateExact: new Date(Date.UTC(year, month, day)) };
+    }
+  }
+
+  // Day-first ("7 August 2026"), which is how Flesh and Blood's Wikipedia table
+  // writes its dates. Unambiguous because the month is always a name.
+  const dayFirst = DAY_MONTH_YEAR.exec(text);
+  if (dayFirst) {
+    const month = MONTH_INDEX[dayFirst[2].toLowerCase()];
+    const day = Number(dayFirst[1]);
+    const year = Number(dayFirst[3]);
     if (month !== undefined && isValidDate(year, month, day)) {
       return { dateType: "EXACT", dateExact: new Date(Date.UTC(year, month, day)) };
     }

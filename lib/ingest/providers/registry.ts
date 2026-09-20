@@ -1,3 +1,4 @@
+import { bandaiDigimonProvider } from "./bandaiDigimon";
 import { bandaiGundamProvider } from "./bandaiGundam";
 import { bandaiOnePieceProvider } from "./bandaiOnePiece";
 import { bandaiUnionArenaProvider } from "./bandaiUnionArena";
@@ -31,6 +32,12 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  *   one-piece-tcg       tcgplayer, bandai-official         (2, and G1)
  *   gundam-card-game    tcgplayer, bandai-official         (2, and G1)
  *   union-arena-tcg     tcgplayer, bandai-official         (2, and G1)
+ *   digimon-card-game   tcgplayer, bandai-official         (2, and G1)
+ *   flesh-and-blood     tcgplayer, wikipedia               (2, G2)
+ *
+ * Flesh and Blood's own site (fabtcg.com) would be its OFFICIAL origin, but it
+ * answers 403 to every non-browser request, including from the production
+ * droplet, so Wikipedia's set table is the second origin instead.
  *
  * The Bandai entries and playriftbound are the pipeline's OFFICIAL-tier
  * origins, which makes them the only providers whose claims satisfy gate rule
@@ -94,6 +101,7 @@ export const PRODUCTION_PROVIDERS: readonly Provider[] = [
   bandaiGundamProvider,
   playriftboundProvider,
   bandaiUnionArenaProvider,
+  bandaiDigimonProvider,
 ];
 
 for (const provider of PRODUCTION_PROVIDERS) {

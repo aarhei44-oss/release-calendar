@@ -56,6 +56,8 @@ describe("PRERELEASE_SCHEDULES coverage", () => {
   it("treats a game with no slots as having no schedule at all", () => {
     expect(prereleaseScheduleFor("gundam-card-game")).toBeNull();
     expect(prereleaseScheduleFor("union-arena-tcg")).toBeNull();
+    expect(prereleaseScheduleFor("digimon-card-game")).toBeNull();
+    expect(prereleaseScheduleFor("flesh-and-blood")).toBeNull();
     // Riftbound is the interesting one: it is excluded because Riot publishes
     // the real Pre-Rift date, not because nothing happens.
     expect(prereleaseScheduleFor("riftbound")).toBeNull();

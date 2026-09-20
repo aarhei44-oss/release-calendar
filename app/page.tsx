@@ -64,7 +64,8 @@ export default async function Home() {
         <h1 className="text-3xl font-bold sm:text-4xl">Never miss a TCG release again.</h1>
         <p className="max-w-xl text-gray-600 dark:text-gray-400">
           Release Watcher cross-checks release dates for Magic: The Gathering, Pokémon, One Piece, Disney
-          Lorcana, Gundam, Riftbound, and Yu-Gi-Oh against official sources, retailers, and community
+          Lorcana, Gundam, Riftbound, Union Arena, Flesh and Blood, Digimon, and Yu-Gi-Oh against official
+          sources, retailers, and community
           trackers -- so you see one confident answer, not five conflicting rumors.
         </p>
         {stats && (

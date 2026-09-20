@@ -5,12 +5,13 @@ import { TCGCSV_CATEGORIES, tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv
 import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 
 /**
- * tcgcsv.groups.json is a recording of the eight live
+ * tcgcsv.groups.json is a recording of the ten live
  * `https://tcgcsv.com/tcgplayer/{categoryId}/groups` responses, captured on
  * 2026-09-04 (categoryId 81, Union Arena, on 2026-09-05) and trimmed to every
  * group published on or after 2026-01-01 plus the six most recent older ones
  * per category -- so both sides of the forward window are real rows rather
- * than hand-written ones.
+ * than hand-written ones. Categories 62 (Flesh and Blood) and 63 (Digimon) were
+ * recorded later, on 2026-09-19, and trimmed the same way.
  *
  * `FETCHED_AT` is the recording's own timestamp, which is what the forward
  * window is measured against.
@@ -23,10 +24,12 @@ function parse(value: unknown = FIXTURE, fetchedAt = FETCHED_AT) {
 }
 
 describe("tcgcsv provider: shape", () => {
-  it("declares all eight games", () => {
+  it("declares all ten games", () => {
     expect(tcgcsvProvider.games.sort()).toEqual(
       [
+        "digimon-card-game",
         "disney-lorcana",
+        "flesh-and-blood",
         "gundam-card-game",
         "magic-the-gathering",
         "one-piece-tcg",
@@ -81,6 +84,35 @@ describe("tcgcsv provider: field mapping", () => {
   it("carries the category's groups URL onto every candidate", () => {
     const riftbound = parse().find((candidate) => candidate.game === "riftbound");
     expect(riftbound?.url).toBe("https://tcgcsv.com/tcgplayer/89/groups");
+  });
+});
+
+describe("tcgcsv provider: pre-release card pools", () => {
+  // TCGplayer lists a set's pre-release card pool as its own group carrying the
+  // set's code: "Timeless Bonds Release Event Cards" is BT-26, like the booster.
+  const DIGIMON_FETCHED_AT = new Date("2026-09-19T12:00:00Z");
+  const digimon = () => parse(FIXTURE, DIGIMON_FETCHED_AT).filter((candidate) => candidate.game === "digimon-card-game");
+  const fab = () => parse(FIXTURE, DIGIMON_FETCHED_AT).filter((candidate) => candidate.game === "flesh-and-blood");
+
+  it("keeps the real Digimon set and drops its Release Event Cards group", () => {
+    const names = digimon().map((candidate) => candidate.name);
+    expect(names).toContain("Timeless Bonds");
+    expect(names.filter((name) => /release event cards$/i.test(name))).toEqual([]);
+    // One product per code, so the code stays usable as an identity key.
+    expect(digimon().filter((candidate) => candidate.code === "BT-26")).toHaveLength(1);
+  });
+
+  it("keeps the real Flesh and Blood set and drops its Pre-release Cards group", () => {
+    const names = fab().map((candidate) => candidate.name);
+    expect(names).toContain("Usurp the Shadow Throne");
+    expect(names.filter((name) => /pre-?release cards$/i.test(name))).toEqual([]);
+  });
+
+  it("applies only to the two games it was written for", () => {
+    const value = {
+      "3": { success: true, results: [{ groupId: 5, name: "Some Set Prerelease Cards", abbreviation: "SSP", publishedOn: "2026-11-06T00:00:00" }] },
+    };
+    expect(parse(value)).toHaveLength(1);
   });
 });
 

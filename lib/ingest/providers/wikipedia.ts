@@ -5,10 +5,13 @@ import type { FetchContext, Provider } from "./types";
 /**
  * English Wikipedia's set-list articles, via the MediaWiki API.
  *
- * Four games, chosen from the pages v1 already relied on (prisma/seed.ts's
- * source lists): Pokémon, Magic, Lorcana and Riftbound. Yu-Gi-Oh! is
- * deliberately absent -- Wikipedia has no maintained set table for it, and
- * YGOPRODeck already gives that game its second origin.
+ * Five games: Pokémon, Magic, Lorcana and Riftbound (the pages v1 already
+ * relied on), plus Flesh and Blood, whose article carries a maintained set
+ * table with codes. Yu-Gi-Oh! is deliberately absent -- Wikipedia has no
+ * maintained set table for it, and YGOPRODeck already gives that game its
+ * second origin. Digimon is absent for the same reason: its article is a
+ * section of the franchise page with no set list, and Bandai's own site gives
+ * it a second origin (bandaiDigimon.ts).
  *
  * Origin `wikipedia`, tier COMMUNITY, `derivesFrom: null`. That null is what
  * makes this provider valuable rather than decorative: it means Wikipedia
@@ -73,6 +76,19 @@ export const WIKIPEDIA_PAGES: readonly WikiPageSpec[] = [
     game: "riftbound",
     region: "GLOBAL",
     nameHeaders: ["setname"],
+    dateHeaders: ["releasedate"],
+    codeHeaders: ["setcode"],
+  },
+  {
+    key: "wp-flesh-and-blood",
+    apiUrl: API_URL,
+    pageUrl: "https://en.wikipedia.org/wiki/Flesh_and_Blood_(card_game)",
+    title: "Flesh and Blood (card game)",
+    game: "flesh-and-blood",
+    region: "GLOBAL",
+    // The article's first table is an infobox ("Release date" with no set
+    // name), so the name column is what keeps it from being read as a set list.
+    nameHeaders: ["set"],
     dateHeaders: ["releasedate"],
     codeHeaders: ["setcode"],
   },

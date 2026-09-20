@@ -1325,6 +1325,479 @@
    }
   ]
  },
+ "62": {
+  "totalItems": 105,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24814,
+    "name": "Armory Deck: Dr. Mortimer",
+    "abbreviation": "AMO",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-08-26T15:25:00.5",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24818,
+    "name": "Mastery Pack Assassin",
+    "abbreviation": "MPA",
+    "isSupplemental": false,
+    "publishedOn": "2026-11-13T00:00:00",
+    "modifiedOn": "2026-08-17T17:45:31.823",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24773,
+    "name": "Smash Palace: Chorus of Steel",
+    "abbreviation": "SPW",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-30T00:00:00",
+    "modifiedOn": "2026-08-31T14:38:29.123",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24774,
+    "name": "GEM Pack 6",
+    "abbreviation": "GEM",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-08-31T19:16:07.903",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24762,
+    "name": "Usurp the Shadow Throne",
+    "abbreviation": "IAR",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-09-18T20:10:05.21",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24776,
+    "name": "Usurp the Shadow Throne Pre-release Cards",
+    "abbreviation": "IAR",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-25T00:00:00",
+    "modifiedOn": "2026-09-10T13:15:32.99",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24763,
+    "name": "Armory Deck: Malice",
+    "abbreviation": "AMA",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-09-10T12:49:40.037",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24764,
+    "name": "Silver Age: Usurp the Shadow Throne",
+    "abbreviation": "SAT",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-18T00:00:00",
+    "modifiedOn": "2026-09-08T14:50:45.017",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24672,
+    "name": "Armory Deck: Olympia",
+    "abbreviation": "AOL",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-07T00:00:00",
+    "modifiedOn": "2026-08-13T20:21:24.023",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24671,
+    "name": "Mastery Pack Warrior",
+    "abbreviation": "MPW",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-07T00:00:00",
+    "modifiedOn": "2026-08-26T14:50:40.367",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24720,
+    "name": "Gem Pack 5",
+    "abbreviation": "GEM",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-05T00:00:00",
+    "modifiedOn": "2026-07-20T14:51:33.42",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24640,
+    "name": "Omens of the Third Age",
+    "abbreviation": "OMN",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-05T00:00:00",
+    "modifiedOn": "2026-09-08T12:53:56.67",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24706,
+    "name": "Silver Age Chapter 3",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-06-05T00:00:00",
+    "modifiedOn": "2026-08-06T00:18:10.99",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24639,
+    "name": "Armory Deck: Zyggy",
+    "abbreviation": "AZS",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-29T00:00:00",
+    "modifiedOn": "2026-05-29T13:45:57.753",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24610,
+    "name": "Armory Deck Origins: Hala",
+    "abbreviation": "AHA",
+    "isSupplemental": false,
+    "publishedOn": "2026-04-17T00:00:00",
+    "modifiedOn": "2026-04-26T15:28:08.893",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24620,
+    "name": "GEM Pack 4",
+    "abbreviation": "GEM",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-14T00:00:00",
+    "modifiedOn": "2026-05-04T14:17:41.903",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24532,
+    "name": "Compendium of Rathe",
+    "abbreviation": "PEN",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-08-10T14:43:32.193",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24533,
+    "name": "Compendium of Rathe - Antiquity Pack",
+    "abbreviation": "ANQ",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-09-03T14:03:16.773",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24524,
+    "name": "Silver Age Chapter 1",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-02-10T15:22:46.057",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24525,
+    "name": "Silver Age Chapter 2",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-02-10T15:22:51.5",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24526,
+    "name": "Armory Deck: Arakni",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-12T00:00:00",
+    "modifiedOn": "2026-08-25T20:27:39.13",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24474,
+    "name": "Armory Deck: Rhinar",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2025-11-14T00:00:00",
+    "modifiedOn": "2025-11-21T20:41:34.96",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24446,
+    "name": "GEM Pack 3",
+    "abbreviation": "GEM",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-30T00:00:00",
+    "modifiedOn": "2026-02-19T14:44:55.75",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24371,
+    "name": "Super Slam",
+    "abbreviation": "SUP",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-26T00:00:00",
+    "modifiedOn": "2026-09-04T17:39:47.947",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24375,
+    "name": "Armory Deck: Pleiades",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-19T00:00:00",
+    "modifiedOn": "2026-09-03T14:04:09.367",
+    "categoryId": 62
+   },
+   {
+    "groupId": 24415,
+    "name": "Smash Palace",
+    "abbreviation": "",
+    "isSupplemental": false,
+    "publishedOn": "2025-08-08T00:00:00",
+    "modifiedOn": "2026-07-20T15:01:54.803",
+    "categoryId": 62
+   }
+  ]
+ },
+ "63": {
+  "totalItems": 103,
+  "success": true,
+  "errors": [],
+  "results": [
+   {
+    "groupId": 24865,
+    "name": "Ignition of X",
+    "abbreviation": "BT27",
+    "isSupplemental": false,
+    "publishedOn": "2026-12-11T00:00:00",
+    "modifiedOn": "2026-09-02T14:02:28.833",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24866,
+    "name": "Ignition of X Release Event Cards",
+    "abbreviation": "BT27_RE",
+    "isSupplemental": false,
+    "publishedOn": "2026-12-11T00:00:00",
+    "modifiedOn": "2026-09-02T13:54:22.173",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24635,
+    "name": "Chivalrous XIII",
+    "abbreviation": "EX-13",
+    "isSupplemental": false,
+    "publishedOn": "2026-10-02T00:00:00",
+    "modifiedOn": "2026-09-18T19:54:17.13",
+    "categoryId": 63
+   },
+   {
+    "groupId": 2987,
+    "name": "Revision Pack Cards",
+    "abbreviation": "RPC",
+    "isSupplemental": true,
+    "publishedOn": "2026-09-19T20:00:05.5858126Z",
+    "modifiedOn": "2026-04-14T15:39:58.3",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24623,
+    "name": "Timeless Bonds",
+    "abbreviation": "BT-26",
+    "isSupplemental": false,
+    "publishedOn": "2026-09-04T00:00:00",
+    "modifiedOn": "2026-09-03T12:27:09.467",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24824,
+    "name": "Timeless Bonds Release Event Cards",
+    "abbreviation": "BT-26",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-28T00:00:00",
+    "modifiedOn": "2026-09-04T12:52:49.797",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24631,
+    "name": "Limited Card Pack -Final Crest-",
+    "abbreviation": "LM-08",
+    "isSupplemental": false,
+    "publishedOn": "2026-08-07T00:00:00",
+    "modifiedOn": "2026-08-10T14:23:17.887",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24630,
+    "name": "Digital World Shambala",
+    "abbreviation": "EX-12",
+    "isSupplemental": false,
+    "publishedOn": "2026-07-03T00:00:00",
+    "modifiedOn": "2026-08-18T18:05:55.32",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24574,
+    "name": "Dual Revolution",
+    "abbreviation": "BT-25",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-22T00:00:00",
+    "modifiedOn": "2026-08-18T18:07:42.2",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24627,
+    "name": "Dual Revolution Release Event Cards",
+    "abbreviation": "BT-25_PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-15T00:00:00",
+    "modifiedOn": "2026-07-16T18:29:23.08",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24618,
+    "name": "Starter Deck 23: Beatbreak",
+    "abbreviation": "ST-23",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-15T00:00:00",
+    "modifiedOn": "2026-08-05T21:53:30.6",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24619,
+    "name": "Starter Deck 24: Data Squad",
+    "abbreviation": "ST-24",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-15T00:00:00",
+    "modifiedOn": "2026-08-05T21:56:03.1",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24628,
+    "name": "Starter Deck 23: Beatbreak Release Event Cards",
+    "abbreviation": "ST-23_PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-08T00:00:00",
+    "modifiedOn": "2026-06-29T18:53:02.323",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24629,
+    "name": "Starter Deck 24: Data Squad Release Event Cards",
+    "abbreviation": "ST-24_PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-05-08T00:00:00",
+    "modifiedOn": "2026-06-29T18:53:21.39",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24561,
+    "name": "Advanced Booster Digimon Generation",
+    "abbreviation": "AD-01",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-27T00:00:00",
+    "modifiedOn": "2026-09-18T15:17:05.887",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24428,
+    "name": "Limited Card Pack -Another Knight-",
+    "abbreviation": "LM-07",
+    "isSupplemental": false,
+    "publishedOn": "2026-03-06T00:00:00",
+    "modifiedOn": "2026-03-20T17:57:07.697",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24490,
+    "name": "Dawn of Liberator",
+    "abbreviation": "EX-11",
+    "isSupplemental": false,
+    "publishedOn": "2026-02-13T00:00:00",
+    "modifiedOn": "2026-08-05T21:49:35.81",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24531,
+    "name": "Time Stranger",
+    "abbreviation": "BT-24",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-23T00:00:00",
+    "modifiedOn": "2026-08-11T16:22:13.83",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24595,
+    "name": "Time Stranger Release Event Cards",
+    "abbreviation": "BT-24_PR",
+    "isSupplemental": false,
+    "publishedOn": "2026-01-16T00:00:00",
+    "modifiedOn": "2026-02-24T14:06:05.137",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24456,
+    "name": "Starter Deck 22: Amethyst Mandala Advanced Deck Set",
+    "abbreviation": "ST-22",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-05T00:00:00",
+    "modifiedOn": "2026-05-08T13:39:31.2",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24491,
+    "name": "Starter Deck 22: Amethyst Mandala Advanced Deck Set Release Event Cards",
+    "abbreviation": "ST-22_PR",
+    "isSupplemental": false,
+    "publishedOn": "2025-12-05T00:00:00",
+    "modifiedOn": "2026-02-23T18:43:48.853",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24426,
+    "name": "Limited Card Pack -Billion Bullet-",
+    "abbreviation": "LM-06",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-31T00:00:00",
+    "modifiedOn": "2026-02-22T21:23:24.29",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24430,
+    "name": "Hackers' Slumber",
+    "abbreviation": "BT-23",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-24T00:00:00",
+    "modifiedOn": "2026-08-05T22:00:03.07",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24488,
+    "name": "Hackers' Slumber Release Event Cards",
+    "abbreviation": "BT-23_PR",
+    "isSupplemental": false,
+    "publishedOn": "2025-10-17T00:00:00",
+    "modifiedOn": "2026-02-24T17:57:32.963",
+    "categoryId": 63
+   },
+   {
+    "groupId": 24089,
+    "name": "Sinister Order",
+    "abbreviation": "EX-10",
+    "isSupplemental": false,
+    "publishedOn": "2025-09-19T00:00:00",
+    "modifiedOn": "2026-06-26T13:49:15.41",
+    "categoryId": 63
+   }
+  ]
+ },
  "68": {
   "totalItems": 27,
   "success": true,

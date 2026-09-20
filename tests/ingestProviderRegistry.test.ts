@@ -25,6 +25,8 @@ const GAMES = [
   "gundam-card-game",
   "riftbound",
   "union-arena-tcg",
+  "flesh-and-blood",
+  "digimon-card-game",
 ] as const;
 
 function originsFor(game: string): Origin[] {
@@ -105,10 +107,12 @@ describe("provider registry: per-game coverage", () => {
       "one-piece-tcg": ["bandai-official", "tcgplayer"],
       "gundam-card-game": ["bandai-official", "tcgplayer"],
       "union-arena-tcg": ["bandai-official", "tcgplayer"],
+      "flesh-and-blood": ["tcgplayer", "wikipedia"],
+      "digimon-card-game": ["bandai-official", "tcgplayer"],
     });
   });
 
-  it("gives One Piece, Gundam, Riftbound and Union Arena an OFFICIAL origin, which is what rule G1 needs", () => {
+  it("gives One Piece, Gundam, Riftbound, Union Arena and Digimon an OFFICIAL origin, which is what rule G1 needs", () => {
     // One Piece and Gundam were the two single-origin games, publishable only
     // through G3's seven-run retailer streak. An OFFICIAL claim publishes on
     // first sight -- and until the Bandai providers existed, no origin in the
@@ -117,12 +121,13 @@ describe("provider registry: per-game coverage", () => {
     // Pre-Rift date, which playriftbound.ts's OFFICIAL claim is the first to.
     // Union Arena is new to the registry entirely and launches with both an
     // OFFICIAL and a RETAILER origin from day one -- see bandaiUnionArena.ts.
-    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound", "union-arena-tcg"] as const) {
+    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound", "union-arena-tcg", "digimon-card-game"] as const) {
       const tiers = providersForGames([game]).map((provider) => provider.tier);
       expect(tiers, `${game}`).toContain("OFFICIAL");
     }
     const officialProviders = PRODUCTION_PROVIDERS.filter((provider) => provider.tier === "OFFICIAL");
     expect(officialProviders.map((provider) => provider.key).sort()).toEqual([
+      "bandai-digimon",
       "bandai-gundam",
       "bandai-onepiece",
       "bandai-unionarena",

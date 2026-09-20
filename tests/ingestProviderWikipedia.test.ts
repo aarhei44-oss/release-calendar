@@ -7,7 +7,8 @@ import { loadFixture, parseFixture } from "./fixtures/ingest/helpers";
 /**
  * wikipedia.pages.json is a recording of four `action=parse&prop=text`
  * responses from en.wikipedia.org, captured on 2026-09-04: the Pokémon TCG set
- * list, the Magic set list, Disney Lorcana and Riftbound.
+ * list, the Magic set list, Disney Lorcana and Riftbound; the Flesh and Blood
+ * article was added on 2026-09-19.
  *
  * The prose is trimmed and only the articles' `<table>` elements are kept --
  * the parser never looks anywhere else, and the Magic article alone is 968 KB
@@ -23,9 +24,9 @@ function parse(value: unknown = FIXTURE, fetchedAt = FETCHED_AT) {
 }
 
 describe("wikipedia provider: shape", () => {
-  it("covers four games as an independent COMMUNITY origin", () => {
+  it("covers five games as an independent COMMUNITY origin", () => {
     expect(wikipediaProvider.games.sort()).toEqual(
-      ["disney-lorcana", "magic-the-gathering", "pokemon-tcg", "riftbound"].sort(),
+      ["disney-lorcana", "flesh-and-blood", "magic-the-gathering", "pokemon-tcg", "riftbound"].sort(),
     );
     expect(wikipediaProvider.origin).toBe("wikipedia");
     expect(wikipediaProvider.tier).toBe("COMMUNITY");
@@ -51,6 +52,23 @@ describe("wikipedia provider: field mapping", () => {
       url: "https://en.wikipedia.org/wiki/Riftbound",
       externalIds: { wikipedia: "wp-riftbound:RAD" },
     });
+  });
+
+  it("reads a Flesh and Blood set row, ignoring the infobox and the sub-header row", () => {
+    const candidates = parse(FIXTURE, new Date("2026-09-19T12:00:00Z")).filter(
+      (candidate) => candidate.game === "flesh-and-blood",
+    );
+    const mastery = candidates.find((candidate) => candidate.code === "MPW");
+    expect(mastery).toMatchObject({
+      origin: "wikipedia",
+      name: "Mastery Pack Warrior",
+      type: "SHELF",
+      date: { kind: "EXACT", date: new Date("2026-08-07T00:00:00Z") },
+      url: "https://en.wikipedia.org/wiki/Flesh_and_Blood_(card_game)",
+      externalIds: { wikipedia: "wp-flesh-and-blood:MPW" },
+    });
+    // The infobox's own "Release date" cell must not become a set.
+    expect(candidates.every((candidate) => candidate.code !== null)).toBe(true);
   });
 
   it("reads a Magic row and strips its footnote markers", () => {
@@ -118,7 +136,7 @@ describe("wikipedia provider: identity hygiene", () => {
 
   it("ignores navboxes and infoboxes", () => {
     const games = new Set(parse().map((candidate) => candidate.game));
-    expect(games).toEqual(new Set(["pokemon-tcg", "magic-the-gathering", "disney-lorcana", "riftbound"]));
+    expect(games).toEqual(new Set(["pokemon-tcg", "magic-the-gathering", "disney-lorcana", "riftbound", "flesh-and-blood"]));
     for (const candidate of parse()) {
       expect(candidate.name.length).toBeLessThan(120);
     }

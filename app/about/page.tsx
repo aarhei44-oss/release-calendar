@@ -48,7 +48,7 @@ export default function AboutPage() {
       <Section title="What this is">
         <p>
           Release Watcher tracks upcoming product releases for Magic: The Gathering, Pokémon, One Piece, Disney
-          Lorcana, Gundam, Riftbound, and Yu-Gi-Oh. Release dates for trading card games are notoriously
+          Lorcana, Gundam, Riftbound, Union Arena, Flesh and Blood, Digimon, and Yu-Gi-Oh. Release dates for trading card games are notoriously
           inconsistent between sources: a publisher&apos;s own site, retailer pre-order pages, and fan communities
           routinely disagree, and any one of them can be outdated or wrong. Instead of picking one source and
           hoping it&apos;s right, Release Watcher pulls from all of them, weighs each claim by how trustworthy that

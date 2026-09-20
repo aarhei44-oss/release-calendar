@@ -15,7 +15,7 @@ import type { FetchContext, Provider } from "./types";
 /**
  * tcgcsv.com -- TCGplayer's group (set) catalogue, republished as plain JSON.
  *
- * The only provider that covers all seven games, and the backbone of the whole
+ * The only provider that covers every game, and the backbone of the whole
  * phase: every game gets at least this one origin, and its `groupId` is the id
  * space that Scryfall's `tcgplayer_id` joins onto, which is what lets identity
  * resolution pin an MTG set exactly instead of fuzzy-matching its name.
@@ -35,6 +35,7 @@ const BASE_URL = "https://tcgcsv.com/tcgplayer";
  * these ids are stable and are the only place the two vocabularies meet.
  */
 export const TCGCSV_CATEGORIES: ReadonlyArray<{ categoryId: number; game: string }> = [
+  // Flesh and Blood (62) and Digimon (63) verified 2026-09-19.
   { categoryId: 1, game: "magic-the-gathering" },
   { categoryId: 2, game: "yugioh-tcg" },
   { categoryId: 3, game: "pokemon-tcg" },
@@ -43,7 +44,27 @@ export const TCGCSV_CATEGORIES: ReadonlyArray<{ categoryId: number; game: string
   { categoryId: 86, game: "gundam-card-game" },
   { categoryId: 89, game: "riftbound" },
   { categoryId: 81, game: "union-arena-tcg" },
+  { categoryId: 62, game: "flesh-and-blood" },
+  { categoryId: 63, game: "digimon-card-game" },
 ];
+
+/**
+ * Groups that are a set's *pre-release card pool*, not a product of their own:
+ * Digimon's "Timeless Bonds Release Event Cards" (code BT-26, the same as the
+ * booster it accompanies) and Flesh and Blood's "Usurp the Shadow Throne
+ * Pre-release Cards" (code IAR, likewise). TCGplayer stamps each with the
+ * event's date, a week before the set's.
+ *
+ * Left in, they do two kinds of damage. Two products in one origin sharing a
+ * code makes identity.ts's collectAmbiguousCodes disqualify that code as an
+ * identity key -- for the real set as well, so Bandai's BT-26 could no longer
+ * pair with TCGplayer's by code -- and each would land on the calendar as a
+ * SHELF release of its own, a week ahead of the actual one. Only these two
+ * games are filtered: the shape is cheap to name here and the other games'
+ * catalogues were audited without it.
+ */
+const PRERELEASE_CARD_POOL_GAMES: ReadonlySet<string> = new Set(["flesh-and-blood", "digimon-card-game"]);
+const PRERELEASE_CARD_POOL_NAME = /\b(release event|pre-?release) cards$/i;
 
 const groupSchema = z.object({
   groupId: z.number().int(),
@@ -64,7 +85,7 @@ const categoryResponseSchema = z.object({
 
 /**
  * What this provider stores: one entry per category, keyed by category id as a
- * string. Storing the seven responses as one payload keeps a run's evidence in
+ * string. Storing the per-category responses as one payload keeps a run's evidence in
  * a single replayable blob, at the cost described in `fetch` below.
  */
 const storedPayloadSchema = z.record(z.string(), categoryResponseSchema);
@@ -74,10 +95,10 @@ export function groupsUrl(categoryId: number): string {
 }
 
 /**
- * Fetches all seven categories and stores them as one payload.
+ * Fetches every category and stores them as one payload.
  *
  * Conditional GET here is a whole-payload content-hash comparison rather than
- * per-request If-None-Match, and that is a deliberate trade. The seven
+ * per-request If-None-Match, and that is a deliberate trade. The per-category
  * responses have to be reassembled into one blob to be stored, so a 304 on any
  * one of them would leave a hole we cannot fill from the FetchContext (which
  * carries last run's hash, not last run's body). Comparing the assembled hash
@@ -173,7 +194,7 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
       //
       // This is safe to do unconditionally because the two states are cleanly
       // separated in the feed rather than merely usually distinguishable:
-      // across all eight categories on 2026-09-08, every group carried a
+      // across the eight categories then tracked, on 2026-09-08, every group carried a
       // publishedOn, every genuine one was a bare whole-day value, and the 73
       // "Z"-suffixed ones matched the 73 dateless sets in the database exactly.
       // A product that later gains a real date reappears as an ordinary
@@ -195,6 +216,7 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
 
       const name = group.name.trim();
       if (!name) continue;
+      if (PRERELEASE_CARD_POOL_GAMES.has(game) && PRERELEASE_CARD_POOL_NAME.test(name)) continue;
 
       const abbreviation = group.abbreviation?.trim();
 

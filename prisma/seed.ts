@@ -101,6 +101,30 @@ const LAUNCH_PACKAGES = [
       { code: "UA-STARTER", name: "Sample Booster Set" },
     ],
   },
+  {
+    slug: "flesh-and-blood",
+    name: "Flesh and Blood",
+    version: "1.0.0",
+    description: "Booster sets, Armory Decks, and Mastery Packs for the Flesh and Blood TCG.",
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: [],
+    installedVersion: "1.0.0",
+    productSets: [
+      { code: "FAB-STARTER", name: "Sample Booster Set" },
+    ],
+  },
+  {
+    slug: "digimon-card-game",
+    name: "Digimon Card Game",
+    version: "1.0.0",
+    description: "Booster and starter deck releases for the Digimon Card Game.",
+    discoveryConfig: { defaultStrategy: "html-table" },
+    sourceConfigs: [],
+    installedVersion: "1.0.0",
+    productSets: [
+      { code: "DGM-STARTER", name: "Sample Booster Set" },
+    ],
+  },
 ] as const;
 
 // Confirmed working, fetched and parsed by hand during the news-feed feature
@@ -142,6 +166,20 @@ const LAUNCH_PACKAGES = [
 // with no per-category feed that actually filters (category feed URLs all
 // redirect to its homepage), so it has the same cross-game problem as ICv2
 // on top of being low-volume (last post over a month old at check time).
+//
+// Third pass (2026-09-19), adding flesh-and-blood and digimon-card-game.
+// Digimon: With the Will's "Announcements and News" forum feed -- a
+// dedicated Digimon fan site (200 from the droplet), but franchise-wide, so
+// roughly a third of it is card game news (sets, box toppers, previews) and
+// the rest anime/merch; it is the only live Digimon source reachable, and is
+// worth dropping if the noise proves too much. Flesh and Blood has NONE, and
+// the reasons are worth keeping: the official https://fabtcg.com/feed/ is the
+// obvious source (live, per-game) but answers 403 from the droplet with any
+// User-Agent -- the same datacenter-IP blocking as PokeBeach -- so it would
+// only ever show as a failing source. The other candidates are dead
+// (Total Cards' FAB and Digimon atoms stopped in 2024-25; Bleeding Cool's FAB
+// tag stopped in 2024) or the wrong content (Bleeding Cool's Digimon tag is
+// video game/anime news, not the card game).
 const NEWS_FEED_SOURCES = [
   {
     packageSlug: "magic-the-gathering",
@@ -195,6 +233,12 @@ const NEWS_FEED_SOURCES = [
     packageSlug: "pokemon-tcg",
     label: "PokeJungle — Pokemon TCG",
     feedUrl: "https://pokejungle.net/category/tcg/feed/",
+    tier: "COMMUNITY",
+  },
+  {
+    packageSlug: "digimon-card-game",
+    label: "With the Will — Announcements & News",
+    feedUrl: "https://withthewill.net/forums/announcements-and-news.10/index.rss",
     tier: "COMMUNITY",
   },
 ] as const;

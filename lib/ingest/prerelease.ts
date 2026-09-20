@@ -179,6 +179,22 @@ export const PRERELEASE_SCHEDULES: Readonly<Record<string, PrereleaseSchedule>> 
       "(2024-08-23, ahead of a 2024-09-08 release) rather than per set, and the interval was not a weekly " +
       "offset. Nothing here would generalise.",
   },
+  "digimon-card-game": {
+    slots: [],
+    note:
+      "No derived schedule, and deliberately so: Bandai states the Pre-Release date itself on its product " +
+      "index and lib/ingest/providers/bandaiDigimon.ts reads it, which is an OFFICIAL claim that publishes " +
+      "under G1. Only boosters have one (BT-26: 2026-08-28, a week before its 2026-09-04 release); starter " +
+      "decks and EX boosters state none, so a computed date would invent events Bandai never scheduled.",
+  },
+  "flesh-and-blood": {
+    slots: [],
+    note:
+      "No schedule encoded. None of this game's origins state a prerelease date, and the offset between a " +
+      "main set's pre-release and its street date has not been verified against Legend Story Studios' own " +
+      "announcements. Armory Decks, Mastery Packs and GEM Packs also ship without one, so a guessed weekday " +
+      "rule would put wrong dates on a public calendar. Revisit once an official source can be read.",
+  },
 };
 
 /** The schedule for a game slug, or null when the game has none (or is unknown). */
