@@ -9,7 +9,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npx prisma migrate deploy && npx prisma db seed && npm run build && npm run start",
+    command: "npx prisma migrate deploy && npx prisma db seed && npx tsx prisma/seed-e2e.ts && npm run build && npm run start",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

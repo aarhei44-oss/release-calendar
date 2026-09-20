@@ -4,6 +4,12 @@ import { prisma } from "../lib/prisma";
 // (lib/crawler/adapters/*, retired at the v1 cutover), and the v2 ingest
 // pipeline's providers (lib/ingest/providers/*) are registered in code, not
 // read from this column -- see ingest-v2-plan.md.
+//
+// This seed creates games and news sources only, never product sets or release
+// events: it runs on every production boot (SEED_ON_BOOT), and placeholder
+// releases seeded there ended up as fake rows in front of real users. Sets and
+// events come from the ingest pipeline alone. The sample rows the Playwright
+// suite needs live in prisma/seed-e2e.ts, which only playwright.config.ts runs.
 const LAUNCH_PACKAGES = [
   {
     slug: "pokemon-tcg",
@@ -13,9 +19,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "SV-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "magic-the-gathering",
@@ -25,9 +28,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "MTG-STARTER", name: "Sample Expansion" },
-    ],
   },
   {
     slug: "one-piece-tcg",
@@ -37,9 +37,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "OP-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "disney-lorcana",
@@ -49,9 +46,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "LOR-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "gundam-card-game",
@@ -61,9 +55,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "GDM-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "riftbound",
@@ -73,9 +64,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "RIFT-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "yugioh-tcg",
@@ -85,9 +73,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "YGO-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "union-arena-tcg",
@@ -97,9 +82,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "UA-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "flesh-and-blood",
@@ -109,9 +91,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "FAB-STARTER", name: "Sample Booster Set" },
-    ],
   },
   {
     slug: "digimon-card-game",
@@ -121,9 +100,6 @@ const LAUNCH_PACKAGES = [
     discoveryConfig: { defaultStrategy: "html-table" },
     sourceConfigs: [],
     installedVersion: "1.0.0",
-    productSets: [
-      { code: "DGM-STARTER", name: "Sample Booster Set" },
-    ],
   },
 ] as const;
 
@@ -268,52 +244,14 @@ async function main() {
       where: { packageId: profilePackage.id },
     });
 
-    const install =
-      existingInstall ??
-      (await prisma.tcgProfileInstall.create({
+    if (!existingInstall) {
+      await prisma.tcgProfileInstall.create({
         data: {
           packageId: profilePackage.id,
           installedVersion: pkg.installedVersion,
           enabled: true,
         },
-      }));
-
-    for (const set of pkg.productSets) {
-      const productSet = await prisma.productSet.upsert({
-        where: {
-          tcgProfileInstallId_code: {
-            tcgProfileInstallId: install.id,
-            code: set.code,
-          },
-        },
-        update: { name: set.name },
-        create: {
-          tcgProfileInstallId: install.id,
-          code: set.code,
-          name: set.name,
-        },
       });
-
-      const existingEvent = await prisma.releaseEvent.findFirst({
-        where: { productSetId: productSet.id, type: "SHELF" },
-      });
-
-      if (!existingEvent) {
-        const shelfDate = new Date();
-        shelfDate.setDate(shelfDate.getDate() + 30);
-
-        await prisma.releaseEvent.create({
-          data: {
-            productSetId: productSet.id,
-            type: "SHELF",
-            dateType: "EXACT",
-            dateExact: shelfDate,
-            status: "ANNOUNCED",
-            confidence: 0.6,
-            sourceSummary: "Seeded sample data",
-          },
-        });
-      }
     }
   }
 
