@@ -16,8 +16,9 @@ import { runProviderFreshnessAlarmPass } from "./freshness";
 import { evaluateGate } from "./gate";
 import { collectAmbiguousCodes, normalizeSetCode, resolveSetIdentity } from "./identity";
 import { normalizePayload, normalizeRun } from "./normalize";
+import { runReleaseLifecycle, type ReleasedEvent } from "./releaseLifecycle";
 import { toScanChanges } from "./notifications";
-import { expectedPrereleaseDates } from "./prerelease";
+import { expectedPrereleaseDates, type PrereleaseProduct } from "./prerelease";
 import { getProvider, providersForGames } from "./providers/registry";
 import type { FetchContext, Provider } from "./providers/types";
 import {
@@ -104,6 +105,13 @@ export type IngestTotals = {
    */
   prereleasesDerived: number;
   prereleasesRetracted: number;
+  /**
+   * Events moved to RELEASED this run because their date passed
+   * (lib/ingest/releaseLifecycle.ts). Roughly the number of sets that shipped
+   * since the last run -- one nightly, a handful on a busy Friday -- except on the
+   * first run after the pass shipped, which backfills all of history at once.
+   */
+  eventsReleased: number;
   errors: number;
 };
 
@@ -127,6 +135,7 @@ export function emptyTotals(): IngestTotals {
     productSetsEnriched: 0,
     prereleasesDerived: 0,
     prereleasesRetracted: 0,
+    eventsReleased: 0,
     errors: 0,
   };
 }
@@ -222,7 +231,7 @@ async function executeIngest(
     });
 
     // ---- Stages 2-6, from what Fetch wrote down. ----
-    const { diffChanges, ...stageTotals } = await runStagesFromPayloads({ scanRunId, now, installs });
+    const { diffChanges, releasedEvents, ...stageTotals } = await runStagesFromPayloads({ scanRunId, now, installs });
     Object.assign(totals, stageTotals, {
       providersFetched: totals.providersFetched,
       providersFailed: totals.providersFailed,
@@ -262,6 +271,14 @@ async function executeIngest(
     await notifyOfIngestChanges(scanRunId, diffChanges).catch((error) => {
       logEvent({
         action: "ingest.dispatchNotifications",
+        scanRunId,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    await notifyOfReleases(releasedEvents).catch((error) => {
+      logEvent({
+        action: "ingest.dispatchReleaseNotifications",
         scanRunId,
         outcome: "error",
         error: error instanceof Error ? error.message : String(error),
@@ -404,7 +421,7 @@ export async function runStagesFromPayloads(params: {
   installs: InstallForScan[];
   /** Narrows which providers' payloads are read (replayRun's `providers` option). */
   providerKeys?: string[];
-}): Promise<StageTotals & { diffChanges: RunDiffChange[] }> {
+}): Promise<StageTotals & { diffChanges: RunDiffChange[]; releasedEvents: ReleasedEvent[] }> {
   const { scanRunId, now, installs } = params;
   const totals: StageTotals = {
     candidates: 0,
@@ -419,6 +436,7 @@ export async function runStagesFromPayloads(params: {
     productSetsEnriched: 0,
     prereleasesDerived: 0,
     prereleasesRetracted: 0,
+    eventsReleased: 0,
     errors: 0,
   };
 
@@ -515,9 +533,13 @@ export async function runStagesFromPayloads(params: {
         // of the database, since Apply declines to move its date -- the
         // derivation pass re-reads the real rows afterwards and settles it.)
         if (group.type === "SHELF") {
+          const stored = shelfAnchors.get(anchorKey(group.productSetId, group.region));
           shelfAnchors.set(anchorKey(group.productSetId, group.region), {
             status: item.verdict.status,
             date: item.verdict.date,
+            // The verdict changes a date, never what kind of product this is. A set
+            // created in this very run has no stored anchor, so ask the database.
+            product: stored?.product ?? (await ingestRepo.getPrereleaseProduct(group.productSetId)) ?? { code: null, name: null },
           });
         }
       } catch (error) {
@@ -577,7 +599,17 @@ export async function runStagesFromPayloads(params: {
   totals.prereleasesRetracted = derived.retracted;
   totals.errors += derived.errors;
 
-  return { ...totals, diffChanges: applied.diff.changes };
+  // ---- Stage 5c: the release lifecycle. ----
+  // After the derive pass so it sees derived rows written this run, and after
+  // Apply so a date the gate just moved is judged at its new value. Like the
+  // derive pass its changes stay out of `diffChanges`: those drive
+  // "status changed" alerts, and a set shipping is announced by its own
+  // "released" alert (notifyOfReleases), sent for recent releases only.
+  const lifecycle = await runReleaseLifecycle({ installIds, now });
+  totals.eventsReleased = lifecycle.released.length;
+  totals.errors += lifecycle.errors;
+
+  return { ...totals, diffChanges: applied.diff.changes, releasedEvents: lifecycle.released };
 }
 
 // ---------------------------------------------------------------------------
@@ -585,7 +617,7 @@ export async function runStagesFromPayloads(params: {
 // ---------------------------------------------------------------------------
 
 /** What a prerelease group needs to know about its product's shelf date. */
-type ShelfAnchor = { status: ReleaseStatus; date: CandidateDate | null };
+type ShelfAnchor = { status: ReleaseStatus; date: CandidateDate | null; product: PrereleaseProduct };
 
 /** Same (productSet, region) scoping the event key uses -- a JP shelf date must not anchor a global prerelease. */
 function anchorKey(productSetId: string, region: Candidate["region"]): string {
@@ -595,7 +627,11 @@ function anchorKey(productSetId: string, region: Candidate["region"]): string {
 async function loadShelfAnchors(installIds: string[]): Promise<Map<string, ShelfAnchor>> {
   const anchors = new Map<string, ShelfAnchor>();
   for (const anchor of await ingestRepo.getShelfAnchors(installIds)) {
-    anchors.set(anchorKey(anchor.productSetId, anchor.region), { status: anchor.status, date: anchor.date });
+    anchors.set(anchorKey(anchor.productSetId, anchor.region), {
+      status: anchor.status,
+      date: anchor.date,
+      product: anchor.product,
+    });
   }
   return anchors;
 }
@@ -608,8 +644,8 @@ async function loadShelfAnchors(installIds: string[]): Promise<Map<string, Shelf
  * launders the argument into a second event.
  */
 function expectedDatesForAnchor(game: string, anchor: ShelfAnchor | undefined): CandidateDate[] {
-  if (!anchor || anchor.status !== "CONFIRMED") return [];
-  return expectedPrereleaseDates(game, anchor.date);
+  if (!anchor || (anchor.status !== "CONFIRMED" && anchor.status !== "RELEASED")) return [];
+  return expectedPrereleaseDates(game, anchor.date, anchor.product);
 }
 
 /**
@@ -640,6 +676,36 @@ async function notifyOfIngestChanges(scanRunId: string, diffChanges: RunDiffChan
   const context = await ingestRepo.getChangeContextForEvents(diffChanges.map((c) => c.releaseEventId));
   const scanChanges = toScanChanges(diffChanges, new Map(context.map((c) => [c.eventId, c])));
   await dispatchScanChangeNotifications(scanChanges);
+}
+
+/**
+ * Tells followers and subscribers that a set has shipped, for shelf events that
+ * crossed their date recently. Older ones were marked RELEASED silently -- see
+ * ReleasedEvent.recent -- and prerelease rows are left out: "Reality Fracture
+ * Prerelease is now released" is not a thing anyone wants to be told.
+ */
+async function notifyOfReleases(released: ReleasedEvent[]): Promise<void> {
+  const notable = released.filter((event) => event.recent && event.type === "SHELF");
+  if (notable.length === 0) return;
+  const context = new Map(
+    (await ingestRepo.getChangeContextForEvents(notable.map((event) => event.id))).map((c) => [c.eventId, c]),
+  );
+  const changes = notable.flatMap((event) => {
+    const ctx = context.get(event.id);
+    if (!ctx) return [];
+    return [
+      {
+        installId: ctx.installId,
+        eventId: event.id,
+        gameName: ctx.gameName,
+        productSetName: ctx.productSetName,
+        status: "RELEASED" as const,
+        kind: "released" as const,
+        previousStatus: event.statusBefore,
+      },
+    ];
+  });
+  await dispatchScanChangeNotifications(changes);
 }
 
 /**
@@ -698,7 +764,7 @@ async function enrichFromUnchangedProviders(params: {
     }
 
     for (const candidate of candidates) {
-      if (!candidate.imageUrl && !candidate.description) continue;
+      if (!candidate.imageUrl && !candidate.description && !candidate.productKind) continue;
       const forGame = candidatesByGame.get(candidate.game) ?? [];
       forGame.push(candidate);
       candidatesByGame.set(candidate.game, forGame);
@@ -786,6 +852,7 @@ async function resolveInstallCandidates(
         imageUrl: created.imageUrl,
         imageKind: created.imageKind,
         description: created.description,
+        kind: null,
       });
       resolution = { productSetId: created.id, matchedBy: "new" };
     }
@@ -845,6 +912,7 @@ async function enrichProductSet(
       imageUrl?: string | null;
       imageKind?: ProductImageKind | null;
       description?: string | null;
+      kind?: string | null;
     }[];
   },
   totals: StageTotals,
@@ -852,7 +920,7 @@ async function enrichProductSet(
   const stored = context.sets.find((set) => set.id === productSetId);
   if (!stored) return;
 
-  const fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string } = {};
+  const fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string; kind?: string } = {};
   if (candidate.imageUrl && !stored.imageUrl) {
     fields.imageUrl = candidate.imageUrl;
     fields.imageKind = candidate.imageKind;
@@ -860,7 +928,15 @@ async function enrichProductSet(
     fields.imageKind = candidate.imageKind;
   }
   if (candidate.description && !stored.description) fields.description = candidate.description;
-  if (fields.imageUrl === undefined && fields.imageKind === undefined && fields.description === undefined) {
+  // Unlike the presentational fields, a kind is a classification the publisher of
+  // the data can revise, so it follows the provider rather than the first writer.
+  if (candidate.productKind && candidate.productKind !== stored.kind) fields.kind = candidate.productKind;
+  if (
+    fields.imageUrl === undefined &&
+    fields.imageKind === undefined &&
+    fields.description === undefined &&
+    fields.kind === undefined
+  ) {
     return;
   }
 
@@ -873,6 +949,7 @@ async function enrichProductSet(
   if (fields.imageUrl !== undefined) stored.imageUrl = fields.imageUrl;
   if (fields.imageKind !== undefined) stored.imageKind = fields.imageKind;
   if (fields.description !== undefined) stored.description = fields.description;
+  if (fields.kind !== undefined) stored.kind = fields.kind;
 }
 
 /** One release event's worth of this run's candidates, as the gate wants to see them. */

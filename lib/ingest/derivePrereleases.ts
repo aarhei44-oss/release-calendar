@@ -3,7 +3,7 @@ import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { logEvent } from "@/lib/logger";
 import { GATE_THRESHOLDS } from "./gate";
 import { prereleaseOccurrencesFor, prereleaseScheduleFor } from "./prerelease";
-import { datesAgreeWithin, type CandidateDate } from "./types";
+import { datesAgreeWithin, isPastDate, type CandidateDate } from "./types";
 
 /**
  * The derived-prerelease pass: put a prerelease on the calendar for every shelf
@@ -70,6 +70,14 @@ export type DerivePrereleaseResult = {
  */
 const ANCHOR_STATUS: ReleaseStatus = "CONFIRMED";
 
+/**
+ * RELEASED is CONFIRMED that has since happened (releaseLifecycle.ts), so a
+ * released shelf event still anchors its prerelease. Requiring CONFIRMED alone
+ * would retract every past prerelease the night after its set shipped -- the
+ * lifecycle pass would be quietly erasing calendar history it just recorded.
+ */
+const QUALIFYING_ANCHOR_STATUSES: ReadonlySet<ReleaseStatus> = new Set<ReleaseStatus>([ANCHOR_STATUS, "RELEASED"]);
+
 type DesiredRow = {
   key: string;
   productSetId: string;
@@ -112,11 +120,11 @@ export async function derivePrereleaseEvents(
 
   const desired = new Map<string, DesiredRow>();
   for (const anchor of anchors) {
-    if (anchor.status !== ANCHOR_STATUS) continue;
+    if (!QUALIFYING_ANCHOR_STATUSES.has(anchor.status)) continue;
     const schedule = prereleaseScheduleFor(anchor.game);
     if (!schedule) continue;
 
-    const occurrences = prereleaseOccurrencesFor(anchor.game, anchor.date);
+    const occurrences = prereleaseOccurrencesFor(anchor.game, anchor.date, anchor.product);
     const sourcedDates = sourcedByScope.get(`${anchor.productSetId}\0${anchor.region}`) ?? [];
 
     for (const occurrence of occurrences) {
@@ -139,7 +147,9 @@ export async function derivePrereleaseEvents(
         // The derived row is exactly as trustworthy as the shelf date it was
         // computed from, so it inherits that confidence rather than inventing
         // one. Nothing here corroborates anything; it restates.
-        status: ANCHOR_STATUS,
+        // Written as what it is *now*, so the lifecycle pass never has to flip a
+        // derived row that this pass would otherwise reset to CONFIRMED each night.
+        status: isPastDate(occurrence.date, now) ? "RELEASED" : ANCHOR_STATUS,
         confidence: anchor.confidence,
         sourceSummary: `${occurrence.label}, derived from the confirmed release date. ${schedule.note}`,
       });

@@ -38,6 +38,18 @@ import {
 /** Same transaction seam as crawlerRepo's `Db`: callers can pass a `$transaction` client through. */
 type Db = typeof prisma | Prisma.TransactionClient;
 
+/**
+ * The provider-declared product kind stored in ProductSet.meta as `{ kind }`
+ * (Candidate.productKind -- Scryfall's `set_type` for Magic), or null when none
+ * has been recorded. `meta` is free-form JSON that nothing else writes, so this
+ * reads defensively rather than trusting its shape.
+ */
+export function productKindFromMeta(meta: Prisma.JsonValue | null | undefined): string | null {
+  if (meta === null || meta === undefined || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const kind = (meta as Record<string, Prisma.JsonValue>).kind;
+  return typeof kind === "string" && kind.length > 0 ? kind : null;
+}
+
 // ---------------------------------------------------------------------------
 // Job lock / install scoping
 //
@@ -595,6 +607,9 @@ export async function getIdentityContext(tcgProfileInstallId: string) {
       imageUrl: true,
       imageKind: true,
       description: true,
+      // Read only to tell an already-classified set from an unclassified one, so
+      // orchestrate.ts's enrichment writes a kind exactly when it has changed.
+      meta: true,
     },
     // Oldest first, so identity.ts's "ties keep the first" tiebreak resolves
     // to the longest-standing set rather than an arbitrary one.
@@ -604,7 +619,7 @@ export async function getIdentityContext(tcgProfileInstallId: string) {
     where: { productSet: { tcgProfileInstallId } },
     select: { origin: true, externalId: true, productSetId: true },
   });
-  return { sets, identities };
+  return { sets: sets.map(({ meta, ...set }) => ({ ...set, kind: productKindFromMeta(meta) })), identities };
 }
 
 /**
@@ -658,13 +673,32 @@ export async function createProductSet(
  */
 export async function updateProductSetEnrichment(
   productSetId: string,
-  fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string },
+  fields: { imageUrl?: string; imageKind?: ProductImageKind; description?: string; kind?: string },
   db: Db = prisma,
 ) {
-  if (fields.imageUrl === undefined && fields.imageKind === undefined && fields.description === undefined) {
+  const { kind, ...columns } = fields;
+  if (
+    columns.imageUrl === undefined &&
+    columns.imageKind === undefined &&
+    columns.description === undefined &&
+    kind === undefined
+  ) {
     return null;
   }
-  return db.productSet.update({ where: { id: productSetId }, data: fields });
+  if (kind === undefined) return db.productSet.update({ where: { id: productSetId }, data: columns });
+
+  // `kind` lives inside the meta JSON, so it is merged into whatever is already
+  // there rather than replacing it -- nothing writes meta today, but a merge
+  // costs one read and cannot destroy a key some later feature adds.
+  const existing = await db.productSet.findUnique({ where: { id: productSetId }, select: { meta: true } });
+  const current =
+    existing?.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+      ? (existing.meta as Prisma.JsonObject)
+      : {};
+  return db.productSet.update({
+    where: { id: productSetId },
+    data: { ...columns, meta: { ...current, kind } },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -982,7 +1016,14 @@ export async function getShelfAnchors(installIds: string[]) {
       windowGranularity: true,
       windowStart: true,
       windowEnd: true,
-      productSet: { select: { install: { select: { package: { select: { slug: true } } } } } },
+      productSet: {
+        select: {
+          code: true,
+          name: true,
+          meta: true,
+          install: { select: { package: { select: { slug: true } } } },
+        },
+      },
     },
   });
   return events.map((event) => ({
@@ -992,6 +1033,10 @@ export async function getShelfAnchors(installIds: string[]) {
     status: event.status,
     confidence: event.confidence,
     game: event.productSet.install.package.slug,
+    // What prerelease.ts needs to decide whether this product has a prerelease at
+    // all -- see PrereleaseProduct. `kind` is a provider-declared classification
+    // persisted by orchestrate.ts's enrichProductSet.
+    product: { code: event.productSet.code, name: event.productSet.name, kind: productKindFromMeta(event.productSet.meta) },
     date: fromEventDateColumns(event),
   }));
 }
@@ -1169,4 +1214,73 @@ export async function getClaimHistoryForEvent(releaseEventId: string) {
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Release lifecycle (lib/ingest/releaseLifecycle.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Events that could be RELEASED once their date is over: ANNOUNCED or CONFIRMED,
+ * dated to a specific day or range, and not pinned by a human.
+ *
+ * Whether the date is actually over is the caller's call (it owns the clock);
+ * this only narrows to the population the pass is allowed to touch at all.
+ */
+export async function getReleaseLifecycleCandidates(installIds: string[]) {
+  if (installIds.length === 0) return [];
+  const events = await prisma.releaseEvent.findMany({
+    where: {
+      archivedAt: null,
+      isManualOverride: false,
+      status: { in: ["ANNOUNCED", "CONFIRMED"] },
+      dateType: { in: ["EXACT", "RANGE"] },
+      productSet: { tcgProfileInstallId: { in: installIds }, archivedAt: null },
+    },
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      dateType: true,
+      dateExact: true,
+      dateStart: true,
+      dateEnd: true,
+      windowGranularity: true,
+      windowStart: true,
+      windowEnd: true,
+    },
+  });
+  return events.map((event) => ({
+    id: event.id,
+    type: event.type,
+    status: event.status,
+    date: fromEventDateColumns(event),
+  }));
+}
+
+/**
+ * Marks events RELEASED. The status guard is repeated in the write so an event a
+ * concurrent verdict just moved (to CANCELLED, say) is not overwritten between
+ * the read above and this update.
+ */
+export async function markEventsReleased(eventIds: string[]) {
+  if (eventIds.length === 0) return { count: 0 };
+  return prisma.releaseEvent.updateMany({
+    where: { id: { in: eventIds }, status: { in: ["ANNOUNCED", "CONFIRMED"] } },
+    data: { status: "RELEASED" },
+  });
+}
+
+/**
+ * What prerelease.ts needs to know about one product, for the case where the
+ * gate has just confirmed a shelf date for a set it had no stored anchor for --
+ * an event created in this same run, so getShelfAnchors could not have seen it.
+ */
+export async function getPrereleaseProduct(productSetId: string) {
+  const set = await prisma.productSet.findUnique({
+    where: { id: productSetId },
+    select: { code: true, name: true, meta: true },
+  });
+  if (!set) return null;
+  return { code: set.code, name: set.name, kind: productKindFromMeta(set.meta) };
 }

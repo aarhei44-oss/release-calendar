@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { Prisma } from "@/app/generated/prisma/client";
 import * as ingestRepo from "@/data/ingest/ingestRepo";
 import { derivePrereleaseEvents } from "@/lib/ingest/derivePrereleases";
 import { prisma } from "@/lib/prisma";
@@ -74,7 +75,14 @@ beforeEach(async () => {
   installId = install.id;
 
   const set = await prisma.productSet.create({
-    data: { tcgProfileInstallId: installId, code: `TST-${crypto.randomUUID().slice(0, 8)}`, name: "Test Expansion" },
+    // meta.kind is what Magic's schedule reads to know this is a main set -- the
+    // value orchestrate.ts's enrichProductSet persists from Scryfall's set_type.
+    data: {
+      tcgProfileInstallId: installId,
+      code: `TST-${crypto.randomUUID().slice(0, 8)}`,
+      name: "Test Expansion",
+      meta: { kind: "expansion" },
+    },
   });
   productSetId = set.id;
 
@@ -233,5 +241,50 @@ describe("standing aside for a sourced prerelease", () => {
 
     const result = await derive();
     expect(result.written).toBe(1);
+  });
+});
+
+describe("product classification, end to end", () => {
+  it("reads the persisted kind back through getShelfAnchors", async () => {
+    const anchors = await ingestRepo.getShelfAnchors([installId]);
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0].product.kind).toBe("expansion");
+    expect(anchors[0].product.name).toBe("Test Expansion");
+  });
+
+  it("derives nothing for a product whose kind is not a main set, and archives what was derived before", async () => {
+    await derive();
+    expect(await derivedRows()).toHaveLength(1);
+
+    // Scryfall reclassifies it (or the set was always a Commander deck and an
+    // earlier version of the rules did not know).
+    await prisma.productSet.update({ where: { id: productSetId }, data: { meta: { kind: "commander" } } });
+    const result = await derive();
+
+    expect(result).toMatchObject({ written: 0, retracted: 1 });
+    const rows = await derivedRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].archivedAt).not.toBeNull();
+  });
+
+  it("treats a set with no recorded kind as unknown, which derives nothing", async () => {
+    await prisma.productSet.update({ where: { id: productSetId }, data: { meta: Prisma.DbNull } });
+    const result = await derive();
+    expect(result.written).toBe(0);
+  });
+
+  it("merges kind into meta and reads it via the identity context", async () => {
+    await ingestRepo.updateProductSetEnrichment(productSetId, { kind: "core" });
+    const context = await ingestRepo.getIdentityContext(installId);
+    expect(context.sets.find((set) => set.id === productSetId)?.kind).toBe("core");
+  });
+
+  it("productKindFromMeta is defensive about a meta value it did not write", () => {
+    expect(ingestRepo.productKindFromMeta(null)).toBeNull();
+    expect(ingestRepo.productKindFromMeta([])).toBeNull();
+    expect(ingestRepo.productKindFromMeta("expansion")).toBeNull();
+    expect(ingestRepo.productKindFromMeta({ kind: 7 })).toBeNull();
+    expect(ingestRepo.productKindFromMeta({ kind: "" })).toBeNull();
+    expect(ingestRepo.productKindFromMeta({ kind: "expansion" })).toBe("expansion");
   });
 });

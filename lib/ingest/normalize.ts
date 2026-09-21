@@ -65,6 +65,9 @@ const candidateSchema = z.strictObject({
   description: z.string().optional(),
   imageUrl: z.string().optional(),
   imageKind: z.enum(["ART", "SYMBOL"]).optional(),
+  // A provider's own classification of the product (Scryfall's set_type). Free
+  // text on purpose -- the schedules in prerelease.ts decide which values matter.
+  productKind: z.string().min(1).optional(),
 })
   // The two travel together or not at all. A URL with no kind would store a
   // set image the drawer has no way to lay out and so renders as nothing,

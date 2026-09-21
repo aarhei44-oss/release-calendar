@@ -89,10 +89,45 @@ export type PrereleaseSlot = {
   occurrence: number;
 };
 
+/**
+ * What a schedule needs to know about a product to say whether it has a
+ * prerelease at all.
+ *
+ * A weekday rule answers "when", never "whether". Every game's prerelease
+ * events belong to its *main* releases -- Magic's expansions, One Piece's
+ * numbered boosters, Yu-Gi-Oh!'s core boosters -- and none of them belong to
+ * the Commander decks, starter decks, tournament packs, masterpiece inserts or
+ * Secret Lair drops that ship on a shelf date of their own. Measured against
+ * production on 2026-09-20 (and checked against Wizards', Bandai's, Konami's
+ * and The Pokémon Company's own event pages), a schedule applied to every shelf
+ * event put 27 of 38 derived rows on the calendar for events that do not exist.
+ */
+export type PrereleaseProduct = {
+  code: string | null;
+  name: string | null;
+  /**
+   * The provider-declared product kind (Candidate.productKind, persisted in
+   * ProductSet.meta). Only Magic supplies one today -- Scryfall's `set_type` --
+   * because it is the only origin that publishes a classification instead of
+   * leaving us to infer one from a name.
+   */
+  kind?: string | null;
+};
+
 export type PrereleaseSchedule = {
   slots: readonly PrereleaseSlot[];
   /** Why this game has the slots it has -- or, for an empty list, why it has none. */
   note: string;
+  /**
+   * Whether a product is one of the game's prerelease-bearing releases.
+   *
+   * Must be conservative in the direction of *saying no*: a missing prerelease
+   * is a gap somebody can see, while an invented one is a wrong date presented
+   * as fact. Every predicate below therefore requires positive evidence (a kind,
+   * a code shape, a name shape) rather than excluding known non-matches, except
+   * Yu-Gi-Oh!, where no positive signal exists (see its entry).
+   */
+  appliesTo?: (product: PrereleaseProduct) => boolean;
 };
 
 /**
@@ -107,6 +142,14 @@ export type PrereleaseSchedule = {
  */
 export const MAX_PRERELEASE_LEAD_DAYS = 21;
 
+/** "Mega Evolution—Delta Reign", optionally behind a tcgplayer-style "ME06:" code prefix. */
+const POKEMON_MAIN_EXPANSION_NAME =
+  /^(?:[A-Z]{2,3}\d{0,2}:\s*)?(?:mega evolution|scarlet\s*(?:&|and)\s*violet|sword\s*(?:&|and)\s*shield|sun\s*(?:&|and)\s*moon|xy)\s*[—–:-]/i;
+
+/** Words that mark a Yu-Gi-Oh! product as something other than a core booster. */
+const YUGIOH_NON_BOOSTER_NAME =
+  /\b(?:decks?|packs?|tins?|collections?|collaborations?|starter|structure|duelist|battle|tournament|winner'?s|celebration|promo)\b/i;
+
 /**
  * Per-game prerelease schedules, keyed by TcgProfilePackage slug.
  *
@@ -119,44 +162,78 @@ export const MAX_PRERELEASE_LEAD_DAYS = 21;
 export const PRERELEASE_SCHEDULES: Readonly<Record<string, PrereleaseSchedule>> = {
   "magic-the-gathering": {
     slots: [{ key: "friday-1", label: "Prerelease weekend", weekday: FRIDAY, occurrence: 1 }],
+    // Scryfall's `set_type`. Only main expansions and core sets have prereleases:
+    // Wizards' own event pages for Star Trek, The Hobbit and Reality Fracture list
+    // one prerelease window per *set* and none for its Commander decks, and the
+    // Secret Lair x MSCHF Zeta Set, Stardates masterpiece inserts and Art Series
+    // cards never had one. `draftinnovation` (Modern Horizons, Conspiracy,
+    // Jumpstart) and `masters` do sometimes have events, but not reliably enough to
+    // encode -- Wikipedia's 'Pre-release date' column covers those through G8.
+    appliesTo: (product) => product.kind === "expansion" || product.kind === "core",
     note:
       "Wizards runs prerelease weekends at local game stores starting the Friday before the Friday street " +
-      "date. This is also the date English Wikipedia's set list states in its own 'Pre-release date' column, " +
-      "which is what lets that column publish under G8 instead of sitting held forever.",
+      "date and ending the Thursday before it (Star Trek: 2026-11-06 to 2026-11-12, release 2026-11-13). " +
+      "Only main expansions and core sets have one: their Commander decks share the set's event and " +
+      "Secret Lair, masterpiece and Art Series products have none. This is also the date English " +
+      "Wikipedia's set list states in its own 'Pre-release date' column, which is what lets that column " +
+      "publish under G8 instead of sitting held forever.",
   },
   "disney-lorcana": {
     slots: [{ key: "friday-1", label: "Local game store release", weekday: FRIDAY, occurrence: 1 }],
+    // The numbered main sets ("13", "14"). Illumineer's Quest boxes carry a "Q" code
+    // and ship on one date everywhere.
+    appliesTo: (product) => /^\d{1,2}$/.test(product.code?.trim() ?? ""),
     note:
-      "Ravensburger gives local game stores a one-week head start on every set: Hyperia City reached stores " +
-      "on Friday 2026-10-16 and wide retail on Friday 2026-10-23. Wikipedia's 'Local game store release' " +
-      "column states the same date, so G8 corroborates it the same way it does Magic's.",
+      "Ravensburger gives local game stores a one-week head start on every numbered set: Hyperia City " +
+      "reached stores on Friday 2026-10-16 and wide retail on Friday 2026-10-23, and Attack of the Vine! " +
+      "on 2026-07-17 and 2026-07-24. Wikipedia's 'Local game store release' column states the same date, " +
+      "so G8 corroborates it the same way it does Magic's.",
   },
   "one-piece-tcg": {
     slots: [{ key: "friday-1", label: "Pre-release event", weekday: FRIDAY, occurrence: 1 }],
+    // Numbered boosters only (OP-16, OP-17). Bandai's starter decks (ST-), double
+    // packs (DP-), the Set Sail deck (SD-) and mini-case sets (TS-) have no
+    // pre-release; the ST-31..36 decks' only event, Beginners Deck Party, opens on
+    // release day itself. Extra boosters (EB-) are unverified, so they get nothing.
+    appliesTo: (product) => /^OP-?\d{1,2}$/i.test(product.code?.trim() ?? ""),
     note:
-      "Bandai's English One Piece pre-release events open the Friday a week before the street date (OP-17: " +
-      "events from 2026-08-21, release 2026-08-28). The event window then stays open for weeks, but the " +
-      "date worth putting on a calendar is the day the cards become playable.",
+      "Bandai's English One Piece pre-release events open the Friday a week before the street date (OP-16: " +
+      "events from 2026-06-05, release 2026-06-12; OP-17: 2026-08-21 and 2026-08-28). The event window " +
+      "then stays open for weeks, but the date worth putting on a calendar is the day the cards become " +
+      "playable. Numbered boosters only: starter decks, double packs and deck sets have no pre-release.",
   },
   "pokemon-tcg": {
     slots: [
-      { key: "friday-1", label: "Prerelease (second weekend)", weekday: FRIDAY, occurrence: 1 },
-      { key: "friday-2", label: "Prerelease (first weekend)", weekday: FRIDAY, occurrence: 2 },
+      { key: "saturday-1", label: "Prerelease (second weekend)", weekday: SATURDAY, occurrence: 1 },
+      { key: "saturday-2", label: "Prerelease (first weekend)", weekday: SATURDAY, occurrence: 2 },
     ],
+    // Main expansions carry their era's name as a prefix ("Mega Evolution—Delta
+    // Reign"). Requiring it keeps out specials that are not part of the era's
+    // numbered run: the 30th Celebration has no prerelease at all (it releases
+    // worldwide on a single day) and neither do prize packs or collections. A new
+    // era will not match until its prefix is added here, which errs toward a gap.
+    appliesTo: (product) => POKEMON_MAIN_EXPANSION_NAME.test(product.name?.trim() ?? ""),
     note:
-      "Pokemon prerelease tournaments run across the two weekends before the street date, so both Fridays " +
-      "get an event. 'First'/'second weekend' in the labels is chronological, which is why the earlier " +
-      "weekend is the slot with the larger occurrence.",
+      "Pokemon prerelease events run across the two weekends before the street date, starting on the " +
+      "Saturday (Pitch Black: Saturday 2026-07-04 through Sunday 2026-07-12 for a 2026-07-17 release; " +
+      "Delta Reign: 2026-10-24 through 2026-11-01), so each weekend's Saturday gets an event. " +
+      "'First'/'second weekend' in the labels is chronological, which is why the earlier weekend is the " +
+      "slot with the larger occurrence. Main expansions only: the 30th Celebration has none.",
   },
   "yugioh-tcg": {
-    slots: [
-      { key: "saturday-1", label: "Sneak Peek (Saturday)", weekday: SATURDAY, occurrence: 1 },
-      { key: "sunday-1", label: "Sneak Peek (Sunday)", weekday: SUNDAY, occurrence: 1 },
-    ],
+    slots: [{ key: "sunday-1", label: "Sneak Peek (Sunday)", weekday: SUNDAY, occurrence: 1 }],
+    // No origin classifies Yu-Gi-Oh! products, so this is the one predicate that
+    // excludes instead of requiring. Core boosters have a plain four-letter code and
+    // a name with none of the words below; every non-booster product seen so far is
+    // caught by one of them (Winner's Pack, Legendary Arc-V Decks, Limited Pack World
+    // Championship, Ultimate Tournament Pack, Thank You Pack) or has a code with a digit.
+    appliesTo: (product) =>
+      /^[A-Z]{4}$/.test(product.code?.trim() ?? "") && !YUGIOH_NON_BOOSTER_NAME.test(product.name ?? ""),
     note:
-      "Konami's Sneak Peek events run the Saturday and Sunday before the street date. Two separate " +
-      "single-day events rather than one weekend-long RANGE, because a player picks a day and a range " +
-      "spanning a weekend reads on the calendar as a product that ships over two days.",
+      "Konami's Sneak Peek events run on the Sunday before the street date (Chaos Origins: Sunday " +
+      "2026-06-28 for a 2026-07-03 release; Beyond the Brave: Sunday 2026-10-04 for 2026-10-09). A Saturday " +
+      "event was previously derived as well and has been dropped: no source could confirm it. Core boosters " +
+      "only -- Winner's Packs, Legendary Decks and Limited Packs ship without one.",
   },
   riftbound: {
     slots: [],
@@ -190,10 +267,12 @@ export const PRERELEASE_SCHEDULES: Readonly<Record<string, PrereleaseSchedule>> 
   "flesh-and-blood": {
     slots: [],
     note:
-      "No schedule encoded. None of this game's origins state a prerelease date, and the offset between a " +
-      "main set's pre-release and its street date has not been verified against Legend Story Studios' own " +
-      "announcements. Armory Decks, Mastery Packs and GEM Packs also ship without one, so a guessed weekday " +
-      "rule would put wrong dates on a public calendar. Revisit once an official source can be read.",
+      "No schedule encoded. None of this game's origins state a prerelease date. One official data point " +
+      "exists -- Usurp the Shadow Throne's pre-release ran Friday 2026-09-18 to Thursday 2026-09-24 for a " +
+      "Friday 2026-09-25 release, i.e. the week before, Friday to Thursday -- but a single set is not " +
+      "enough to encode a rule from, and Armory Decks, Mastery Packs and GEM Packs ship without one, so a " +
+      "guessed weekday rule would put wrong dates on a public calendar. Revisit once a second main set " +
+      "confirms the same offset.",
   },
 };
 
@@ -234,9 +313,17 @@ export type PrereleaseOccurrence = {
  * nobody has announced, on a calendar whose whole point is that dates are
  * traceable to evidence.
  */
-export function prereleaseOccurrencesFor(game: string, shelfDate: CandidateDate | null): PrereleaseOccurrence[] {
+export function prereleaseOccurrencesFor(
+  game: string,
+  shelfDate: CandidateDate | null,
+  product: PrereleaseProduct | null,
+): PrereleaseOccurrence[] {
   const schedule = prereleaseScheduleFor(game);
   if (!schedule || !shelfDate || shelfDate.kind !== "EXACT") return [];
+  // No product means no evidence the product is a prerelease-bearing release, and
+  // the schedule only ever answers "when". A missing answer is a gap; a guess is a
+  // fabricated event.
+  if (!product || !schedule.appliesTo?.(product)) return [];
 
   const occurrences: PrereleaseOccurrence[] = [];
   for (const slot of schedule.slots) {
@@ -255,6 +342,10 @@ export function prereleaseOccurrencesFor(game: string, shelfDate: CandidateDate 
  * slots: it is deciding whether one claim's date is consistent with the game's
  * conventions, not which weekend of a schedule the claim is talking about.
  */
-export function expectedPrereleaseDates(game: string, shelfDate: CandidateDate | null): CandidateDate[] {
-  return prereleaseOccurrencesFor(game, shelfDate).map((occurrence) => occurrence.date);
+export function expectedPrereleaseDates(
+  game: string,
+  shelfDate: CandidateDate | null,
+  product: PrereleaseProduct | null,
+): CandidateDate[] {
+  return prereleaseOccurrencesFor(game, shelfDate, product).map((occurrence) => occurrence.date);
 }

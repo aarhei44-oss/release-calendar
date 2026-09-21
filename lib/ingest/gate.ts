@@ -6,6 +6,7 @@ import {
   datesAgreeWithin,
   daysBetween,
   hasDate,
+  isPastDate,
   originsAreIndependent,
   primaryDate,
   serializeDate,
@@ -289,7 +290,17 @@ export function evaluateGate(input: GateInput): Verdict {
   }
 
   const supportingOrigins = dedupeOrigins(winner.claims.map((claim) => claim.origin));
-  const { confidence, status } = scoreClaims(claims, winner.date);
+  const scored = scoreClaims(claims, winner.date);
+  const { confidence } = scored;
+  // A released event stays released while its sources keep restating the same
+  // past date. Sources go on listing a product long after it ships (the
+  // providers read 90 days back), so without this every such run would score it
+  // CONFIRMED again, the lifecycle pass (releaseLifecycle.ts) would flip it back
+  // to RELEASED, and each night's diff would look like a status change and fire a
+  // follower alert. A date that has moved somewhere still in the future is a real
+  // slip, so it falls through to the score and the event stops being "released".
+  const status =
+    published?.status === "RELEASED" && isPastDate(winner.date, now) ? ("RELEASED" as const) : scored.status;
   return {
     action: "PUBLISH",
     rule: winner.rule,

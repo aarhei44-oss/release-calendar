@@ -28,14 +28,27 @@ type Sourced = Awaited<ReturnType<DerivePrereleaseDeps["getSourcedPrereleaseDate
 type Derived = Awaited<ReturnType<DerivePrereleaseDeps["getDerivedPrereleaseEvents"]>>[number];
 type Upsert = Parameters<DerivePrereleaseDeps["upsertDerivedPrereleaseEvent"]>[0];
 
+// A main, prerelease-bearing product per scheduled game, so a test that changes
+// `game` still gets an anchor its schedule applies to. Eligibility itself is
+// covered in ingestPrerelease.test.ts and by the "does not apply" cases below.
+const MAIN_PRODUCTS: Record<string, Anchor["product"]> = {
+  "magic-the-gathering": { code: "FRA", name: "Reality Fracture", kind: "expansion" },
+  "pokemon-tcg": { code: "DLR", name: "Mega Evolution—Delta Reign", kind: null },
+  "yugioh-tcg": { code: "BETB", name: "Beyond the Brave", kind: null },
+  "one-piece-tcg": { code: "OP-17", name: "BOOSTER PACK", kind: null },
+  "disney-lorcana": { code: "14", name: "Hyperia City", kind: null },
+};
+
 function anchor(overrides: Partial<Anchor> = {}): Anchor {
+  const game = overrides.game ?? "magic-the-gathering";
   return {
     id: "shelf-1",
     productSetId: "set-1",
     region: "GLOBAL",
     status: "CONFIRMED",
     confidence: 0.82,
-    game: "magic-the-gathering",
+    game,
+    product: MAIN_PRODUCTS[game] ?? { code: null, name: null, kind: null },
     date: exact(SHELF_FRIDAY),
     ...overrides,
   };
@@ -94,18 +107,18 @@ describe("deriving from a confirmed shelf date", () => {
 
       expect(result.written).toBe(2);
       expect(recorded.upserts.map((u) => [u.derivedSlot, isoOf(u.date)])).toEqual([
-        ["friday-1", "2026-07-17"],
-        ["friday-2", "2026-07-10"],
+        ["saturday-1", "2026-07-18"],
+        ["saturday-2", "2026-07-11"],
       ]);
     })();
   });
 
   it("keys each row on its anchor event and slot, which is what stops slot two overwriting slot one", async () => {
-    const { deps, recorded } = fakeDeps({ anchors: [anchor({ game: "yugioh-tcg" })] });
+    const { deps, recorded } = fakeDeps({ anchors: [anchor({ game: "pokemon-tcg" })] });
     await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
 
     const keys = recorded.upserts.map((u) => `${u.derivedFromEventId}/${u.derivedSlot}`);
-    expect(keys).toEqual(["shelf-1/saturday-1", "shelf-1/sunday-1"]);
+    expect(keys).toEqual(["shelf-1/saturday-1", "shelf-1/saturday-2"]);
     expect(new Set(keys).size).toBe(2);
   });
 
@@ -312,5 +325,87 @@ describe("convergence and isolation", () => {
     const { deps } = fakeDeps({ anchors: [anchor({ game: "pokemon-tcg" })], failUpsert: true });
     const result = await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
     expect(result).toMatchObject({ written: 0, errors: 2 });
+  });
+});
+
+describe("which shelf events get a derived prerelease at all", () => {
+  it("writes nothing for a Commander deck, and retracts the row an earlier version wrote for it", async () => {
+    // Production carried derived rows for Marvel/Hobbit/Reality Fracture/Star Trek
+    // Commander decks until 2026-09-20; Wizards runs one prerelease per set.
+    const commander = anchor({
+      id: "shelf-commander",
+      product: { code: "TRC", name: "Star Trek Commander", kind: "commander" },
+    });
+    const { deps, recorded } = fakeDeps({
+      anchors: [commander],
+      derived: [derivedRow({ id: "derived-old", derivedFromEventId: "shelf-commander" })],
+    });
+    const result = await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
+
+    expect(recorded.upserts).toEqual([]);
+    expect(recorded.archived.map((entry) => entry.id)).toEqual(["derived-old"]);
+    expect(result.retracted).toBe(1);
+  });
+
+  it("writes nothing for a One Piece starter deck", async () => {
+    const { deps, recorded } = fakeDeps({
+      anchors: [anchor({ game: "one-piece-tcg", product: { code: "ST-31", name: "STARTER DECK -RED Monkey.D.Luffy-", kind: null } })],
+    });
+    await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
+    expect(recorded.upserts).toEqual([]);
+  });
+
+  it("writes nothing for the Pokemon 30th Celebration, and moves an old Friday row to Saturday by retracting it", async () => {
+    const { deps, recorded } = fakeDeps({
+      anchors: [
+        anchor({ id: "shelf-30c", game: "pokemon-tcg", product: { code: "30C", name: "30th Celebration", kind: null } }),
+        anchor({ id: "shelf-dlr", game: "pokemon-tcg" }),
+      ],
+      derived: [
+        derivedRow({ id: "old-30c", derivedFromEventId: "shelf-30c", derivedSlot: "friday-1" }),
+        derivedRow({ id: "old-dlr-1", derivedFromEventId: "shelf-dlr", derivedSlot: "friday-1" }),
+        derivedRow({ id: "old-dlr-2", derivedFromEventId: "shelf-dlr", derivedSlot: "friday-2" }),
+      ],
+    });
+    await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
+
+    expect(recorded.upserts.map((u) => `${u.derivedFromEventId}/${u.derivedSlot}`)).toEqual([
+      "shelf-dlr/saturday-1",
+      "shelf-dlr/saturday-2",
+    ]);
+    expect(recorded.archived.map((entry) => entry.id).sort()).toEqual(["old-30c", "old-dlr-1", "old-dlr-2"]);
+  });
+
+  it("drops the unconfirmed Yu-Gi-Oh! Saturday slot", async () => {
+    const { deps, recorded } = fakeDeps({
+      anchors: [anchor({ game: "yugioh-tcg" })],
+      derived: [derivedRow({ id: "old-sat", derivedSlot: "saturday-1", date: exact("2026-07-18T00:00:00.000Z") })],
+    });
+    await derivePrereleaseEvents({ installIds: INSTALLS, now: NOW }, deps);
+
+    expect(recorded.upserts.map((u) => [u.derivedSlot, isoOf(u.date)])).toEqual([["sunday-1", "2026-07-19"]]);
+    expect(recorded.archived.map((entry) => entry.id)).toEqual(["old-sat"]);
+  });
+});
+
+describe("a shelf event that has already been released", () => {
+  it("still anchors its prerelease, so the lifecycle pass does not erase past prereleases", async () => {
+    const { deps, recorded } = fakeDeps({ anchors: [anchor({ status: "RELEASED" })] });
+    const result = await derivePrereleaseEvents({ installIds: INSTALLS, now: new Date("2026-08-01T00:00:00.000Z") }, deps);
+
+    expect(result.written).toBe(1);
+    expect(result.retracted).toBe(0);
+    expect(recorded.upserts).toHaveLength(1);
+  });
+
+  it("writes a derived row whose own date is over as RELEASED, and an upcoming one as CONFIRMED", async () => {
+    // Prerelease 2026-07-17. Before it: confirmed; the day after: released.
+    const before = fakeDeps({ anchors: [anchor()] });
+    await derivePrereleaseEvents({ installIds: INSTALLS, now: new Date("2026-07-10T00:00:00.000Z") }, before.deps);
+    expect(before.recorded.upserts[0].status).toBe("CONFIRMED");
+
+    const after = fakeDeps({ anchors: [anchor({ status: "RELEASED" })] });
+    await derivePrereleaseEvents({ installIds: INSTALLS, now: new Date("2026-07-18T00:00:00.000Z") }, after.deps);
+    expect(after.recorded.upserts[0].status).toBe("RELEASED");
   });
 });

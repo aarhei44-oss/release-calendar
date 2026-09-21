@@ -163,6 +163,10 @@ function parseScryfall(payload: RawPayloadRecord): Candidate[] {
       region: "GLOBAL",
       type: "SHELF",
       url: set.scryfall_uri ?? SETS_URL,
+      // Wizards' own classification, and the only signal that separates a main
+      // expansion (which has a prerelease) from its Commander decks, masterpiece
+      // inserts and Secret Lair drops (which do not) -- see prerelease.ts.
+      productKind: set.set_type,
       // A set glyph, not key art: a monochrome black SVG Scryfall's own site
       // recolors in CSS, and several (SLZ, say) are drawn as negative space
       // inside a filled square. It gets the symbol treatment in the drawer --

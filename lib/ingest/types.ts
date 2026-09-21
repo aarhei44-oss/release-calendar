@@ -231,6 +231,16 @@ export type Candidate = {
    * `icon_svg_uri` is a glyph however pretty it looks), never from the URL.
    */
   imageKind?: ProductImageKind;
+  /**
+   * The provider's own classification of the product, when the upstream data
+   * has one (Scryfall's `set_type`: "expansion", "commander", "masterpiece"...).
+   * Persisted to ProductSet.meta by orchestrate.ts's enrichProductSet, and read
+   * only by lib/ingest/prerelease.ts to decide whether a product has a prerelease.
+   * Never inferred from a name here -- a provider that cannot classify a product
+   * leaves this unset, and unset means "unknown", which the schedules treat as
+   * "no".
+   */
+  productKind?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -447,6 +457,21 @@ export function datesAgreeWithin(a: CandidateDate | null, b: CandidateDate | nul
 
 export function daysBetween(from: Date, to: Date): number {
   return (to.getTime() - from.getTime()) / MS_PER_DAY;
+}
+
+/**
+ * Whether the last day this date names is entirely over.
+ *
+ * "Entirely" is deliberate: an event dated today is not over until tomorrow, and
+ * calling it released while stores in the western hemisphere are still opening
+ * would state something untrue. Only EXACT and RANGE dates qualify. A month or
+ * quarter window has a nominal end but never named a day, so a set inside one
+ * that "ended" may simply have slipped -- guessing it shipped is not evidence.
+ */
+export function isPastDate(date: CandidateDate | null | undefined, now: Date): boolean {
+  if (!date) return false;
+  const lastDay = date.kind === "EXACT" ? date.date : date.kind === "RANGE" ? date.end : null;
+  return lastDay !== null && lastDay.getTime() + MS_PER_DAY <= now.getTime();
 }
 
 export function hasDate(date: CandidateDate | null | undefined): boolean {

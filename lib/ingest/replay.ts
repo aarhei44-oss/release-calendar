@@ -81,8 +81,10 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     // follower "new release" notifications that a live run sends for the same
     // diff (see orchestrate.ts's executeIngest, the only caller that dispatches
     // them) -- a replay can happen any number of times, days or weeks later.
+    // releasedEvents is dropped for the same reason: a replay must not re-announce
+    // a release.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured purely to drop it, see comment above
-    const { diffChanges: _diffChanges, ...stageTotals } = await runStagesFromPayloads({
+    const { diffChanges: _diffChanges, releasedEvents: _releasedEvents, ...stageTotals } = await runStagesFromPayloads({
       scanRunId: runId,
       now,
       installs,

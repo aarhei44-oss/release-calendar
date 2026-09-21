@@ -74,6 +74,62 @@ what has actually been validating v2 all along: the gate's own rules, the
 provider fixture tests in `tests/ingestProvider*.test.ts`, and the review
 queue for what the gate can't decide.
 
+**Update 2026-09-20: accuracy audit against the publishers' own pages.** A
+one-off web-verified pass over every live event (161 in the 2026-09-20 backup)
+found the shelf dates mostly right and the *derived* data mostly wrong. This is
+not the golden set above, which stays abandoned: it was a single audit whose
+findings were turned into rules and regression tests, not a maintained fixture.
+Changes, each with the production row that motivated it:
+
+- **Prerelease schedules apply only to products that have prereleases**
+  (`PrereleaseSchedule.appliesTo`, `lib/ingest/prerelease.ts`). 27 of the 38
+  derived rows in production were for events that do not exist -- Commander
+  decks, the Secret Lair Zeta Set, One Piece starter decks, Yu-Gi-Oh! Winner's
+  Packs, the Pokemon 30th Celebration. Magic's rule reads Scryfall's `set_type`
+  (new `Candidate.productKind`, persisted in `ProductSet.meta.kind`, expansion
+  and core only); the others read the code or name shape. Unknown means no.
+- **Pokemon prereleases start on Saturday**, not Friday (Pitch Black: Sat
+  2026-07-04 to 2026-07-12; Delta Reign: Sat 2026-10-24 to 2026-11-01). Slot
+  keys are now `saturday-1`/`saturday-2`; the old rows are retracted by the
+  derive pass on its first run.
+- **Yu-Gi-Oh! keeps only the Sunday Sneak Peek.** The Saturday slot had no
+  source. Retailer listings confirm the Sunday (Chaos Origins 2026-06-28,
+  Beyond the Brave 2026-10-04).
+- **Lorcana**: a numbered set's TCGplayer date is the local-store date, a week
+  before the wide release (`tcgcsv.ts`). Emitted as a PRERELEASE claim plus a
+  SHELF claim at +7 days, so Wikipedia can corroborate both.
+- **Union Arena and One Piece "Release Event Cards" pools are dropped**
+  (`tcgcsv.ts`), as Digimon's and Flesh and Blood's already were. UA's share
+  their booster's code prefix and were dragging UE20BT and UE22BT a week early.
+- **Magic Art Series takes its parent set's date** (`tcgcsv.ts`): Art Series:
+  The Hobbit was dated 2026-11-13 against the real 2026-08-14.
+- **Riftbound: first Release/Pre-Rift/code wins** and a second `3-Letter Code`
+  ends the read (`playriftbound.ts`). Legacy's section contains an h3 for
+  Proving Grounds, 2nd Edition (PG2, 2027-02-19) that the old last-wins loop
+  read as Legacy's own date. G5 held the right date by luck of two other
+  origins disagreeing; it should not have been left to that.
+- **A quoted short token is a placeholder name** (`identity.ts`): Bulbapedia's
+  Japan-only `"FLO"`.
+- **Release lifecycle** (`lib/ingest/releaseLifecycle.ts`): ANNOUNCED and
+  CONFIRMED events with an EXACT/RANGE date whose last day is over become
+  RELEASED. Nothing did this after v1 was deleted -- 81 of 161 events were in
+  the past and none was RELEASED. The gate preserves RELEASED while sources
+  restate the same past date (otherwise every night's diff would carry a status
+  flip and fire a follower alert), and a derived prerelease anchored on a
+  RELEASED shelf event stays. "Released" alerts go out only for shelf events
+  that crossed their date in the last three days, never for history.
+
+Known and deliberately not changed: (1) a lone RETAILER claim still publishes
+after seven unchanged runs (G3), and TCGplayer's date is wrong for some
+products (the Art Series and Union Arena cases above were both G3 publications);
+each fix above removes a known cause rather than the class. (2) G5 holds the
+*previously published* value on a conflict, so a wrong G3 date is not displaced
+by a later, better-corroborated one until someone resolves the review item.
+(3) Digimon's US dates are labelled GLOBAL; changing the region changes the
+event key and would orphan follows. (4) Flesh and Blood has no prerelease rule:
+one official data point (Usurp the Shadow Throne, Fri 2026-09-18 to Thu
+2026-09-24) is not enough to encode one.
+
 Design doc (options analysis + full architecture, with the measured v1
 diagnosis): https://claude.ai/code/artifact/eb5f4531-8d53-4683-946a-6ea917a7329b
 

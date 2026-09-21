@@ -145,3 +145,33 @@ describe("scryfall provider: malformed payloads", () => {
     expect(() => parse(value)).toThrow(/unparseable date/);
   });
 });
+
+describe("scryfall provider: product kind", () => {
+  it("carries Scryfall's set_type onto every candidate", () => {
+    const candidates = parse();
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const candidate of candidates) {
+      expect(typeof candidate.productKind, candidate.name).toBe("string");
+      expect(candidate.productKind?.length, candidate.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("distinguishes a main expansion from its Commander deck and a masterpiece insert", () => {
+    // These are what prerelease.ts reads: only expansion and core have prereleases.
+    const kinds = new Map(parse().map((candidate) => [candidate.name, candidate.productKind]));
+    const commanders = [...kinds.entries()].filter(([, kind]) => kind === "commander");
+    expect(commanders.length).toBeGreaterThan(0);
+    expect([...kinds.values()]).toContain("expansion");
+  });
+
+  it("survives Normalize's strict candidate schema", async () => {
+    // The strict schema rejects any key it does not know, which would have dropped
+    // every Scryfall candidate the moment productKind was emitted -- so the test
+    // has to run the real normalizePayload, not just the provider's parse.
+    const { normalizePayload } = await import("@/lib/ingest/normalize");
+    const { payloadFor } = await import("./fixtures/ingest/helpers");
+    const candidates = normalizePayload(payloadFor("scryfall", FIXTURE, FETCHED_AT), scryfallProvider);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.every((candidate) => candidate.productKind !== undefined)).toBe(true);
+  });
+});

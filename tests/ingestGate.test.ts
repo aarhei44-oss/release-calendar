@@ -928,3 +928,115 @@ describe("G8 -- a lone claim matching the game's own schedule", () => {
     expect(withEmpty.rule).toBe("NONE");
   });
 });
+
+// ---------------------------------------------------------------------------
+// RELEASED: the gate must not undo the release lifecycle
+// ---------------------------------------------------------------------------
+
+describe("a released event keeps its status while its sources restate the same past date", () => {
+  const RELEASE_DAY = "2026-05-15T00:00:00.000Z"; // well before NOW (2026-06-01)
+
+  const twoAgreeing = () => [
+    claim({ origin: "official", date: exact(RELEASE_DAY) }),
+    claim({ origin: "retailerA", date: exact(RELEASE_DAY) }),
+  ];
+
+  it("stays RELEASED when a fresh PUBLISH would otherwise score it CONFIRMED", () => {
+    const verdict = gate(twoAgreeing(), publishedAt(RELEASE_DAY, "RELEASED"));
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.status).toBe("RELEASED");
+  });
+
+  it("is a no-op for an event that was not released: the score still decides", () => {
+    const verdict = gate(twoAgreeing(), publishedAt(RELEASE_DAY, "CONFIRMED"));
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.status).toBe("CONFIRMED");
+  });
+
+  it("stops being RELEASED when the date moves to the future -- a real slip", () => {
+    const justReleased = "2026-05-30T00:00:00.000Z";
+    const slipped = "2026-06-10T00:00:00.000Z"; // after NOW, and 11 days on: inside the 14-day shift bound
+    const verdict = gate(
+      [claim({ origin: "official", date: exact(slipped) }), claim({ origin: "retailerA", date: exact(slipped) })],
+      publishedAt(justReleased, "RELEASED"),
+    );
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.status).toBe("CONFIRMED");
+  });
+
+  it("does not release an event whose date is today: the day is not over", () => {
+    // The gate only *preserves* RELEASED; it never grants it. A published CONFIRMED
+    // event dated today therefore stays CONFIRMED however it is restated.
+    const today = "2026-06-01T00:00:00.000Z";
+    const verdict = gate(
+      [claim({ origin: "official", date: exact(today) }), claim({ origin: "retailerA", date: exact(today) })],
+      publishedAt(today, "CONFIRMED"),
+    );
+    expect(verdict.status).toBe("CONFIRMED");
+  });
+
+  it("holds RELEASED through an absence, as it holds any status", () => {
+    const verdict = gate(
+      [claim({ origin: "official", date: exact(RELEASE_DAY), seenInCurrentRun: false, lastSeenAt: daysBefore(30) })],
+      publishedAt(RELEASE_DAY, "RELEASED"),
+    );
+    expect(verdict.action).toBe("STALE");
+    expect(verdict.status).toBe("RELEASED");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lorcana: a numbered set's TCGplayer date is the local-store date
+// ---------------------------------------------------------------------------
+
+describe("Lorcana's split shelf and local-store dates, as tcgcsv.ts now emits them", () => {
+  // Hyperia City: TCGplayer 2026-10-16 (local stores), Ravensburger wide release
+  // 2026-10-23, Wikipedia states both. tcgcsv emits the shelf claim at +7 days.
+  const WIDE = "2026-10-23T00:00:00.000Z";
+  const LOCAL = "2026-10-16T00:00:00.000Z";
+
+  it("publishes the wide date for the shelf event, where the raw TCGplayer date used to be published", () => {
+    const verdict = gate([
+      claim({ origin: "retailerA", date: exact(WIDE) }), // tcgplayer, +7 days
+      claim({ origin: "communityA", date: exact(WIDE) }), // wikipedia shelf column
+    ]);
+    expect(verdict).toMatchObject({ action: "PUBLISH", rule: "G2" });
+    expect(verdict.date).toEqual(exact(WIDE));
+  });
+
+  it("publishes the local-store date for the prerelease event under G2", () => {
+    const verdict = gate([
+      claim({ origin: "retailerA", date: exact(LOCAL) }), // tcgplayer as-is, now a PRERELEASE claim
+      claim({ origin: "communityA", date: exact(LOCAL) }), // wikipedia's local-store column
+    ]);
+    expect(verdict).toMatchObject({ action: "PUBLISH", rule: "G2" });
+    expect(verdict.date).toEqual(exact(LOCAL));
+  });
+
+  it("corrects an already-published early date by the one-week gap, without tripping the large-shift flag", () => {
+    // Set 13 was published at the local-store date. The corrected claim is 7 days
+    // later, inside GATE_THRESHOLDS.largeShiftDays.
+    const verdict = gate(
+      [claim({ origin: "retailerA", date: exact(WIDE) }), claim({ origin: "communityA", date: exact(WIDE) })],
+      publishedAt(LOCAL, "RUMORED"),
+    );
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.date).toEqual(exact(WIDE));
+    expect(GATE_THRESHOLDS.largeShiftDays).toBeGreaterThan(7);
+  });
+
+  it("still flags rather than publishes if TCGplayer ever lists the set at its wide date", () => {
+    // +7 days on a date that was already the wide one lands a week after
+    // Wikipedia's, so the two disagree and the gate holds -- the safety net the
+    // shelf-claim offset relies on.
+    const verdict = gate(
+      [
+        claim({ origin: "retailerA", date: exact("2026-10-30T00:00:00.000Z"), consecutiveRuns: 1 }),
+        claim({ origin: "communityA", date: exact(WIDE) }),
+      ],
+      publishedAt(WIDE, "CONFIRMED"),
+    );
+    expect(verdict.action).not.toBe("PUBLISH");
+    expect(verdict.date).toEqual(exact(WIDE));
+  });
+});

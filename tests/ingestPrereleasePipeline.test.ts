@@ -58,6 +58,10 @@ function makeProvider(key: string, origin: "wikipedia" | "tcgplayer"): Provider 
           region: "GLOBAL",
           type: row.type,
           url: `https://${origin}.example/${row.id}`,
+          // What Scryfall's set_type supplies in production. Without a kind the
+          // schedule treats the product as unclassified and derives nothing, which
+          // is the behaviour under test in the "commander" case further down.
+          productKind: "expansion",
         }),
       );
     },
