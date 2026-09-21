@@ -280,7 +280,15 @@ export function evaluateGate(input: GateInput): Verdict {
   // into one event), and it is also what a real but unannounced delay looks
   // like. Both deserve a human glance before the calendar moves.
   // -------------------------------------------------------------------------
-  const shift = published ? dateGapDays(published.date, winner.date) : null;
+  //
+  // The one thing that is not a shift: an event showing a window ("Q4 2026") or a
+  // range that now gets an exact date *inside* it. That is the window doing its
+  // job -- being narrowed -- and measuring it from the window's first day would
+  // call a 10-16 date in an Oct-Dec quarter a 15-day move. It held Lorcana's
+  // Hyperia City prerelease at "Q4" behind a review item while the exact date sat
+  // unpublished.
+  const narrowsPublishedWindow = published !== null && isWithinPublished(published.date, winner.date);
+  const shift = published && !narrowsPublishedWindow ? dateGapDays(published.date, winner.date) : null;
   if (shift !== null && shift > GATE_THRESHOLDS.largeShiftDays) {
     return flagVerdict(claims, published, "G6", "LARGE_SHIFT", "LARGE_SHIFT", {
       proposedDate: winner.date,
@@ -491,6 +499,13 @@ function dedupeClaims(claims: ClaimRecord[]): ClaimRecord[] {
 
 function dedupeOrigins(origins: Origin[]): Origin[] {
   return [...new Set(origins)];
+}
+
+/** Whether `date` is an EXACT day falling inside a published WINDOW or RANGE. */
+function isWithinPublished(published: CandidateDate | null, date: CandidateDate): boolean {
+  if (!published || date.kind !== "EXACT") return false;
+  if (published.kind !== "WINDOW" && published.kind !== "RANGE") return false;
+  return date.date.getTime() >= published.start.getTime() && date.date.getTime() <= published.end.getTime();
 }
 
 /** Largest pairwise distance among a set of claims' dates, or null when fewer than two carry one. */

@@ -1040,3 +1040,59 @@ describe("Lorcana's split shelf and local-store dates, as tcgcsv.ts now emits th
     expect(verdict.date).toEqual(exact(WIDE));
   });
 });
+
+// ---------------------------------------------------------------------------
+// G6 does not fire when an exact date narrows a published window
+// ---------------------------------------------------------------------------
+
+describe("an exact date inside a published window is a refinement, not a large shift", () => {
+  const QUARTER: CandidateDate = {
+    kind: "WINDOW",
+    granularity: "QUARTER",
+    start: new Date("2026-10-01T00:00:00.000Z"),
+    end: new Date("2026-12-31T00:00:00.000Z"),
+  };
+  const twoAgreeing = (iso: string) => [
+    claim({ origin: "retailerA", date: exact(iso) }),
+    claim({ origin: "communityA", date: exact(iso) }),
+  ];
+
+  it("publishes 2026-10-16 over 'Q4 2026' even though it is 15 days from the window's first day", () => {
+    // Lorcana's Hyperia City prerelease: held at "Q4" behind a LARGE_SHIFT review
+    // item while the real date sat unpublished.
+    const verdict = gate(twoAgreeing("2026-10-16T00:00:00.000Z"), { date: QUARTER, status: "RUMORED" });
+    expect(verdict.action).toBe("PUBLISH");
+    expect(verdict.date).toEqual(exact("2026-10-16T00:00:00.000Z"));
+  });
+
+  it("accepts the window's own first and last days", () => {
+    for (const iso of ["2026-10-01T00:00:00.000Z", "2026-12-31T00:00:00.000Z"]) {
+      expect(gate(twoAgreeing(iso), { date: QUARTER, status: "RUMORED" }).action, iso).toBe("PUBLISH");
+    }
+  });
+
+  it("still flags a date well outside the window, which is a genuine move", () => {
+    const verdict = gate(twoAgreeing("2027-02-05T00:00:00.000Z"), { date: QUARTER, status: "RUMORED" });
+    expect(verdict.action).toBe("FLAG");
+    expect(verdict.reason).toBe("LARGE_SHIFT");
+  });
+
+  it("still flags a date one day past the window's end", () => {
+    const verdict = gate(twoAgreeing("2027-01-20T00:00:00.000Z"), { date: QUARTER, status: "RUMORED" });
+    expect(verdict.action).toBe("FLAG");
+  });
+
+  it("does not extend to a published EXACT date, which has no window to narrow", () => {
+    const verdict = gate(twoAgreeing("2026-10-23T00:00:00.000Z"), publishedAt("2026-09-20T00:00:00.000Z"));
+    expect(verdict.action).toBe("FLAG");
+  });
+
+  it("applies to a published RANGE as well", () => {
+    const range: CandidateDate = {
+      kind: "RANGE",
+      start: new Date("2026-10-01T00:00:00.000Z"),
+      end: new Date("2026-11-30T00:00:00.000Z"),
+    };
+    expect(gate(twoAgreeing("2026-11-25T00:00:00.000Z"), { date: range, status: "ANNOUNCED" }).action).toBe("PUBLISH");
+  });
+});

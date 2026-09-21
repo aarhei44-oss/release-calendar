@@ -119,6 +119,25 @@ Changes, each with the production row that motivated it:
   RELEASED shelf event stays. "Released" alerts go out only for shelf events
   that crossed their date in the last three days, never for history.
 
+Found while verifying the first deploy in production, and fixed the same day:
+
+- **Riftbound's roadmap article fell off Riot's announcements index** on
+  2026-09-17 (the index lists only the latest dozen posts), so the provider
+  yielded 0 candidates, silently, for four days. The slug is now pinned
+  (`PINNED_ARTICLE_SLUGS`); add next year's roadmap there when Riot posts it.
+- **G6 no longer treats narrowing a window as a shift.** An exact date inside a
+  published window or range ("Q4 2026" -> 2026-10-16) was measured from the
+  window's first day, so Lorcana's Hyperia City prerelease sat at "Q4" behind a
+  review item with its real date unpublished.
+
+Operational note for verifying a parser change in production: providers whose
+payload hash is unchanged are not re-parsed, and the gate only weighs claims
+observed in the current run, so a corrected parser does not take effect until
+that provider's payload next changes -- and a two-origin correction (G2) needs
+both to change in the same run. Deleting the provider's `ProviderEtag` row
+forces the next run to refetch and re-parse. Each extra run also advances G3's
+seven-run streak by one, so do not do this casually.
+
 Known and deliberately not changed: (1) a lone RETAILER claim still publishes
 after seven unchanged runs (G3), and TCGplayer's date is wrong for some
 products (the Art Series and Union Arena cases above were both G3 publications);
