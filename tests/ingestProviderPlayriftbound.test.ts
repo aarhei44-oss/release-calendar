@@ -225,3 +225,62 @@ describe("playriftbound provider: a product listed under a set does not become t
     expect(legacy?.date).toEqual({ kind: "EXACT", date: new Date("2027-01-29T00:00:00Z") });
   });
 });
+
+// ---------------------------------------------------------------------------
+// The roadmap article falling off the index
+// ---------------------------------------------------------------------------
+
+describe("playriftbound provider: the set-dates article is fetched even when the index stops linking it", () => {
+  // Riot's index lists only the latest dozen posts. On 2026-09-17 the evergreen
+  // roadmap fell off it and the provider went from 6 candidates to 0 with no error.
+  const NEWS_ONLY_INDEX =
+    "<html><body>" +
+    ["merch-update", "faq", "ban-list"].map((slug) => `<a href="/en-us/news/announcements/${slug}/">${slug}</a>`).join("") +
+    "</body></html>";
+
+  it("requests the pinned article and stores it beside the discovered ones", async () => {
+    const { PINNED_ARTICLE_SLUGS } = await import("@/lib/ingest/providers/playriftbound");
+    const { decodePayloadBody } = await import("@/lib/ingest/normalize");
+    const requested: string[] = [];
+    const roadmap = FIXTURE.articles["products-and-sets-into-2027"];
+
+    const stubFetch = (async (url: string) => {
+      requested.push(url);
+      const body = url.endsWith("/announcements/")
+        ? NEWS_ONLY_INDEX
+        : url.includes("products-and-sets-into-2027")
+          ? roadmap
+          : "<html><body><p>news</p></body></html>";
+      return new Response(body, { status: 200, headers: { "content-type": "text/html" } });
+    }) as unknown as typeof globalThis.fetch;
+
+    const payload = await playriftboundProvider.fetch({
+      scanRunId: "test-run",
+      fetch: stubFetch,
+      now: FETCHED_AT,
+    });
+
+    expect(payload.status).toBe("OK");
+    expect(PINNED_ARTICLE_SLUGS).toContain("products-and-sets-into-2027");
+    expect(requested.some((url) => url.includes("products-and-sets-into-2027"))).toBe(true);
+    const stored = decodePayloadBody(payload) as { articles: Record<string, string> };
+    expect(Object.keys(stored.articles)).toContain("products-and-sets-into-2027");
+
+    // ...and it parses to the sets, which is the whole point.
+    const candidates = playriftboundProvider.parse(payload);
+    expect(candidates.find((c) => c.name === "Radiance" && c.type === "SHELF")).toBeDefined();
+  });
+
+  it("does not fetch a pinned article twice when the index also links it", async () => {
+    const requested: string[] = [];
+    const linked = `<html><body><a href="/en-us/news/announcements/products-and-sets-into-2027/">x</a></body></html>`;
+    const stubFetch = (async (url: string) => {
+      requested.push(url);
+      const body = url.endsWith("/announcements/") ? linked : FIXTURE.articles["products-and-sets-into-2027"];
+      return new Response(body, { status: 200 });
+    }) as unknown as typeof globalThis.fetch;
+
+    await playriftboundProvider.fetch({ scanRunId: "test-run", fetch: stubFetch, now: FETCHED_AT });
+    expect(requested.filter((url) => url.includes("products-and-sets-into-2027"))).toHaveLength(1);
+  });
+});

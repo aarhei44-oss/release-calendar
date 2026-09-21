@@ -59,7 +59,25 @@ const INDEX_URL = `${BASE_URL}/en-us/news/announcements/`;
 // ---------------------------------------------------------------------------
 
 /** An announcement article link on the index page: "/en-us/news/announcements/<slug>", with or without a trailing slash. */
-const ARTICLE_PATH = /^\/en-us\/news\/announcements\/([a-z0-9-]+)\/?$/;
+/**
+ * Articles fetched on every run whether or not the index links them.
+ *
+ * The announcements index lists only Riot's latest dozen posts, and the one
+ * article that carries set dates ("Products and Sets into 2027") is an
+ * evergreen roadmap, not news -- so each new merch update or FAQ pushes it
+ * further down until it falls off the page. That happened on 2026-09-17: the
+ * provider went from 6 candidates to 0 overnight and has yielded none since, with
+ * no error, because "most posts have no set section" is the normal case and
+ * nothing asserts otherwise. Riftbound's only OFFICIAL claims (every Pre-Rift
+ * date, and the G1 publication of each release date) silently stopped arriving.
+ *
+ * A pinned slug that Riot removes fails the fetch loudly, which is the right way
+ * round: a missing roadmap should page someone, not look like a quiet week. When
+ * Riot publishes next year's roadmap, add its slug here.
+ */
+export const PINNED_ARTICLE_SLUGS: readonly string[] = ["products-and-sets-into-2027"];
+
+const ARTICLE_PATH =/^\/en-us\/news\/announcements\/([a-z0-9-]+)\/?$/;
 
 /**
  * Every announcement slug linked from the index page.
@@ -121,7 +139,7 @@ export async function fetchPlayriftbound(ctx: FetchContext): Promise<RawPayloadR
     }
 
     const articles: Record<string, string> = {};
-    for (const slug of discoverArticleSlugs(indexResult.body)) {
+    for (const slug of new Set([...discoverArticleSlugs(indexResult.body), ...PINNED_ARTICLE_SLUGS])) {
       const result = await fetchConditional({
         url: `${INDEX_URL}${slug}/`,
         fetch: ctx.fetch,
