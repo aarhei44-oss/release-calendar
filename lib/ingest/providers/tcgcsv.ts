@@ -59,12 +59,58 @@ export const TCGCSV_CATEGORIES: ReadonlyArray<{ categoryId: number; game: string
  * code makes identity.ts's collectAmbiguousCodes disqualify that code as an
  * identity key -- for the real set as well, so Bandai's BT-26 could no longer
  * pair with TCGplayer's by code -- and each would land on the calendar as a
- * SHELF release of its own, a week ahead of the actual one. Only these two
- * games are filtered: the shape is cheap to name here and the other games'
- * catalogues were audited without it.
+ * SHELF release of its own, a week ahead of the actual one.
+ *
+ * One Piece and Union Arena were added on 2026-09-20 after an accuracy audit
+ * found the same shape there: "The Dominance of God Release Event Cards" (OP18
+ * RE) and "UE24BT: Re:ZERO ... Release Event Cards" (UE24BT_RE) were on the
+ * calendar as releases, and worse, Union Arena's pool groups share their
+ * booster's code ("UE20BT: ..." / "UE20BT_RE") so identity.ts folded them into
+ * the real product and their week-early dates became that product's date --
+ * UE20BT showed 2026-06-19 (real: 2026-06-26) and UE22BT 2026-07-24 (real:
+ * 2026-07-31). Only these four games are filtered: the shape is cheap to name
+ * here and the remaining games' catalogues carry no such groups.
  */
-const PRERELEASE_CARD_POOL_GAMES: ReadonlySet<string> = new Set(["flesh-and-blood", "digimon-card-game"]);
+const PRERELEASE_CARD_POOL_GAMES: ReadonlySet<string> = new Set([
+  "flesh-and-blood",
+  "digimon-card-game",
+  "one-piece-tcg",
+  "union-arena-tcg",
+]);
 const PRERELEASE_CARD_POOL_NAME = /\b(release event|pre-?release) cards$/i;
+
+/**
+ * Lorcana's numbered sets are dated by TCGplayer on the day they reach local
+ * game stores, a week before they go on sale everywhere.
+ *
+ * Ravensburger's own announcements say so: Attack of the Vine! "prereleases on
+ * July 17 ... and will be available everywhere on July 24", Hyperia City
+ * "pre-release October 16, wide release October 23". TCGplayer's groups say
+ * 2026-07-17 and 2026-10-16. Reading that date as the release put the set on
+ * the calendar a week early -- and Wikipedia, which states both dates, could
+ * never corroborate it, so the event sat contradicted with the wrong date
+ * published (see ingest-v2-plan.md's original reason for skipping Lorcana).
+ *
+ * So each numbered set yields two candidates from the one group: the date as
+ * given is the local-store PRERELEASE, and the SHELF date is a week later.
+ * Only numbered sets ("13", "14") -- Illumineer's Quest boxes carry a "Q" code,
+ * ship on one date everywhere, and TCGplayer's 2026-10-02 matches Ravensburger's.
+ * If TCGplayer ever lists a numbered set at its wide date instead, the +7 shelf
+ * claim disagrees with Wikipedia's and the gate holds and flags it rather than
+ * publishing, which is the outcome this is trying to buy.
+ */
+const LORCANA_LOCAL_STORE_LEAD_DAYS = 7;
+const LORCANA_NUMBERED_SET_CODE = /^\d{1,2}$/;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * "Art Series: The Hobbit" ships inside The Hobbit and always shares its date.
+ * TCGplayer nevertheless dates these supplemental groups independently, and got
+ * one wrong: Art Series: The Hobbit was 2026-11-13 (the Star Trek date) against
+ * the real 2026-08-14. Scryfall cannot check it -- memorabilia sets are excluded
+ * there -- so the only correct source for the date is the parent set's group.
+ */
+const ART_SERIES_NAME = /^art series:\s*(.+)$/i;
 
 const groupSchema = z.object({
   groupId: z.number().int(),
@@ -162,8 +208,21 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
     // added, both look like this and both should yield what they do have.
     if (!category) continue;
 
+    // Non-supplemental groups by name, so an Art Series group can borrow its
+    // parent's date. Built per category: names only mean anything within a game.
+    const datesByName = new Map<string, string>();
+    if (game === "magic-the-gathering") {
+      for (const candidate of category.results) {
+        const published = candidate.publishedOn?.trim();
+        if (candidate.isSupplemental || !published || published.endsWith("Z")) continue;
+        datesByName.set(candidate.name.trim().toLowerCase(), published);
+      }
+    }
+
     for (const group of category.results) {
-      const raw = group.publishedOn?.trim();
+      const artSeriesParent =
+        game === "magic-the-gathering" ? ART_SERIES_NAME.exec(group.name.trim())?.[1]?.trim().toLowerCase() : undefined;
+      const raw = (artSeriesParent ? datesByName.get(artSeriesParent) : undefined) ?? group.publishedOn?.trim();
       // tcgcsv's genuine publishedOn is the naive local-form datetime described
       // above -- no zone suffix. For groups it has no curated release date for
       // (evergreen promo/box-set pools like "FNM Promos" or "Arena Promos",
@@ -220,17 +279,32 @@ function parseTcgcsv(payload: RawPayloadRecord): Candidate[] {
 
       const abbreviation = group.abbreviation?.trim();
 
-      candidates.push({
-        origin: "tcgplayer",
+      const base = {
+        origin: "tcgplayer" as const,
         game,
         externalIds: { tcgplayer: String(group.groupId) },
         name,
         code: abbreviation ? abbreviation : null,
-        date,
-        region: "GLOBAL",
-        type: "SHELF",
+        region: "GLOBAL" as const,
         url: groupsUrl(categoryId),
-      });
+      };
+
+      if (
+        game === "disney-lorcana" &&
+        date.kind === "EXACT" &&
+        LORCANA_NUMBERED_SET_CODE.test(abbreviation ?? "")
+      ) {
+        candidates.push({ ...base, externalIds: { ...base.externalIds }, date, type: "PRERELEASE" });
+        candidates.push({
+          ...base,
+          externalIds: { ...base.externalIds },
+          date: { kind: "EXACT", date: new Date(date.date.getTime() + LORCANA_LOCAL_STORE_LEAD_DAYS * MS_PER_DAY) },
+          type: "SHELF",
+        });
+        continue;
+      }
+
+      candidates.push({ ...base, date, type: "SHELF" });
     }
   }
 

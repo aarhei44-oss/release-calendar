@@ -68,6 +68,19 @@ const PLACEHOLDER_NAME_EXACT = /^(?:[—–\-?]+|n\/?a|tba|tbd|tbc|unknown|none)
 const PLACEHOLDER_NAME_PREFIX = /^(?:unnamed|untitled|unannounced|unrevealed|undisclosed|tba|tbd)\b/i;
 
 /**
+ * A short token wrapped in quotation marks and nothing else: `"FLO"`.
+ *
+ * Bulbapedia's Japanese list prints a working title in quotes in its "English
+ * equivalent" column for a Japan-only set nobody has named in English yet. That
+ * reached production on 2026-09-20 as a ProductSet literally called `"FLO"` (code
+ * SYN-FLO-...), a Japanese-region placeholder that could never be matched to
+ * anything. Quotes around the whole cell are the wiki's own marker that this is
+ * not a product name; a real name that merely contains quotes (Eustass"Captain"Kid)
+ * is not affected, since the quotes must be the first and last characters.
+ */
+const PLACEHOLDER_NAME_QUOTED_TOKEN = /^["“”'‘’][A-Za-z0-9]{1,6}["“”'‘’]$/;
+
+/**
  * Whether a name is a placeholder, and therefore must not be used to identify
  * anything.
  *
@@ -89,7 +102,11 @@ export function isPlaceholderName(name: string | null | undefined): boolean {
   if (!name) return true;
   const trimmed = name.trim();
   if (!trimmed) return true;
-  return PLACEHOLDER_NAME_EXACT.test(trimmed) || PLACEHOLDER_NAME_PREFIX.test(trimmed);
+  return (
+    PLACEHOLDER_NAME_EXACT.test(trimmed) ||
+    PLACEHOLDER_NAME_PREFIX.test(trimmed) ||
+    PLACEHOLDER_NAME_QUOTED_TOKEN.test(trimmed)
+  );
 }
 
 /**

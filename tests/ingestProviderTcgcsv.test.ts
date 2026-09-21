@@ -227,3 +227,129 @@ describe("tcgcsv provider: malformed payloads", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// The three date-semantics corrections found by the 2026-09-20 accuracy audit.
+// Synthetic payloads on purpose: each case is one row shape from the live feed,
+// and a fixture recorded on 2026-09-04 predates half of them.
+// ---------------------------------------------------------------------------
+
+function group(groupId: number, name: string, abbreviation: string | null, publishedOn: string, extra: object = {}) {
+  return { groupId, name, abbreviation, publishedOn, isSupplemental: false, ...extra };
+}
+
+function category(id: number, results: object[]) {
+  return { [String(id)]: { success: true, results } };
+}
+
+describe("tcgcsv provider: Lorcana dates a numbered set on the day it reaches local game stores", () => {
+  // Ravensburger: Hyperia City "pre-release October 16, wide release October 23";
+  // TCGplayer's group says 2026-10-16.
+  const lorcana = category(71, [
+    group(1, "Hyperia City", "14", "2026-10-16T00:00:00"),
+    group(2, "Illumineer's Quest: The Great Hunny Rescue", "Q3", "2026-10-02T00:00:00"),
+  ]);
+
+  it("emits the date as the local-store PRERELEASE and the shelf date a week later", () => {
+    const hyperia = parse(lorcana, new Date("2026-09-20T00:00:00Z")).filter((c) => c.externalIds.tcgplayer === "1");
+    expect(hyperia.map((c) => [c.type, c.date])).toEqual([
+      ["PRERELEASE", { kind: "EXACT", date: new Date("2026-10-16T00:00:00Z") }],
+      ["SHELF", { kind: "EXACT", date: new Date("2026-10-23T00:00:00Z") }],
+    ]);
+  });
+
+  it("carries the same identity on both, so they resolve to one product", () => {
+    const hyperia = parse(lorcana, new Date("2026-09-20T00:00:00Z")).filter((c) => c.externalIds.tcgplayer === "1");
+    expect(new Set(hyperia.map((c) => `${c.name}|${c.code}|${c.externalIds.tcgplayer}`)).size).toBe(1);
+  });
+
+  it("leaves a non-numbered product alone -- Illumineer's Quest ships on one date everywhere", () => {
+    const quest = parse(lorcana, new Date("2026-09-20T00:00:00Z")).filter((c) => c.externalIds.tcgplayer === "2");
+    expect(quest).toHaveLength(1);
+    expect(quest[0]).toMatchObject({ type: "SHELF", date: { kind: "EXACT", date: new Date("2026-10-02T00:00:00Z") } });
+  });
+
+  it("does not shift any other game's numbered-looking code", () => {
+    const other = parse(category(3, [group(5, "Some Set", "14", "2026-10-16T00:00:00")]), new Date("2026-09-20T00:00:00Z"));
+    expect(other).toHaveLength(1);
+    expect(other[0]).toMatchObject({ type: "SHELF", date: { kind: "EXACT", date: new Date("2026-10-16T00:00:00Z") } });
+  });
+});
+
+describe("tcgcsv provider: release-event card pools are not products", () => {
+  // The pool is stamped a week before its set. In Union Arena it also shares its
+  // booster's code prefix, so it used to fold into the booster and drag the
+  // booster's date a week early (UE20BT showed 06-19, real 06-26).
+  const at = new Date("2026-09-20T00:00:00Z");
+
+  it("drops Union Arena's pool and keeps the booster on its own date", () => {
+    const candidates = parse(
+      category(81, [
+        group(10, "UE20BT: That Time I Got Reincarnated as a Slime Release Event Cards", "UE20BT_RE", "2026-06-19T00:00:00"),
+        group(11, "UE20BT: That Time I Got Reincarnated as a Slime", "UE20BT", "2026-06-26T00:00:00"),
+      ]),
+      at,
+    );
+    expect(candidates.map((c) => [c.code, c.date])).toEqual([
+      ["UE20BT", { kind: "EXACT", date: new Date("2026-06-26T00:00:00Z") }],
+    ]);
+  });
+
+  it("drops One Piece's pool", () => {
+    const candidates = parse(
+      category(68, [
+        group(20, "The Dominance of God Release Event Cards", "OP18 RE", "2026-11-13T00:00:00"),
+        group(21, "The Dominance of God", "OP18", "2026-11-20T00:00:00"),
+      ]),
+      at,
+    );
+    expect(candidates.map((c) => c.code)).toEqual(["OP18"]);
+  });
+
+  it("does not touch a game outside the audited four", () => {
+    const candidates = parse(category(3, [group(30, "Something Release Event Cards", "SRE", "2026-11-13T00:00:00")]), at);
+    expect(candidates).toHaveLength(1);
+  });
+});
+
+describe("tcgcsv provider: an Art Series group takes its parent set's date", () => {
+  // Production showed Art Series: The Hobbit on 2026-11-13 (the Star Trek date)
+  // when it ships inside The Hobbit on 2026-08-14.
+  const at = new Date("2026-09-20T00:00:00Z");
+  const mtg = category(1, [
+    group(40, "The Hobbit", "HOB", "2026-08-14T00:00:00"),
+    group(41, "Art Series: The Hobbit", "ASHOB", "2026-11-13T00:00:00", { isSupplemental: true }),
+    group(42, "Reality Fracture", "FRA", "2026-10-02T00:00:00"),
+    group(43, "Art Series: Reality Fracture", "ASFRA", "2026-10-02T00:00:00", { isSupplemental: true }),
+    group(44, "Art Series: Nothing Matches This", "ASNM", "2026-12-25T00:00:00", { isSupplemental: true }),
+  ]);
+
+  it("corrects a wrong supplemental date from the parent's", () => {
+    const hobbit = parse(mtg, at).find((c) => c.code === "ASHOB");
+    expect(hobbit?.date).toEqual({ kind: "EXACT", date: new Date("2026-08-14T00:00:00Z") });
+  });
+
+  it("leaves an already-correct one as it was", () => {
+    const fracture = parse(mtg, at).find((c) => c.code === "ASFRA");
+    expect(fracture?.date).toEqual({ kind: "EXACT", date: new Date("2026-10-02T00:00:00Z") });
+  });
+
+  it("keeps its own date when no parent group has that name", () => {
+    const orphan = parse(mtg, at).find((c) => c.code === "ASNM");
+    expect(orphan?.date).toEqual({ kind: "EXACT", date: new Date("2026-12-25T00:00:00Z") });
+  });
+
+  it("does not let a supplemental group be another group's parent", () => {
+    const candidates = parse(
+      category(1, [
+        group(50, "Art Series: Twin", "AST", "2026-10-02T00:00:00", { isSupplemental: true }),
+        group(51, "Art Series: Art Series: Twin", "ASAST", "2026-12-01T00:00:00", { isSupplemental: true }),
+      ]),
+      at,
+    );
+    expect(candidates.find((c) => c.code === "ASAST")?.date).toEqual({
+      kind: "EXACT",
+      date: new Date("2026-12-01T00:00:00Z"),
+    });
+  });
+});

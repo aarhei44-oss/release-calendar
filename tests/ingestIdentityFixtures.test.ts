@@ -285,13 +285,16 @@ describe("real fixtures: products that must stay distinct", () => {
     // above.
   });
 
-  it("keeps a One Piece set apart from its release-event cards", () => {
-    expectDifferentSets(
-      "one-piece-tcg",
-      "The World's Strongest Warriors",
-      "The World's Strongest Warriors Release Event Cards",
-    );
-    expectDifferentSets("one-piece-tcg", "The Dominance of God", "The Dominance of God Release Event Cards");
+  it("does not admit One Piece release-event card pools as products at all", () => {
+    // They used to be kept apart from their booster; since 2026-09-20 they never
+    // reach the resolver (tcgcsv.ts's PRERELEASE_CARD_POOL_GAMES), because a pool
+    // is stamped a week before its set and was showing up as a shelf release.
+    const { setOf } = forGame("one-piece-tcg");
+    expect(setOf.get("The World's Strongest Warriors Release Event Cards")).toBeUndefined();
+    expect(setOf.get("The Dominance of God Release Event Cards")).toBeUndefined();
+    // ...while the boosters they accompany are untouched.
+    expect(setOf.get("The World's Strongest Warriors")).toBeDefined();
+    expect(setOf.get("The Dominance of God")).toBeDefined();
   });
 
   it("keeps a Gundam booster apart from the deck box named after it", () => {
@@ -412,7 +415,7 @@ describe("real fixtures: region as part of the event key", () => {
     // promo and box-set pools. Every event removed was one with no date and no
     // prospect of one. The three games with no such pools are untouched.
     "magic-the-gathering": { GLOBAL: 20 },
-    "one-piece-tcg": { GLOBAL: 15 },
+    "one-piece-tcg": { GLOBAL: 13 },
     "pokemon-tcg": { GLOBAL: 5, JP: 2 },
     riftbound: { GLOBAL: 7 },
     "yugioh-tcg": { GLOBAL: 14 },
@@ -552,7 +555,7 @@ describe("real fixtures: cross-origin pairing rate per game", () => {
     // 0 before, same reason as Gundam. Ten of the publisher's eleven in-window
     // products pair; the eleventh (Double Pack Set Vol.12) is one TCGplayer
     // does not carry.
-    "one-piece-tcg": { candidates: 25, sets: 15, paired: 10 },
+    "one-piece-tcg": { candidates: 23, sets: 13, paired: 10 },
     // 2 -> 3, and the two that already paired now pull in the retailer too.
     // Phase 4 added two candidates and no sets: the Japanese expansion list's
     // two in-window rows both resolved onto the English product they name,

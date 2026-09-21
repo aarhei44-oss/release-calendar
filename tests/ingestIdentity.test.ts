@@ -522,6 +522,20 @@ describe("placeholder names", () => {
     }
   });
 
+  it("treats a short token wrapped in quotation marks as a working title, not a name", () => {
+    // Bulbapedia's Japan-only rows print e.g. "FLO" -- with the quotes -- in the
+    // English-equivalent column. That became a ProductSet named "FLO" in production.
+    for (const name of ['"FLO"', "“FLO”", "'ABC'", "‘X1’"]) {
+      expect(isPlaceholderName(name), name).toBe(true);
+    }
+  });
+
+  it("does not mistake a real name that merely contains quotation marks", () => {
+    for (const name of ['STARTER DECK -YELLOW Eustass"Captain"Kid-', '"Weird Al" Yankovic Set', 'The "Long Name" Collection']) {
+      expect(isPlaceholderName(name), name).toBe(false);
+    }
+  });
+
   it("does not mistake an un-set for an unnamed one", () => {
     // The prefix rule stops at a word boundary, because these are real products.
     for (const name of ["Unglued", "Unhinged", "Unstable", "Unsanctioned", "Unfinity", "Undercity"]) {

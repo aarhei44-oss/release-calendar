@@ -228,22 +228,36 @@ function parseArticle(args: { slug: string; html: string; url: string; fetchedAt
     let releaseDate: CandidateDate | null = null;
     let prereleaseDate: CandidateDate | null = null;
 
+    // First value wins, and a second product's own info list ends the read.
+    //
+    // A set's section runs to the next <h2>, so it also holds whatever <h3>
+    // products the post discusses under it -- and those carry an info list of
+    // their own. "Set 6: Legacy" is followed by an h3 "Proving Grounds, 2nd
+    // Edition" with its own "3-Letter Code: PG2" and "Release: February 19, 2027".
+    // Letting the last line win made Legacy release on 2027-02-19 (and would have
+    // renamed its code to PG2): a wrong date from the one tier that publishes on
+    // its own under G1, held only because the gate saw two independent origins
+    // disagree with it. The set's own facts always come first in its section, so
+    // the first occurrence of each is the set's, and a *different* code line
+    // means the section has moved on to another product.
     for (const text of liTexts) {
       const codeMatch = CODE_LINE.exec(text);
       if (codeMatch) {
-        code = codeMatch[1].trim();
+        const found = codeMatch[1].trim();
+        if (code !== null && found !== code) break;
+        code = found;
         continue;
       }
 
       const prereleaseMatch = PRERELEASE_LINE.exec(text);
       if (prereleaseMatch) {
-        prereleaseDate = parsePreRiftDate(prereleaseMatch[1]);
+        prereleaseDate ??= parsePreRiftDate(prereleaseMatch[1]);
         continue;
       }
 
       const releaseMatch = RELEASE_LINE.exec(text);
       if (releaseMatch) {
-        releaseDate = parseCandidateDateText(releaseMatch[1].replace(/\s*\([^)]*\)\s*$/, ""));
+        releaseDate ??= parseCandidateDateText(releaseMatch[1].replace(/\s*\([^)]*\)\s*$/, ""));
       }
     }
 
