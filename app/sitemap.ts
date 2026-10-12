@@ -4,6 +4,16 @@ import { prisma } from "@/lib/prisma";
 
 // Only the pages that render the same public content for every visitor --
 // no per-user dashboard/profile/subscriptions routes (see app/robots.ts).
+//
+// sitemap.ts is a special Route Handler Next caches by default unless it
+// uses a request-time API or this directive (see the Next docs' sitemap
+// page) -- this one only ever calls prisma, which doesn't count as one, so
+// without this it gets rendered once (at build time, against whatever
+// empty/CI database happens to exist then, or at best once per container
+// boot) and serves that frozen snapshot forever after. Same root cause,
+// and same fix, as app/page.tsx's force-dynamic.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Approximates "when did the public content on / and /calendar last
   // change" -- there's no lastModified column on ReleaseEvent itself, but a
