@@ -1,13 +1,15 @@
 import { prisma } from "../lib/prisma";
-import { generateProductSetSlug } from "../data/ingest/ingestRepo";
+import { generateProductSetSlug } from "../lib/ingest/productSetSlug";
 
 /**
  * One-off backfill for ProductSet.slug, run manually after the migration
  * that added the column (`npx tsx prisma/backfillProductSetSlugs.ts`) --
  * see data/ingest/ingestRepo.ts's createProductSet, which generates a slug
  * the same way for every row created from here on. Reuses that exact
- * function rather than a second implementation so a backfilled row and a
- * freshly-ingested one can never disagree on how a slug was derived.
+ * function (lib/ingest/productSetSlug.ts, deliberately not data/ingest/
+ * ingestRepo.ts -- see that file's own comment on why) rather than a
+ * second implementation so a backfilled row and a freshly-ingested one can
+ * never disagree on how a slug was derived.
  *
  * Rows with a null `name` (only prisma/adminRepo.ts's placeholder sets) are
  * left alone -- there's nothing to derive a slug from, and a placeholder
