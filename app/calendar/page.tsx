@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
@@ -8,15 +9,64 @@ import { listSubscriptions } from "@/data/subscriptions/subscriptionsRepo";
 import { getReactionSummariesForEvents } from "@/data/events/eventPersonalizationRepo";
 import {
   parseCalendarSearchParams,
+  canonicalCalendarPath,
   monthRange,
   DEFAULT_RELEASE_EVENT_TYPES,
   type RawSearchParams,
 } from "./searchParams";
 import { CalendarShell } from "./CalendarShell";
+import { buildEventJsonLd } from "./eventJsonLd";
+import { serializeJsonLd } from "@/lib/jsonLd";
 
 type Props = {
   searchParams: Promise<RawSearchParams>;
 };
+
+const MONTH_TITLE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+
+function monthTitle(month: string): string {
+  const [year, mon] = month.split("-").map(Number);
+  return MONTH_TITLE_FORMATTER.format(new Date(Date.UTC(year, mon - 1, 1)));
+}
+
+const CALENDAR_DESCRIPTION =
+  "Upcoming Magic: The Gathering, Pokémon, One Piece, Disney Lorcana, Gundam, Riftbound, Union Arena, Flesh and Blood, Digimon, and Yu-Gi-Oh release dates, cross-checked against official sources.";
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const rawParams = await searchParams;
+  // Mirrors CalendarPage's own default-tab sniff below so the title/canonical
+  // this produces describes the same view a visitor (or Googlebot) actually
+  // gets -- they're two separate function calls with no shared props, so
+  // this can't just read the page's own `defaultTab` value.
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const defaultTab = MOBILE_USER_AGENT.test(userAgent) ? "list" : "calendar";
+  const parsed = parseCalendarSearchParams(rawParams, defaultTab);
+
+  let title: string;
+  if (parsed.search) {
+    title = `"${parsed.search}" TCG release search`;
+  } else if (parsed.tab === "unconfirmed") {
+    title = "Unconfirmed & Rumored TCG Releases";
+  } else if (parsed.tab === "upcoming") {
+    title = "Upcoming TCG Releases (Next 90 Days)";
+  } else {
+    const month = parsed.tab === "list" ? parsed.listMonth : parsed.calMonth;
+    title = `${monthTitle(month)} TCG Release Calendar`;
+  }
+
+  return {
+    title,
+    description: CALENDAR_DESCRIPTION,
+    alternates: { canonical: canonicalCalendarPath(rawParams, parsed) },
+    openGraph: {
+      title,
+      description: CALENDAR_DESCRIPTION,
+      url: canonicalCalendarPath(rawParams, parsed),
+      siteName: "Release Watcher",
+      type: "website",
+    },
+  };
+}
 
 /**
  * The date half of each tab's query. The Unconfirmed tab is the one with no
@@ -89,12 +139,20 @@ export default async function CalendarPage({ searchParams }: Props) {
     await getReactionSummariesForEvents(events.map((e) => e.id)),
   );
 
+  const eventJsonLd = buildEventJsonLd(events);
+
   // Google's policy explicitly names empty search-result screens as an
   // example of "ads without publisher-content" -- a filtered/searched view
   // with zero matches is that same shape, so ads are withheld right along
   // with it rather than only ever being gated on the route.
   return (
     <>
+      {eventJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(eventJsonLd) }}
+        />
+      )}
       {events.length > 0 && <AdsenseAutoAds />}
       <CalendarShell
         parsed={parsed}

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -6,6 +7,25 @@ import { getLandingStats } from "@/data/calendar/calendarRepo";
 import { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
 import { formatRelativeTime } from "@/app/calendar/eventDisplay";
+
+// The root layout's title.template doesn't apply here -- app/page.tsx and
+// app/layout.tsx are the *same* route segment ("/"), and per Next's metadata
+// docs a template only applies to titles defined in child segments. So this
+// has to be the complete, final title string, not a short one relying on
+// the template's " - Release Watcher" suffix.
+export const metadata: Metadata = {
+  title: "Release Watcher - TCG Release Date Calendar",
+  description:
+    "Track upcoming Magic: The Gathering, Pokémon, One Piece, Disney Lorcana, Gundam, Riftbound, Union Arena, Flesh and Blood, Digimon, and Yu-Gi-Oh release dates, cross-checked against official sources, retailers, and community trackers.",
+  openGraph: {
+    title: "Release Watcher - TCG Release Date Calendar",
+    description:
+      "Cross-checked TCG release dates for Magic: The Gathering, Pokémon, Yu-Gi-Oh, and more -- one confident answer, not five conflicting rumors.",
+    url: "/",
+    siteName: "Release Watcher",
+    type: "website",
+  },
+};
 
 // The production SQLite file lives on a Docker volume only present at
 // runtime, not during the CI build -- without this, Next's static optimizer

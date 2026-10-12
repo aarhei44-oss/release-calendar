@@ -62,6 +62,28 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 /**
+ * The canonical URL for a /calendar request -- keeps only `tab` and
+ * whichever month param that tab uses, both only when the visitor actually
+ * set them. installIds/types/statuses/search/eventId are dropped
+ * unconditionally: they open the same server-rendered HTML as the
+ * unfiltered page (eventId's drawer is filled client-side, see
+ * EventDrawer's own fetch), so every combination of them is duplicate
+ * content that should consolidate back to the bare tab/month URL rather
+ * than each being its own indexable page.
+ */
+export function canonicalCalendarPath(raw: RawSearchParams, parsed: ParsedCalendarSearchParams): string {
+  const params = new URLSearchParams();
+  if (first(raw.tab) !== undefined) params.set("tab", parsed.tab);
+  if (parsed.tab === "list") {
+    if (first(raw.listMonth) !== undefined) params.set("listMonth", parsed.listMonth);
+  } else if (parsed.tab === "calendar") {
+    if (first(raw.calMonth) !== undefined) params.set("calMonth", parsed.calMonth);
+  }
+  const qs = params.toString();
+  return qs ? `/calendar?${qs}` : "/calendar";
+}
+
+/**
  * `defaultTab` only applies when the URL has no (or an unrecognized) `tab`
  * value -- an explicit `?tab=calendar` always wins. Callers use this to
  * steer a bare `/calendar` visit toward the List tab on a phone, where the

@@ -8,7 +8,7 @@ import { isCheckoutConfigured } from "@/lib/stripe";
 import { createCheckoutSession, createPortalSession } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Premium - Release Watcher",
+  title: "Premium",
   description: "Compare anonymous, free, and Premium features on Release Watcher.",
 };
 

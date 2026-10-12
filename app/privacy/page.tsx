@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 // especially once real payments start.
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Release Watcher",
+  title: "Privacy Policy",
   description: "How Release Watcher collects, uses, and protects your data.",
 };
 

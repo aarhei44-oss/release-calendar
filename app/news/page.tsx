@@ -9,7 +9,7 @@ import { getSubscribedInstallIds } from "@/data/subscriptions/subscriptionsRepo"
 import { NewsShell } from "./NewsShell";
 
 export const metadata: Metadata = {
-  title: "News - Release Watcher",
+  title: "News",
   description: "Full multi-source TCG news feed, filterable by game.",
 };
 

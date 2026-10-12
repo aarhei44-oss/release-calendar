@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About - Release Watcher",
+  title: "About",
   description: "How Release Watcher tracks, weighs, and confirms trading-card-game release dates.",
 };
 
