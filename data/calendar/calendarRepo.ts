@@ -264,6 +264,43 @@ export async function listEnabledInstallsForFilters() {
   });
 }
 
+/** Resolves a /calendar/[gameSlug] path segment to its enabled install, for the per-game index page. `findFirst` for the same reason as getProductSetByGameAndSlug -- nothing rules out two enabled installs sharing a package. */
+export async function getEnabledInstallByGameSlug(gameSlug: string) {
+  return prisma.tcgProfileInstall.findFirst({
+    where: { enabled: true, package: { slug: gameSlug } },
+    select: { id: true, package: { select: { name: true, slug: true } } },
+  });
+}
+
+/**
+ * A ProductSet and every one of its non-archived release events (shelf,
+ * prerelease, regional variants, ...), for /calendar/[gameSlug]/[setSlug].
+ *
+ * `findFirst`, not a unique lookup: slug is only unique per-install
+ * (`@@unique([tcgProfileInstallId, slug])`, matching how `code` is scoped),
+ * and nothing in the schema rules out two enabled installs under the same
+ * package. That's a realistic-enough edge case to resolve deterministically
+ * rather than build a whole second lookup path for -- it just isn't common
+ * enough today to need a `@@unique([package, slug])` guarantee.
+ */
+export async function getProductSetByGameAndSlug(gameSlug: string, setSlug: string) {
+  return prisma.productSet.findFirst({
+    where: {
+      slug: setSlug,
+      archivedAt: null,
+      install: { enabled: true, package: { slug: gameSlug } },
+    },
+    include: {
+      install: { include: { package: true } },
+      releaseEvents: {
+        where: { archivedAt: null },
+        orderBy: [{ dateExact: "asc" }, { dateStart: "asc" }, { windowStart: "asc" }],
+        include: { sourceClaims: { orderBy: { lastVerifiedAt: "desc" } } },
+      },
+    },
+  });
+}
+
 export async function getEventDetail(eventId: string) {
   return prisma.releaseEvent.findUnique({
     where: { id: eventId },

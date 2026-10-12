@@ -197,6 +197,14 @@ model ProductSet {
   // claim about the product's real code, so it must never be treated as one.
   codeIsSynthetic     Boolean   @default(false)
   name                String?
+  // Powers /calendar/[gameSlug]/[setSlug]. Nullable rather than backfilled
+  // to NOT NULL: a slug derived from `name` alone can collide within an
+  // install in exactly the way `code` doesn't (e.g. Union Arena's
+  // booster/starter-deck pair shares a name and differs only by a BT/ST
+  // code suffix -- see lib/ingest/providers/bandaiUnionArena.ts), and this
+  // avoids touching every test fixture that creates a ProductSet without
+  // one. A null slug just means that set has no detail page yet.
+  slug                String?
   meta                Json?
   imageUrl            String?
   // What `imageUrl` actually depicts, because the origins that publish one do
@@ -219,6 +227,11 @@ model ProductSet {
   identities    SetIdentity[]
 
   @@unique([tcgProfileInstallId, code])
+  // SQLite treats NULL as distinct in a unique index (same exemption
+  // ReleaseEvent's derivedFromEventId/derivedSlot constraint below relies
+  // on), so every pre-existing/placeholder row staying NULL here doesn't
+  // collide with itself or with anything else.
+  @@unique([tcgProfileInstallId, slug])
   @@index([archivedAt])
 }
 

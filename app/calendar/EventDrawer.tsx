@@ -113,6 +113,20 @@ export function EventDrawer({ eventId, onClose }: Props) {
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {detail.productSet.install.package.name} · {detail.type}
                       </p>
+                      {detail.productSet.slug && (
+                        // Not every set has a slug yet (older/placeholder
+                        // rows -- see prisma/schema.prisma's ProductSet.slug
+                        // comment), so this only appears once one exists.
+                        // Doubles as the one on-page link pointing a crawler
+                        // at the new detail page -- the sitemap alone is a
+                        // much weaker discovery signal.
+                        <Link
+                          href={`/calendar/${detail.productSet.install.package.slug}/${detail.productSet.slug}`}
+                          className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          Permalink
+                        </Link>
+                      )}
                     </div>
 
                     {detail.productSet.hasDescription && (

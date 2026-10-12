@@ -34,6 +34,29 @@ export function stripDescriptionForAnonymous(events: CalendarEvent[], isLoggedIn
   );
 }
 
+/**
+ * The single-ProductSet version of the same two gates above, with the
+ * `has*` flags a UI needs to show a locked/sign-in-prompt state without the
+ * gated value itself. Originally inline in app/calendar/actions.ts's
+ * getEventDetail; pulled out here so the new SSR detail page
+ * (app/calendar/[gameSlug]/[setSlug]/page.tsx) applies the exact same
+ * gating outside of a server action, rather than a second hand-written copy
+ * that could drift from it.
+ */
+export function gateProductSetForViewer<
+  T extends { imageUrl: string | null; imageKind: unknown; description: string | null },
+>(productSet: T, viewer: { isPremium: boolean; isLoggedIn: boolean }): T & { hasMarketingImage: boolean; hasDescription: boolean } {
+  return {
+    ...productSet,
+    imageUrl: viewer.isPremium ? productSet.imageUrl : null,
+    // A row whose kind is still null is one no run has classified; the UI
+    // can't lay it out, so don't advertise an image it won't draw.
+    hasMarketingImage: productSet.imageUrl !== null && productSet.imageKind !== null,
+    description: viewer.isLoggedIn ? productSet.description : null,
+    hasDescription: !!productSet.description,
+  };
+}
+
 // dateExact/dateStart/dateEnd/windowStart/windowEnd are calendar days, not
 // real instants -- lib/ingest/dateParsing.ts always builds them as
 // Date.UTC(year, month, day) at midnight, deliberately, since "release day

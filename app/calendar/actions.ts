@@ -13,6 +13,7 @@ import {
 import {
   stripPremiumImageUrls,
   stripDescriptionForAnonymous,
+  gateProductSetForViewer,
   groupSourceClaims,
   REACTION_EMOJIS,
 } from "./eventDisplay";
@@ -95,15 +96,7 @@ export async function getEventDetail(eventId: string) {
       // nightly for a year has hundreds of near-identical claim rows, and the
       // drawer only ever wants one line per source. See groupSourceClaims.
       sourceClaims: groupSourceClaims(detail.sourceClaims),
-      productSet: {
-        ...detail.productSet,
-        imageUrl: isPremium ? detail.productSet.imageUrl : null,
-        // A row whose kind is still null is one no run has classified; the
-        // drawer can't lay it out, so don't advertise an image it won't draw.
-        hasMarketingImage: detail.productSet.imageUrl !== null && detail.productSet.imageKind !== null,
-        description: isLoggedIn ? detail.productSet.description : null,
-        hasDescription: !!detail.productSet.description,
-      },
+      productSet: gateProductSetForViewer(detail.productSet, { isPremium, isLoggedIn }),
     };
   });
 }

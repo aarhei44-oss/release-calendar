@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@/app/generated/prisma/client";
 import type {
   ProductImageKind,
@@ -14,6 +15,7 @@ import type {
   SourceTier,
 } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/slugify";
 import {
   fromEventDateColumns,
   toEventDateColumns,
@@ -640,6 +642,38 @@ export async function recordSetIdentity(
   });
 }
 
+/**
+ * A same-install-unique slug for a newly created set, derived from its name.
+ *
+ * Mirrors how lib/ingest/orchestrate.ts's synthesizeProductSetCode already
+ * disambiguates a synthetic `code`: try the natural candidate first, then
+ * fall back to something less readable rather than failing the create. The
+ * middle fallback (appending the set's own code) is what actually matters
+ * in practice -- it's exactly what separates Union Arena's same-named
+ * booster/starter-deck pair (see lib/ingest/providers/bandaiUnionArena.ts),
+ * where `code` already carries the BT/ST distinction a name-only slug can't.
+ */
+export async function generateProductSetSlug(
+  db: Db,
+  tcgProfileInstallId: string,
+  name: string,
+  code: string,
+): Promise<string> {
+  const base = slugify(name);
+  const candidates = [base, `${base}-${slugify(code)}`].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const existing = await db.productSet.findFirst({
+      where: { tcgProfileInstallId, slug: candidate },
+      select: { id: true },
+    });
+    if (!existing) return candidate;
+  }
+
+  const fallbackBase = base || "set";
+  return `${fallbackBase}-${randomUUID().replace(/-/g, "").slice(0, 6)}`;
+}
+
 export async function createProductSet(
   params: {
     tcgProfileInstallId: string;
@@ -652,7 +686,8 @@ export async function createProductSet(
   },
   db: Db = prisma,
 ) {
-  return db.productSet.create({ data: params });
+  const slug = await generateProductSetSlug(db, params.tcgProfileInstallId, params.name, params.code);
+  return db.productSet.create({ data: { ...params, slug } });
 }
 
 /**
