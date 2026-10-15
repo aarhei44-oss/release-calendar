@@ -13,6 +13,7 @@ import { playriftboundProvider } from "@/lib/ingest/providers/playriftbound";
 import { scryfallProvider } from "@/lib/ingest/providers/scryfall";
 import { tcgcsvProvider } from "@/lib/ingest/providers/tcgcsv";
 import { wikipediaProvider } from "@/lib/ingest/providers/wikipedia";
+import { wizardsWpnProvider } from "@/lib/ingest/providers/wizardsWpn";
 import { ygoprodeckProvider } from "@/lib/ingest/providers/ygoprodeck";
 import type { Provider } from "@/lib/ingest/providers/types";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +33,7 @@ const FIXTURES: ReadonlyArray<readonly [Provider, string]> = [
   [scryfallProvider, "scryfall.sets.json"],
   [tcgcsvProvider, "tcgcsv.groups.json"],
   [wikipediaProvider, "wikipedia.pages.json"],
+  [wizardsWpnProvider, "wizardsWpn.pages.json"],
   [ygoprodeckProvider, "ygoprodeck.cardsets.json"],
 ];
 

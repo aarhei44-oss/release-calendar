@@ -100,7 +100,7 @@ describe("provider registry: per-game coverage", () => {
     const coverage = Object.fromEntries(GAMES.map((game) => [game, originsFor(game).sort()]));
     expect(coverage).toEqual({
       "pokemon-tcg": ["bulbapedia", "tcgplayer", "wikipedia"],
-      "magic-the-gathering": ["scryfall", "tcgplayer", "wikipedia"],
+      "magic-the-gathering": ["scryfall", "tcgplayer", "wikipedia", "wizards-official"],
       "yugioh-tcg": ["tcgplayer", "ygoprodeck"],
       "disney-lorcana": ["tcgplayer", "wikipedia"],
       "riftbound": ["riot-official", "tcgplayer", "wikipedia"],
@@ -112,7 +112,7 @@ describe("provider registry: per-game coverage", () => {
     });
   });
 
-  it("gives One Piece, Gundam, Riftbound, Union Arena and Digimon an OFFICIAL origin, which is what rule G1 needs", () => {
+  it("gives One Piece, Gundam, Riftbound, Union Arena, Digimon and Magic an OFFICIAL origin, which is what rule G1 needs", () => {
     // One Piece and Gundam were the two single-origin games, publishable only
     // through G3's seven-run retailer streak. An OFFICIAL claim publishes on
     // first sight -- and until the Bandai providers existed, no origin in the
@@ -121,7 +121,14 @@ describe("provider registry: per-game coverage", () => {
     // Pre-Rift date, which playriftbound.ts's OFFICIAL claim is the first to.
     // Union Arena is new to the registry entirely and launches with both an
     // OFFICIAL and a RETAILER origin from day one -- see bandaiUnionArena.ts.
-    for (const game of ["one-piece-tcg", "gundam-card-game", "riftbound", "union-arena-tcg", "digimon-card-game"] as const) {
+    for (const game of [
+      "one-piece-tcg",
+      "gundam-card-game",
+      "riftbound",
+      "union-arena-tcg",
+      "digimon-card-game",
+      "magic-the-gathering",
+    ] as const) {
       const tiers = providersForGames([game]).map((provider) => provider.tier);
       expect(tiers, `${game}`).toContain("OFFICIAL");
     }
@@ -132,12 +139,13 @@ describe("provider registry: per-game coverage", () => {
       "bandai-onepiece",
       "bandai-unionarena",
       "playriftbound",
+      "wizards-wpn",
     ]);
   });
 
   it("does not count a mirror as corroboration", () => {
-    // Scryfall derives from wizards-official; if a wizards-official provider is
-    // ever added for Magic, the pair must stop counting as two observations.
+    // Scryfall derives from wizards-official, and wizards-wpn now speaks for it:
+    // the pair must not count as two observations.
     expect(originsAreIndependent("scryfall", "wizards-official", ORIGINS)).toBe(false);
     expect(originsAreIndependent("ygoprodeck", "konami-official", ORIGINS)).toBe(false);
     expect(originsAreIndependent("bulbapedia", "pokemon-official", ORIGINS)).toBe(false);

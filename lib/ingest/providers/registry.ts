@@ -8,6 +8,7 @@ import { scryfallProvider } from "./scryfall";
 import { tcgcsvProvider } from "./tcgcsv";
 import type { Provider } from "./types";
 import { wikipediaProvider } from "./wikipedia";
+import { wizardsWpnProvider } from "./wizardsWpn";
 import { ygoprodeckProvider } from "./ygoprodeck";
 
 /**
@@ -25,7 +26,8 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  * Per-game origin coverage this produces:
  *
  *   pokemon-tcg         tcgplayer, wikipedia, bulbapedia   (3 independent, G2)
- *   magic-the-gathering tcgplayer, wikipedia, scryfall     (3 independent, G2)
+ *   magic-the-gathering tcgplayer, wikipedia, scryfall, wizards-official (3 independent, and G1;
+ *                                                          scryfall derives from wizards-official, so they count as one)
  *   yugioh-tcg          tcgplayer, ygoprodeck              (2 independent, G2)
  *   disney-lorcana      tcgplayer, wikipedia               (2 independent, G2)
  *   riftbound           tcgplayer, wikipedia, riot-official (3, and G1)
@@ -39,7 +41,7 @@ import { ygoprodeckProvider } from "./ygoprodeck";
  * answers 403 to every non-browser request, including from the production
  * droplet, so Wikipedia's set table is the second origin instead.
  *
- * The Bandai entries and playriftbound are the pipeline's OFFICIAL-tier
+ * The Bandai entries, playriftbound and wizardsWpn are the pipeline's OFFICIAL-tier
  * origins, which makes them the only providers whose claims satisfy gate rule
  * G1 -- one official source is enough on its own. Before the Bandai providers,
  * One Piece and Gundam had tcgcsv alone and could only publish through G3's
@@ -102,6 +104,7 @@ export const PRODUCTION_PROVIDERS: readonly Provider[] = [
   playriftboundProvider,
   bandaiUnionArenaProvider,
   bandaiDigimonProvider,
+  wizardsWpnProvider,
 ];
 
 for (const provider of PRODUCTION_PROVIDERS) {
