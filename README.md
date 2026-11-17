@@ -101,6 +101,8 @@ job.
 | `STRIPE_SECRET_KEY` | no | Enables Premium checkout when set. Unset means /premium's subscribe buttons no-op with an error instead of the app failing to boot. |
 | `STRIPE_WEBHOOK_SECRET` | no (required if `STRIPE_SECRET_KEY` is set) | Signing secret for `/api/stripe/webhook`, from the Stripe dashboard (or `stripe listen` in development). |
 | `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` | no (required if `STRIPE_SECRET_KEY` is set) | Stripe Price IDs for the two Premium recurring plans. |
+| `PREMIUM_CHECKOUT_OPEN` | no | Launch switch: set to `true` to open Premium checkout. Anything else keeps `/premium` on a "coming soon" banner and blocks the checkout action, even with Stripe keys set. |
+| `STRIPE_MANAGED_PAYMENTS` | no | Set to `true` to create new subscriptions through Stripe Managed Payments (Stripe is merchant of record). Enable it in the Stripe Dashboard and tag the Premium product with an eligible tax code first. |
 
 ### Health check
 

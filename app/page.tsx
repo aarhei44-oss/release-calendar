@@ -58,7 +58,8 @@ const FEATURES = [
   },
 ];
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ accountDeleted?: string }> }) {
+  const { accountDeleted } = await searchParams;
   // A signed-in visitor already knows what this is -- send them straight to
   // their dashboard instead of the marketing pitch. DashboardShell already
   // handles the "no subscriptions yet" case gracefully, so this is safe even
@@ -80,6 +81,14 @@ export default async function Home() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-16">
       <AdsenseAutoAds />
+      {accountDeleted === "1" && (
+        <p
+          role="status"
+          className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-center text-sm text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300"
+        >
+          Your account has been deleted.
+        </p>
+      )}
       <section className="flex flex-col items-center gap-4 text-center">
         <h1 className="text-3xl font-bold sm:text-4xl">Never miss a TCG release again.</h1>
         <p className="max-w-xl text-gray-600 dark:text-gray-400">

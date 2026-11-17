@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/authGuards";
-import { getStripeClient, priceIdForPlan, type PremiumPlan } from "@/lib/stripe";
+import { getStripeClient, isCheckoutOpen, isManagedPaymentsEnabled, priceIdForPlan, type PremiumPlan } from "@/lib/stripe";
 import { withActionLogging } from "@/lib/logger";
 
 const planSchema = z.enum(["monthly", "annual"]);
@@ -19,6 +19,12 @@ export async function createCheckoutSession(plan: PremiumPlan) {
   const url = await withActionLogging("premium.createCheckoutSession", async () => {
     const user = await requireUser();
     const parsedPlan = planSchema.parse(plan);
+
+    // Server-side, so a stale page or a hand-crafted action call can't open
+    // a checkout while the launch switch is off (see isCheckoutOpen).
+    if (!isCheckoutOpen()) {
+      throw new Error("Premium checkout isn't open yet.");
+    }
 
     const stripe = getStripeClient();
     if (!stripe) {
@@ -39,6 +45,9 @@ export async function createCheckoutSession(plan: PremiumPlan) {
       ...(user.stripeCustomerId ? { customer: user.stripeCustomerId } : { customer_email: user.email ?? undefined }),
       client_reference_id: user.id,
       line_items: [{ price: priceId, quantity: 1 }],
+      // Spread because the installed SDK's Checkout types predate this
+      // parameter; Stripe accepts it on 2025-03-31.basil and later.
+      ...(isManagedPaymentsEnabled() ? { managed_payments: { enabled: true } } : {}),
       success_url: `${siteUrl()}/premium?checkout=success`,
       cancel_url: `${siteUrl()}/premium?checkout=cancelled`,
     });

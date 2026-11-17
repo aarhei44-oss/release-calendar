@@ -12,7 +12,10 @@ import {
   updateDigestFrequency as repoUpdateDigestFrequency,
   updateLeadTimeReminderDays as repoUpdateLeadTimeReminderDays,
   regenerateIcalToken as repoRegenerateIcalToken,
+  getStripeSubscriptionId,
+  deleteUserAccount as repoDeleteUserAccount,
 } from "@/data/profile/profileRepo";
+import { cancelStripeSubscription } from "@/lib/stripe";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
 import { isDashboardCardId } from "@/app/dashboard/cards";
 import { requireUser, requirePremium } from "@/lib/authGuards";
@@ -115,6 +118,36 @@ export async function updateLeadTimeReminderDays(days: number | null) {
     const user = await requirePremium();
     const parsed = leadTimeReminderDaysSchema.parse(days);
     return repoUpdateLeadTimeReminderDays(user.id, parsed);
+  });
+}
+
+// The client makes the user type this too (DeleteAccountForm); checking it
+// again here means a stray or scripted call to this action can't delete an
+// account without the same deliberate confirmation.
+const DELETE_CONFIRMATION = "DELETE";
+const deleteConfirmationSchema = z.literal(DELETE_CONFIRMATION);
+
+/**
+ * Deletes the signed-in user's account and all data attached to it. A live
+ * Stripe subscription is cancelled FIRST and the deletion aborts if that
+ * fails -- the reverse order could leave someone still being billed with no
+ * account to manage it from. Stripe's own customer/transaction records are
+ * deliberately left alone (we only cancel the subscription): they're Stripe's
+ * records, and the account-deletion copy tells users to take those up with
+ * Stripe. The caller signs the browser out afterwards (the cascade already
+ * removed the server-side session).
+ */
+export async function deleteMyAccount(confirmation: string): Promise<void> {
+  return withActionLogging("profile.deleteMyAccount", async () => {
+    const user = await requireUser();
+    deleteConfirmationSchema.parse(confirmation);
+
+    const subscriptionId = await getStripeSubscriptionId(user.id);
+    if (subscriptionId) {
+      await cancelStripeSubscription(subscriptionId);
+    }
+
+    await repoDeleteUserAccount(user.id);
   });
 }
 

@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/auth";
-import { getProfile } from "@/data/profile/profileRepo";
+import { getProfile, getStripeSubscriptionId } from "@/data/profile/profileRepo";
+import { SUPPORT_EMAIL } from "@/lib/siteConfig";
+import { DeleteAccountForm } from "./DeleteAccountForm";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { AlertsForm, DigestForm, LeadTimeReminderForm } from "./ProfileForm";
 import { DashboardCardsForm } from "./DashboardCardsForm";
@@ -14,11 +16,15 @@ export default async function ProfilePage() {
     return <SignInPrompt message="Sign in to manage your profile and notification settings." />;
   }
 
-  const profile = await getProfile(session.user.id);
+  const [profile, stripeSubscriptionId] = await Promise.all([
+    getProfile(session.user.id),
+    getStripeSubscriptionId(session.user.id),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-8 p-4">
       <h1 className="text-xl font-semibold">Profile</h1>
+      <DeleteAccountForm hasSubscription={stripeSubscriptionId !== null} supportEmail={SUPPORT_EMAIL} />
       {/* Timezone setting hidden for now -- release dates no longer honor it
           (they're calendar days, not real instants; see eventDisplay.ts).
           ProfileForm/updateTimezone left intact in case it's repurposed. */}

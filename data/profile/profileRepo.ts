@@ -102,6 +102,27 @@ export async function regenerateIcalToken(userId: string): Promise<string> {
   return token;
 }
 
+/** The one billing fact account deletion needs: is there a Stripe subscription that must be cancelled first. */
+export async function getStripeSubscriptionId(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { stripeSubscriptionId: true },
+  });
+  return user.stripeSubscriptionId;
+}
+
+/**
+ * Permanently deletes the user. Every table that points at User (accounts,
+ * sessions, subscriptions, comments, follows, notes, dismissals, reactions)
+ * declares onDelete: Cascade, so this one statement removes all of it --
+ * including the session, which is what signs the user out server-side.
+ * Adding a new user-owned table without a cascade would silently leave that
+ * data behind, which is the promise this function exists to keep.
+ */
+export async function deleteUserAccount(userId: string) {
+  await prisma.user.delete({ where: { id: userId } });
+}
+
 /** Used only by the unauthenticated iCal feed route -- looks a user up by their feed token instead of a session. */
 export async function getUserByIcalToken(token: string) {
   return prisma.user.findUnique({

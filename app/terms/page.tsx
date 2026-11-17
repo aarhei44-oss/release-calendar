@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
+import { PREMIUM_ANNUAL_CENTS, PREMIUM_MONTHLY_CENTS, formatUsd } from "@/lib/premiumPricing";
+import { SUPPORT_EMAIL } from "@/lib/siteConfig";
 
-// Attorney-review-pending draft, not final legal advice. Premium payment
-// terms below are written ahead of the actual Stripe integration (see
-// data/admin/adminRepo.ts -- isPremium is currently an admin-flipped flag,
-// no real checkout exists yet), per explicit request to draft full payment
-// terms now rather than wait. Revisit the billing/refund clauses once real
-// checkout ships, in case the actual billing cycle/pricing differs from
-// what's assumed here. Review with a licensed attorney before charging
-// real money.
+// Attorney-review-pending draft, not final legal advice. Section 6 assumes
+// Stripe Managed Payments (Stripe as merchant of record) for new
+// subscriptions -- see STRIPE_MANAGED_PAYMENTS in lib/stripe.ts -- and takes
+// its prices from lib/premiumPricing.ts so they can't drift from the
+// Premium page. Review with a licensed attorney before relying on it.
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -30,13 +29,13 @@ export default function TermsOfServicePage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-16">
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Terms of Service</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-500">Last updated: September 3, 2026</p>
+        <p className="text-sm text-gray-500 dark:text-gray-500">Last updated: November 16, 2026</p>
       </header>
 
       <Section title="1. Acceptance of Terms">
         <p>
-          Release Watcher (&quot;the Service&quot;) is operated by Aaron Hein (&quot;we,&quot; &quot;us&quot;).
-          By creating an account or using the Service, you agree to these Terms. If you don&apos;t agree,
+          Release Watcher (&quot;the Service&quot;) is operated by Release Watcher, a sole proprietorship based in
+          Washington State, USA (&quot;we,&quot; &quot;us&quot;). By creating an account or using the Service, you agree to these Terms. If you don&apos;t agree,
           please don&apos;t use the Service.
         </p>
       </Section>
@@ -85,10 +84,12 @@ export default function TermsOfServicePage() {
           . By subscribing, you agree to the following:
         </p>
         <ul className="list-disc pl-5">
-          <li>Billing is handled by a third-party payment processor. We never receive or store your full card details. Use of the processor is also subject to that processor&apos;s own terms.</li>
+          <li>Premium costs {formatUsd(PREMIUM_MONTHLY_CENTS)} per month or {formatUsd(PREMIUM_ANNUAL_CENTS)} per year, in US dollars, plus any applicable sales tax, VAT, or GST, which is calculated at checkout from your billing address. Stripe may display the total in your local currency.</li>
+          <li>Payments are processed by Stripe, Inc. and its affiliates (&quot;Stripe&quot;). For new Premium subscriptions, Stripe acts as the merchant of record: it is the seller of record for the payment, collects and remits applicable taxes, issues your receipts and invoices, and provides transaction-level payment support, including through its Link service. We never receive or store your full card details. Your use of Stripe&apos;s checkout and payment services is also subject to Stripe&apos;s own terms and privacy policy.</li>
           <li>Subscriptions automatically renew each billing period (monthly or annual, as selected at signup) until you cancel.</li>
-          <li>You may cancel at any time; cancellation takes effect at the end of the current paid billing period. We don&apos;t provide partial refunds for unused time within a period, except where required by applicable law.</li>
+          <li>You may cancel at any time from Manage subscription on the Premium page, or through Stripe&apos;s Link service. Cancellation takes effect at the end of the current paid billing period, and you keep Premium until then. We don&apos;t provide partial refunds for unused time within a period, except where required by applicable law. Stripe may, in certain cases and under its own policies (including any consumer cooling-off periods that apply to you), issue a refund; if it does, your Premium access may end.</li>
           <li>We may change Premium pricing with at least 30 days&apos; notice. Price changes apply to your next billing cycle, not one already in progress.</li>
+          <li>Deleting your account cancels any active Premium subscription immediately. We don&apos;t refund the unused part of the current billing period.</li>
           <li>Any free trial terms will be disclosed to you at signup and are subject to these Terms.</li>
         </ul>
       </Section>
@@ -113,7 +114,8 @@ export default function TermsOfServicePage() {
       <Section title="9. Termination">
         <p>
           We may suspend or terminate your account if you violate these Terms. You may delete your account at
-          any time from your profile settings.
+          any time from your profile settings, which permanently deletes your account and its data and cancels any
+          active Premium subscription.
         </p>
       </Section>
 
@@ -134,8 +136,8 @@ export default function TermsOfServicePage() {
       <Section title="12. Contact Us">
         <p>
           Questions about these Terms? Email{" "}
-          <a href="mailto:Kausemu44@gmail.com" className="underline">
-            Kausemu44@gmail.com
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+            {SUPPORT_EMAIL}
           </a>
           .
         </p>
