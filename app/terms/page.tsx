@@ -113,9 +113,11 @@ export default function TermsOfServicePage() {
 
       <Section title="9. Termination">
         <p>
-          We may suspend or terminate your account if you violate these Terms. You may delete your account at
-          any time from your profile settings, which permanently deletes your account and its data and cancels any
-          active Premium subscription.
+          We may suspend, ban, or terminate your account if you violate these Terms. A banned account cannot sign
+          in, any active Premium subscription is cancelled, and we keep the account record (including its email
+          address) so the ban can&apos;t be avoided by re-registering. You may delete your account at
+          any time from your profile settings, which deactivates your account immediately, cancels any active
+          Premium subscription, and permanently erases your account and its data within 30 days.
         </p>
       </Section>
 

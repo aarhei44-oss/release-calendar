@@ -6,6 +6,7 @@ import { authOptions } from "@/app/auth";
 import { getLandingStats } from "@/data/calendar/calendarRepo";
 import { getLatestNewsTeaser } from "@/data/news/newsRepo";
 import { AdsenseAutoAds } from "@/components/AdsenseAutoAds";
+import { SUPPORT_EMAIL } from "@/lib/siteConfig";
 import { formatRelativeTime } from "@/app/calendar/eventDisplay";
 
 // The root layout's title.template doesn't apply here -- app/page.tsx and
@@ -58,8 +59,12 @@ const FEATURES = [
   },
 ];
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ accountDeleted?: string }> }) {
-  const { accountDeleted } = await searchParams;
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ accountDeleted?: string; accountSuspended?: string }>;
+}) {
+  const { accountDeleted, accountSuspended } = await searchParams;
   // A signed-in visitor already knows what this is -- send them straight to
   // their dashboard instead of the marketing pitch. DashboardShell already
   // handles the "no subscriptions yet" case gracefully, so this is safe even
@@ -86,7 +91,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
           role="status"
           className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-center text-sm text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300"
         >
-          Your account has been deleted.
+          Your account has been deleted. It&rsquo;s deactivated now, and all of its data will be permanently erased
+          within 30 days. Signing back in before then cancels the deletion.
+        </p>
+      )}
+      {accountSuspended === "1" && (
+        <p
+          role="status"
+          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          That account has been suspended and can&rsquo;t sign in. If you think that&rsquo;s a mistake, email{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+            {SUPPORT_EMAIL}
+          </a>
+          .
         </p>
       )}
       <section className="flex flex-col items-center gap-4 text-center">

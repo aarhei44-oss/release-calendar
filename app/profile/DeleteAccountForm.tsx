@@ -39,11 +39,20 @@ export function DeleteAccountForm({ hasSubscription, supportEmail }: { hasSubscr
     <section className="rounded-lg border border-red-300 p-4 dark:border-red-900">
       <h2 className="mb-1 text-lg font-semibold text-red-700 dark:text-red-400">Delete account</h2>
       <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-        Permanently delete your Release Watcher account and everything attached to it: your game subscriptions,
-        followed events, notes, comments, dismissed events, reactions, dashboard layout, alert settings (including any
-        Discord webhook URL), calendar feed link, and the link to your Google sign-in.{" "}
-        <strong className="text-gray-800 dark:text-gray-200">This can&rsquo;t be undone.</strong> You&rsquo;ll be
-        signed out immediately.
+        Delete your Release Watcher account and everything attached to it: your game subscriptions, followed events,
+        notes, comments, dismissed events, reactions, dashboard layout, alert settings (including any Discord webhook
+        URL), calendar feed link, and the link to your Google sign-in.
+      </p>
+      <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+        <strong className="text-gray-800 dark:text-gray-200">Right away:</strong> you&rsquo;re signed out everywhere,
+        all alerts stop, and your comments are hidden.{" "}
+        <strong className="text-gray-800 dark:text-gray-200">Within 30 days:</strong> everything is permanently erased.
+        If you sign back in before then, the deletion is cancelled &mdash; but your alert settings will have been reset
+        and your Premium subscription stays cancelled. If you need your data erased sooner, email{" "}
+        <a href={`mailto:${supportEmail}`} className="underline">
+          {supportEmail}
+        </a>
+        .
       </p>
       {hasSubscription && (
         <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
@@ -79,7 +88,7 @@ export function DeleteAccountForm({ hasSubscription, supportEmail }: { hasSubscr
         <div className="flex flex-col gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950/30" role="alertdialog" aria-label="Confirm account deletion">
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-gray-800 dark:text-gray-200">
-              Type <span className="font-mono">{CONFIRM_WORD}</span> to permanently delete your account:
+              Type <span className="font-mono">{CONFIRM_WORD}</span> to delete your account:
             </span>
             <input
               type="text"
@@ -98,7 +107,7 @@ export function DeleteAccountForm({ hasSubscription, supportEmail }: { hasSubscr
               disabled={typed !== CONFIRM_WORD || isPending}
               className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isPending ? "Deleting…" : "Permanently delete account"}
+              {isPending ? "Deleting…" : "Delete account"}
             </button>
             <button
               type="button"

@@ -14,8 +14,11 @@ export type InstallSubscriber = {
 export async function getSubscribersForInstalls(installIds: string[]): Promise<InstallSubscriber[]> {
   if (installIds.length === 0) return [];
 
+  // `removalDate: null, bannedAt: null` (here and in the queries below): an
+  // account pending deletion or banned already has its alert settings
+  // cleared, so this is a second lock on the same door, not the only one.
   const subscriptions = await prisma.subscription.findMany({
-    where: { tcgProfileInstallId: { in: installIds } },
+    where: { tcgProfileInstallId: { in: installIds }, user: { removalDate: null, bannedAt: null } },
     select: {
       tcgProfileInstallId: true,
       user: {
@@ -50,7 +53,7 @@ export type DigestSubscriber = {
 /** Premium users with the digest opted in -- non-premium users are excluded even if the flag is set (e.g. a lapsed premium period), same rule as the dashboard-cards gate. */
 export async function getDigestSubscribers(): Promise<DigestSubscriber[]> {
   const users = await prisma.user.findMany({
-    where: { isPremium: true, digestEmailEnabled: true },
+    where: { isPremium: true, digestEmailEnabled: true, removalDate: null, bannedAt: null },
     select: { id: true, email: true, digestFrequency: true, timezone: true },
   });
 
@@ -72,7 +75,7 @@ export type LeadTimeReminderSubscriber = {
 /** Premium users with a lead-time reminder configured (leadTimeReminderDays not null). Same non-premium exclusion rule as getDigestSubscribers. */
 export async function getLeadTimeReminderSubscribers(): Promise<LeadTimeReminderSubscriber[]> {
   const users = await prisma.user.findMany({
-    where: { isPremium: true, leadTimeReminderDays: { not: null } },
+    where: { isPremium: true, leadTimeReminderDays: { not: null }, removalDate: null, bannedAt: null },
     select: { id: true, email: true, leadTimeReminderDays: true, timezone: true },
   });
 
@@ -104,7 +107,7 @@ export async function getFollowersForEvents(eventIds: string[]): Promise<EventFo
   if (eventIds.length === 0) return [];
 
   const follows = await prisma.eventFollow.findMany({
-    where: { releaseEventId: { in: eventIds } },
+    where: { releaseEventId: { in: eventIds }, user: { removalDate: null, bannedAt: null } },
     select: {
       releaseEventId: true,
       user: {

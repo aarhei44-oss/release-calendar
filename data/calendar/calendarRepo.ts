@@ -314,6 +314,10 @@ export async function getEventDetail(eventId: string) {
         orderBy: { lastVerifiedAt: "desc" },
       },
       userNotes: {
+        // A deleted account's comments are hidden the moment it's deactivated,
+        // not only once the nightly pass erases the row 30 days later. A
+        // banned account's are hidden for as long as the ban lasts.
+        where: { user: { removalDate: null, bannedAt: null } },
         orderBy: { createdAt: "desc" },
         include: { user: { select: { id: true, name: true, image: true } } },
       },

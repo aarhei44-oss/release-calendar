@@ -327,11 +327,12 @@ export default async function PremiumPage() {
           </li>
           <li>
             <strong className="text-gray-800 dark:text-gray-200">You&rsquo;re in control.</strong> Delete your account
-            and its data anytime from your{" "}
+            anytime from your{" "}
             <a href="/profile" className="underline">
               profile
-            </a>
-            , or email{" "}
+            </a>{" "}
+            &mdash; it&rsquo;s deactivated immediately and all of its data is permanently erased within 30 days. Or
+            email{" "}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
               {SUPPORT_EMAIL}
             </a>{" "}

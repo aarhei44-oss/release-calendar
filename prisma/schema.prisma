@@ -599,8 +599,24 @@ model User {
   digestFrequency      DigestFrequency @default(DAILY)
   leadTimeReminderDays Int?
   icalToken            String?         @unique
+  // Set when the user deletes their own account (app/profile/actions.ts's
+  // deleteMyAccount): the date the nightly account-removal pass
+  // (lib/accountRemoval.ts) will permanently delete this row and, through the
+  // onDelete: Cascade relations below, everything attached to it. Until then
+  // the account is inert -- signed out, alerts off, sign-in blocked -- but its
+  // data is still here, which is exactly what the privacy policy's "erased
+  // within 30 days" promise describes. Null for every live account.
+  removalDate          DateTime?
+  // Set by an admin's Ban (lib/accountModeration.ts). Distinct from `active`,
+  // which deletion also flips and which only blocks actions, not sign-in: a
+  // banned user can't sign in at all (app/auth.ts), is never restored by
+  // signing in, and is skipped by the nightly removal pass so deleting the
+  // row can't be used to dodge the ban by re-registering the same email.
+  bannedAt             DateTime?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
+
+  @@index([removalDate])
 
   accounts           Account[]
   sessions           Session[]

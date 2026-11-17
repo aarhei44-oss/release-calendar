@@ -6,10 +6,13 @@ import { SUPPORT_EMAIL } from "@/lib/siteConfig";
 // Discord webhook URLs, Stripe billing identifiers) and the account-deletion
 // flow in app/profile/actions.ts (deleteMyAccount). Premium billing text
 // assumes Stripe Managed Payments (Stripe as merchant of record) for new
-// subscriptions; see STRIPE_MANAGED_PAYMENTS in lib/stripe.ts. The 30-day
-// backup sentence under "Data Retention" is a commitment that backup
-// expiry must actually be built to honor. Review with a licensed attorney
-// before relying on this for GDPR/CCPA compliance.
+// subscriptions; see STRIPE_MANAGED_PAYMENTS in lib/stripe.ts. "Data
+// Retention" describes a deactivate-now, erase-within-30-days flow that is
+// implemented by lib/accountRemoval.ts (ACCOUNT_REMOVAL_GRACE_DAYS) -- keep
+// the two in step. The backup-rotation sentence there is an operational
+// promise about the host's backups, not something the app can enforce.
+// Review with a licensed attorney before relying on this for GDPR/CCPA
+// compliance.
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -157,10 +160,18 @@ export default function PrivacyPolicyPage() {
       <Section title="Data Retention">
         <p>
           We retain your account and usage data for as long as your account is active. You can delete your
-          account at any time from your profile settings. When you do, we immediately delete your account and
-          everything attached to it from our live systems (including your subscriptions, notes, comments,
-          follows, reactions, alert settings, and Google sign-in link), sign you out, and cancel any active
-          Premium subscription. Copies in our backups are deleted or overwritten within 30 days.
+          account at any time from your profile settings. When you do, we immediately sign you out everywhere,
+          stop all alerts, hide your comments, and cancel any active Premium subscription. We then permanently
+          erase your account and everything attached to it (including your subscriptions, notes, comments,
+          follows, reactions, alert settings, and Google sign-in link) within 30 days of your request. If you
+          sign back in during those 30 days, the deletion is cancelled and your account is restored (without the
+          alert settings or Premium subscription, which are cleared when you delete). Any backup copies are overwritten on our regular backup rotation, which is also
+          within 30 days. If you need your data erased sooner, email us.
+        </p>
+        <p>
+          One exception: if we ban an account for violating our Terms, we keep the (inactive) account record,
+          including its email address, so the ban can be enforced. It is not erased by the process above, and
+          signing in is not possible for a banned account.
         </p>
         <p>
           Payment records are held by Stripe, not by us, and are not removed when you delete your account. Stripe

@@ -60,6 +60,11 @@ export async function listUsers() {
   return prisma.user.findMany({ orderBy: { createdAt: "asc" } });
 }
 
+export async function getUserRole(userId: string): Promise<UserRole> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true } });
+  return user.role;
+}
+
 export async function setUserRole(userId: string, role: UserRole) {
   return prisma.user.update({ where: { id: userId }, data: { role } });
 }

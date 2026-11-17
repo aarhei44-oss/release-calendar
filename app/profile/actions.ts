@@ -12,10 +12,8 @@ import {
   updateDigestFrequency as repoUpdateDigestFrequency,
   updateLeadTimeReminderDays as repoUpdateLeadTimeReminderDays,
   regenerateIcalToken as repoRegenerateIcalToken,
-  getStripeSubscriptionId,
-  deleteUserAccount as repoDeleteUserAccount,
 } from "@/data/profile/profileRepo";
-import { cancelStripeSubscription } from "@/lib/stripe";
+import { requestAccountDeletion } from "@/lib/accountRemoval";
 import { isValidDiscordWebhookUrl } from "@/lib/notifications/discord";
 import { isDashboardCardId } from "@/app/dashboard/cards";
 import { requireUser, requirePremium } from "@/lib/authGuards";
@@ -128,26 +126,16 @@ const DELETE_CONFIRMATION = "DELETE";
 const deleteConfirmationSchema = z.literal(DELETE_CONFIRMATION);
 
 /**
- * Deletes the signed-in user's account and all data attached to it. A live
- * Stripe subscription is cancelled FIRST and the deletion aborts if that
- * fails -- the reverse order could leave someone still being billed with no
- * account to manage it from. Stripe's own customer/transaction records are
- * deliberately left alone (we only cancel the subscription): they're Stripe's
- * records, and the account-deletion copy tells users to take those up with
- * Stripe. The caller signs the browser out afterwards (the cascade already
- * removed the server-side session).
+ * Deletes the signed-in user's account: deactivates it now and schedules the
+ * permanent erasure of everything attached to it (see requestAccountDeletion
+ * and lib/accountRemoval.ts). The caller signs the browser out afterwards --
+ * the user's sessions were already deleted server-side.
  */
 export async function deleteMyAccount(confirmation: string): Promise<void> {
   return withActionLogging("profile.deleteMyAccount", async () => {
     const user = await requireUser();
     deleteConfirmationSchema.parse(confirmation);
-
-    const subscriptionId = await getStripeSubscriptionId(user.id);
-    if (subscriptionId) {
-      await cancelStripeSubscription(subscriptionId);
-    }
-
-    await repoDeleteUserAccount(user.id);
+    await requestAccountDeletion(user.id);
   });
 }
 

@@ -4,6 +4,9 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/authGuards";
 import * as adminRepo from "@/data/admin/adminRepo";
 import { withActionLogging } from "@/lib/logger";
+import { requestAccountDeletion } from "@/lib/accountRemoval";
+import { banAccount, unbanAccount } from "@/lib/accountModeration";
+import { cancelUserRemoval } from "@/data/profile/profileRepo";
 
 const idSchema = z.string().min(1);
 const userRoleSchema = z.enum(["USER", "ADMIN"]);
@@ -68,6 +71,63 @@ export async function setUserPremium(userId: string, isPremium: boolean) {
   return withActionLogging("admin.setUserPremium", async () => {
     await requireAdmin();
     return adminRepo.setUserPremium(idSchema.parse(userId), z.boolean().parse(isPremium));
+  });
+}
+
+/**
+ * Same deletion a user gets from their profile (requestAccountDeletion):
+ * Stripe subscription cancelled, account deactivated, erased by the nightly
+ * pass 30 days later. Note the user can undo it just by signing back in --
+ * to lock someone out for abuse, use setUserActive instead.
+ */
+export async function deleteUser(userId: string) {
+  return withActionLogging("admin.deleteUser", async () => {
+    const actingAdmin = await requireAdmin();
+    const parsedUserId = idSchema.parse(userId);
+
+    if (parsedUserId === actingAdmin.id) {
+      throw new Error("You cannot delete your own account here. Use your Profile page.");
+    }
+
+    await requestAccountDeletion(parsedUserId);
+  });
+}
+
+/**
+ * Bans a user: signed out everywhere, can't sign in, Stripe subscription
+ * cancelled (no refund -- that's a manual Stripe Dashboard call), alerts off,
+ * comments hidden. Unlike deleteUser, signing back in doesn't undo it, and
+ * the nightly erasure pass skips banned accounts so the ban can't be dodged
+ * by re-registering. Admins must be demoted before they can be banned.
+ */
+export async function banUser(userId: string) {
+  return withActionLogging("admin.banUser", async () => {
+    const actingAdmin = await requireAdmin();
+    const parsedUserId = idSchema.parse(userId);
+
+    if (parsedUserId === actingAdmin.id) {
+      throw new Error("You cannot ban your own account.");
+    }
+    if ((await adminRepo.getUserRole(parsedUserId)) === "ADMIN") {
+      throw new Error("Remove this user's admin role before banning them.");
+    }
+
+    await banAccount(parsedUserId);
+  });
+}
+
+export async function unbanUser(userId: string) {
+  return withActionLogging("admin.unbanUser", async () => {
+    await requireAdmin();
+    await unbanAccount(idSchema.parse(userId));
+  });
+}
+
+/** Cancels a pending deletion -- the admin-side equivalent of the user signing back in. */
+export async function cancelUserDeletion(userId: string) {
+  return withActionLogging("admin.cancelUserDeletion", async () => {
+    await requireAdmin();
+    await cancelUserRemoval(idSchema.parse(userId));
   });
 }
 

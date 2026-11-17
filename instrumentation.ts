@@ -4,4 +4,6 @@ export async function register() {
   startDigestScheduler();
   const { startLeadTimeReminderScheduler } = await import("./lib/notifications/leadTimeScheduler");
   startLeadTimeReminderScheduler();
+  const { startAccountRemovalScheduler } = await import("./lib/accountRemovalScheduler");
+  startAccountRemovalScheduler();
 }

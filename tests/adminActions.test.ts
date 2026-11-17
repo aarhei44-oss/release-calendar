@@ -14,6 +14,10 @@ import {
   listUsers,
   setUserRole,
   setUserActive,
+  deleteUser,
+  cancelUserDeletion,
+  banUser,
+  unbanUser,
   listScanRuns,
   triggerRescan,
   triggerRetentionCleanup,
@@ -79,6 +83,10 @@ describe("admin Server Actions -- authorization", () => {
     ["listUsers", () => listUsers()],
     ["setUserRole", () => setUserRole(plainUser.id, "ADMIN")],
     ["setUserActive", () => setUserActive(plainUser.id, false)],
+    ["deleteUser", () => deleteUser(plainUser.id)],
+    ["cancelUserDeletion", () => cancelUserDeletion(plainUser.id)],
+    ["banUser", () => banUser(plainUser.id)],
+    ["unbanUser", () => unbanUser(plainUser.id)],
     ["listScanRuns", () => listScanRuns()],
     ["triggerRescan", () => triggerRescan(installId)],
     ["triggerRetentionCleanup", () => triggerRetentionCleanup()],
@@ -103,6 +111,41 @@ describe("admin Server Actions -- authorization", () => {
       await expect(call()).rejects.toThrow();
     });
   }
+});
+
+describe("deleteUser / cancelUserDeletion", () => {
+  it("lets an admin delete another user: deactivated and scheduled for removal, not erased yet", async () => {
+    const target = await prisma.user.create({ data: { email: "admin-delete-target@example.com", isPremium: true } });
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await deleteUser(target.id);
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: target.id } });
+    expect(after.removalDate).not.toBeNull();
+    expect(after.active).toBe(false);
+    expect(after.isPremium).toBe(false);
+  });
+
+  it("refuses to let an admin delete their own account from the Users screen", async () => {
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await expect(deleteUser(adminUser.id)).rejects.toThrow(/cannot delete your own account/i);
+
+    const unchanged = await prisma.user.findUniqueOrThrow({ where: { id: adminUser.id } });
+    expect(unchanged.removalDate).toBeNull();
+  });
+
+  it("lets an admin cancel a pending deletion", async () => {
+    const target = await prisma.user.create({ data: { email: "admin-cancel-target@example.com" } });
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await deleteUser(target.id);
+
+    mockGetServerSession.mockResolvedValueOnce(sessionFor(adminUser));
+    await cancelUserDeletion(target.id);
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: target.id } });
+    expect(after.removalDate).toBeNull();
+    expect(after.active).toBe(true);
+  });
 });
 
 describe("enableAndSeedInstall", () => {

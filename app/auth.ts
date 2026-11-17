@@ -2,6 +2,7 @@ import { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { cancelUserRemoval } from "@/data/profile/profileRepo";
 
 function isBootstrapAdminEmail(email: string | null | undefined) {
   if (!email) return false;
@@ -32,6 +33,24 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
+    // Banned accounts can't sign in at all (checked first, so a ban also
+    // beats a pending deletion). An account the user deleted stays in the
+    // database until the nightly removal pass erases it
+    // (lib/accountRemoval.ts); signing back in during that window cancels the
+    // deletion: the account comes back as it was, minus the alert settings
+    // and Premium that deletion cleared.
+    async signIn({ user }) {
+      if (!user.email) return true;
+      const existing = await prisma.user.findUnique({
+        where: { email: user.email },
+        select: { id: true, removalDate: true, bannedAt: true },
+      });
+      if (existing?.bannedAt) return "/?accountSuspended=1";
+      if (existing?.removalDate) {
+        await cancelUserRemoval(existing.id);
+      }
+      return true;
+    },
     async session({ session, user }) {
       session.user.id = user.id;
       session.user.role = user.role;
